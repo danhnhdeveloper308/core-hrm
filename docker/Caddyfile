@@ -1,0 +1,30 @@
+# Reverse proxy production — Caddy tự xin + gia hạn chứng chỉ Let's Encrypt
+# cho DOMAIN, tự redirect HTTP→HTTPS, tự forward header X-Forwarded-For/Proto
+# và tự nâng cấp kết nối WebSocket (Socket.IO chạy không cần config thêm).
+#
+# DOMAIN đặt trong .env (vd app.example.com). DOMAIN=localhost cũng chạy được
+# để smoke-test local (Caddy phát chứng chỉ self-signed nội bộ).
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API (REST + Swagger + Bull Board đều dưới /api/*)
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Socket.IO realtime
+	handle /socket.io/* {
+		reverse_proxy api:3001
+	}
+
+	# Healthcheck cho uptime monitor bên ngoài
+	handle /health {
+		reverse_proxy api:3001
+	}
+
+	# Còn lại → Next.js
+	handle {
+		reverse_proxy web:3000
+	}
+}

@@ -1,0 +1,32 @@
+{
+  "name": "monorepo",
+  "private": true,
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @repo/shared build && pnpm -r --parallel --filter \"./apps/*\" --filter @repo/shared dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "bash scripts/db/local-up.sh",
+    "db:down": "bash scripts/db/local-down.sh",
+    "db:migrate": "bash scripts/db/migrate.sh",
+    "db:seed": "bash scripts/db/seed.sh",
+    "db:reset": "bash scripts/db/reset.sh",
+    "db:backup": "bash scripts/db/backup.sh",
+    "db:restore": "bash scripts/db/restore.sh",
+    "db:deploy": "bash scripts/db/deploy.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4",
+    "typescript-eslint": "^8.61.0"
+  }
+}

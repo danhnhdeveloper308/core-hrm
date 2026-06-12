@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // CommonJS để TS hạ dynamic import() của Prisma client → require()
+    // (jest CJS runtime không hỗ trợ dynamic import thật)
+    "module": "CommonJS",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
+    "noEmit": false,
+    "rootDir": "..",
+    "outDir": "../dist-test",
+    // @scure/@noble (deps của otplib) phân phối ESM-only — ts-jest compile về CJS
+    "allowJs": true
+  },
+  "include": ["../src", "."]
+}

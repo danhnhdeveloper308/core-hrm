@@ -1,0 +1,18 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "moduleNameMapper": {
+    "^otplib$": "<rootDir>/../node_modules/otplib/dist/index.cjs",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.spec.json" }]
+  },
+  "transformIgnorePatterns": [
+    "node_modules/.pnpm/(?!(@scure\\+|@noble\\+))"
+  ],
+  "testTimeout": 30000,
+  "maxWorkers": 1
+}

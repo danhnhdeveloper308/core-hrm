@@ -1,0 +1,235 @@
+import { HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ERROR_CODES,
+  ROLES,
+  parseSort,
+  type CreateRoleInput,
+  type ListRolesQuery,
+  type Paginated,
+  type Permission,
+  type RoleResponse,
+  type SetRolePermissionsInput,
+  type UpdateRoleInput,
+} from '@repo/shared';
+import { addAuditMetadata } from '../../common/audit/audit-context';
+import { AppException } from '../../common/exceptions/app.exception';
+import type { Prisma } from '../../generated/prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { PermissionsCacheService } from '../rbac/permissions-cache.service';
+
+type RoleWithRelations = Prisma.RoleGetPayload<{
+  include: {
+    permissions: { include: { permission: true } };
+    _count: { select: { users: true } };
+  };
+}>;
+
+const ROLE_INCLUDE = {
+  permissions: { include: { permission: true } },
+  _count: { select: { users: true } },
+} as const;
+
+function toRoleResponse(role: RoleWithRelations): RoleResponse {
+  return {
+    id: role.id,
+    name: role.name,
+    description: role.description,
+    isSystem: role.isSystem,
+    permissions: role.permissions
+      .map((rp) => rp.permission.name as Permission)
+      .sort(),
+    userCount: role._count.users,
+    createdAt: role.createdAt.toISOString(),
+    updatedAt: role.updatedAt.toISOString(),
+  };
+}
+
+@Injectable()
+export class RolesService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permsCache: PermissionsCacheService,
+  ) {}
+
+  async list(query: ListRolesQuery): Promise<Paginated<RoleResponse>> {
+    const sort = parseSort(query.sort, ['name', 'createdAt', 'updatedAt']);
+    const where: Prisma.RoleWhereInput = query.search
+      ? {
+          OR: [
+            { name: { contains: query.search, mode: 'insensitive' } },
+            { description: { contains: query.search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [total, roles] = await this.prisma.$transaction([
+      this.prisma.role.count({ where }),
+      this.prisma.role.findMany({
+        where,
+        include: ROLE_INCLUDE,
+        orderBy: sort ? { [sort.field]: sort.direction } : { name: 'asc' },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+    ]);
+
+    return {
+      items: roles.map(toRoleResponse),
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async findOne(id: string): Promise<RoleResponse> {
+    const role = await this.requireRole(id);
+    return toRoleResponse(role);
+  }
+
+  async create(input: CreateRoleInput): Promise<RoleResponse> {
+    const existing = await this.prisma.role.findUnique({
+      where: { name: input.name },
+    });
+    if (existing) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        `Role "${input.name}" đã tồn tại`,
+        ERROR_CODES.ROLE_NAME_TAKEN,
+      );
+    }
+
+    const role = await this.prisma.role.create({
+      data: {
+        name: input.name,
+        description: input.description ?? null,
+        isSystem: false,
+      },
+      include: ROLE_INCLUDE,
+    });
+
+    addAuditMetadata({ after: { name: role.name, description: role.description } });
+    return toRoleResponse(role);
+  }
+
+  async update(id: string, input: UpdateRoleInput): Promise<RoleResponse> {
+    const role = await this.requireRole(id);
+    this.assertNotSystem(role.isSystem, 'sửa');
+
+    if (input.name && input.name !== role.name) {
+      const taken = await this.prisma.role.findUnique({
+        where: { name: input.name },
+      });
+      if (taken) {
+        throw new AppException(
+          HttpStatus.CONFLICT,
+          `Role "${input.name}" đã tồn tại`,
+          ERROR_CODES.ROLE_NAME_TAKEN,
+        );
+      }
+    }
+
+    const updated = await this.prisma.role.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.description !== undefined
+          ? { description: input.description }
+          : {}),
+      },
+      include: ROLE_INCLUDE,
+    });
+
+    addAuditMetadata({
+      before: { name: role.name, description: role.description },
+      after: { name: updated.name, description: updated.description },
+    });
+    return toRoleResponse(updated);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const role = await this.requireRole(id);
+    this.assertNotSystem(role.isSystem, 'xoá');
+
+    // Invalidate cache user đang giữ role TRƯỚC khi cascade xoá UserRole
+    await this.permsCache.invalidateRole(id);
+    await this.prisma.role.delete({ where: { id } });
+
+    addAuditMetadata({
+      before: {
+        name: role.name,
+        permissions: role.permissions.map((rp) => rp.permission.name),
+        userCount: role._count.users,
+      },
+    });
+    return { message: `Đã xoá role ${role.name}` };
+  }
+
+  /** Replace toàn bộ permissions của role + invalidate cache ngay. */
+  async setPermissions(
+    id: string,
+    input: SetRolePermissionsInput,
+  ): Promise<RoleResponse> {
+    const role = await this.requireRole(id);
+
+    // SUPER_ADMIN luôn giữ toàn quyền — không cho chỉnh
+    if (role.name === ROLES.SUPER_ADMIN) {
+      throw new AppException(
+        HttpStatus.FORBIDDEN,
+        'Không thể chỉnh permissions của SUPER_ADMIN',
+        ERROR_CODES.ROLE_SYSTEM_IMMUTABLE,
+      );
+    }
+
+    const wanted = [...new Set(input.permissions)];
+    const permissionRows = await this.prisma.permission.findMany({
+      where: { name: { in: wanted } },
+      select: { id: true, name: true },
+    });
+
+    const before = role.permissions.map((rp) => rp.permission.name).sort();
+
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({
+        where: { roleId: id, permissionId: { notIn: permissionRows.map((p) => p.id) } },
+      }),
+      this.prisma.rolePermission.createMany({
+        data: permissionRows.map((p) => ({ roleId: id, permissionId: p.id })),
+        skipDuplicates: true,
+      }),
+    ]);
+
+    // Xoá cache mọi user giữ role + emit user:updated để FE refetch ngay
+    await this.permsCache.invalidateRole(id);
+
+    addAuditMetadata({ before, after: wanted.sort() });
+    return this.findOne(id);
+  }
+
+  private async requireRole(id: string): Promise<RoleWithRelations> {
+    const role = await this.prisma.role.findUnique({
+      where: { id },
+      include: ROLE_INCLUDE,
+    });
+    if (!role) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy role',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+    return role;
+  }
+
+  private assertNotSystem(isSystem: boolean, action: string): void {
+    if (isSystem) {
+      throw new AppException(
+        HttpStatus.FORBIDDEN,
+        `Không thể ${action} role hệ thống`,
+        ERROR_CODES.ROLE_SYSTEM_IMMUTABLE,
+      );
+    }
+  }
+}

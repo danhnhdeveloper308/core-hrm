@@ -1,0 +1,134 @@
+# Production: full stack sau reverse proxy Caddy (tự động HTTPS).
+# Chỉ cần đặt DOMAIN trong .env — mọi URL public suy ra từ đó.
+# Deploy: bash scripts/deploy-prod.sh (hoặc xem README → Deploy production)
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    # Duy nhất service này mở port ra internet
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?Đặt DOMAIN trong .env, vd app.example.com}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+    logging: *default-logging
+
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--requirepass',
+        '${REDIS_PASSWORD:?Production bắt buộc đặt REDIS_PASSWORD}',
+      ]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging: *default-logging
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      # Same-origin topology: web + api chung domain qua Caddy
+      CORS_ORIGINS: https://${DOMAIN}
+      NEXT_PUBLIC_APP_URL: https://${DOMAIN}
+      GOOGLE_CALLBACK_URL: https://${DOMAIN}/api/auth/google/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Chỉ nội bộ docker network — Caddy là cửa duy nhất ra ngoài
+    expose:
+      - '3001'
+    logging: *default-logging
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        # NEXT_PUBLIC_* nhúng lúc build — suy ra từ DOMAIN
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_WS_URL: https://${DOMAIN}
+        NEXT_PUBLIC_APP_URL: https://${DOMAIN}
+    restart: always
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    expose:
+      - '3000'
+    logging: *default-logging
+
+  # One-shot migrate + seed (idempotent) — KHÔNG tự chạy cùng `up`:
+  #   docker compose -f docker-compose.prod.yml run --rm migrate
+  migrate:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      target: build
+    command: >
+      sh -c "pnpm --filter api exec prisma migrate deploy
+      && pnpm --filter api exec prisma db seed"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    // tsbuildinfo phải nằm trong dist — deleteOutDir xoá cả 2, tránh
+    // incremental state cũ làm tsc bỏ qua emit sau khi dist bị xoá
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]
+}

@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # Env tối thiểu cho typecheck/build/e2e — KHÔNG phải secrets thật
+  DATABASE_URL: postgresql://app:app_secret@localhost:5432/app_db?schema=public
+  REDIS_HOST: localhost
+  REDIS_PORT: '6379'
+  JWT_ACCESS_SECRET: ci_only_access_secret_min_32_chars________
+  JWT_REFRESH_SECRET: ci_only_refresh_secret_min_32_chars_______
+  TOTP_ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  SEED_ADMIN_EMAIL: admin@ci.local
+  SEED_ADMIN_PASSWORD: CiAdmin12345
+  NEXT_PUBLIC_API_URL: http://localhost:3001/api
+  NEXT_PUBLIC_WS_URL: http://localhost:3001
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  checks:
+    name: Lint · Typecheck · Test · E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app_secret
+          POSTGRES_DB: app_db
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app -d app_db"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bật pnpm qua corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Cài dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared + Prisma generate
+        run: |
+          pnpm --filter @repo/shared build
+          pnpm --filter api exec prisma generate
+
+      - name: Migrate + seed database
+        run: |
+          pnpm --filter api exec prisma migrate deploy
+          pnpm --filter api exec prisma db seed
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: E2E tests (auth flows, RBAC, sessions)
+        run: pnpm --filter api test:e2e
+
+      - name: Build web (Next.js)
+        run: pnpm --filter web build
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image api
+        run: docker build -f docker/Dockerfile.api .
+
+      - name: Build image web
+        run: >-
+          docker build -f docker/Dockerfile.web
+          --build-arg NEXT_PUBLIC_API_URL=http://localhost:3001/api
+          --build-arg NEXT_PUBLIC_WS_URL=http://localhost:3001
+          --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000
+          .

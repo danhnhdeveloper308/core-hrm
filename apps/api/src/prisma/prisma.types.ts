@@ -1,0 +1,32 @@
+/**
+ * Alias ngắn gọn cho model types của Prisma 7 (generator mới đặt tên
+ * `UserModel`, `SessionModel`...). App code import từ đây thay vì đụng
+ * trực tiếp vào src/generated.
+ */
+import type {
+  AuditLogModel,
+  DeviceModel,
+  OAuthAccountModel,
+  PermissionModel,
+  RecoveryCodeModel,
+  RoleModel,
+  RolePermissionModel,
+  SessionModel,
+  UserModel,
+  UserRoleModel,
+  VerificationTokenModel,
+} from '../generated/prisma/models';
+
+export type User = UserModel;
+export type Role = RoleModel;
+export type Permission = PermissionModel;
+export type RolePermission = RolePermissionModel;
+export type UserRole = UserRoleModel;
+export type Session = SessionModel;
+export type Device = DeviceModel;
+export type OAuthAccount = OAuthAccountModel;
+export type VerificationToken = VerificationTokenModel;
+export type RecoveryCode = RecoveryCodeModel;
+export type AuditLog = AuditLogModel;
+
+export { UserStatus, OAuthProvider, VerificationType } from '../generated/prisma/enums';
