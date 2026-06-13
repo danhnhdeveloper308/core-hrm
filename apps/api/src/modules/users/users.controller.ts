@@ -42,8 +42,11 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USER_READ)
   @ApiOperation({ summary: 'Danh sách user — search/sort/filter/pagination' })
   @ApiOkResponse({ description: 'Paginated<UserResponse>' })
-  list(@Query() query: ListUsersQueryDto) {
-    return this.users.list(query);
+  list(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Query() query: ListUsersQueryDto,
+  ) {
+    return this.users.list(query, actor.orgId);
   }
 
   @Post('invite')
@@ -73,8 +76,11 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USER_READ)
   @ApiOperation({ summary: 'Chi tiết user' })
   @ApiOkResponse({ description: 'UserResponse' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.users.findOne(id);
+  findOne(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.users.findOne(id, actor.orgId);
   }
 
   @Patch(':id/status')

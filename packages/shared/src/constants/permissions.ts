@@ -24,6 +24,40 @@ export const PERMISSIONS = {
   AUDIT_READ: 'audit:read',
   // dashboard
   DASHBOARD_VIEW: 'dashboard:view',
+  // organization (org:create/delete = platform admin)
+  ORG_READ: 'org:read',
+  ORG_UPDATE: 'org:update',
+  ORG_CREATE: 'org:create',
+  ORG_DELETE: 'org:delete',
+  // employee
+  EMPLOYEE_READ: 'employee:read',
+  EMPLOYEE_CREATE: 'employee:create',
+  EMPLOYEE_UPDATE: 'employee:update',
+  EMPLOYEE_DELETE: 'employee:delete',
+  // cơ cấu tổ chức
+  ORGUNIT_MANAGE: 'orgunit:manage',
+  // ca làm việc / lịch
+  SHIFT_MANAGE: 'shift:manage',
+  // chấm công
+  ATTENDANCE_READ: 'attendance:read',
+  ATTENDANCE_READ_ALL: 'attendance:read_all',
+  ATTENDANCE_CORRECT: 'attendance:correct',
+  // nghỉ phép
+  LEAVE_READ: 'leave:read',
+  LEAVE_REQUEST: 'leave:request',
+  LEAVE_APPROVE: 'leave:approve',
+  LEAVE_MANAGE_POLICY: 'leave:manage_policy',
+  // phê duyệt
+  APPROVAL_MANAGE_FLOW: 'approval:manage_flow',
+  // máy chấm công
+  DEVICE_MANAGE: 'device:manage',
+  // địa điểm làm việc
+  WORKSITE_MANAGE: 'worksite:manage',
+  // báo cáo
+  REPORT_READ: 'report:read',
+  // khuôn mặt
+  FACE_ENROLL: 'face:enroll',
+  FACE_MANAGE: 'face:manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -48,6 +82,29 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'session:revoke': 'Thu hồi phiên đăng nhập của người dùng khác',
   'audit:read': 'Xem nhật ký hệ thống (audit log)',
   'dashboard:view': 'Truy cập dashboard',
+  'org:read': 'Xem thông tin tổ chức',
+  'org:update': 'Cập nhật thông tin tổ chức',
+  'org:create': 'Tạo tổ chức mới (platform admin)',
+  'org:delete': 'Xoá tổ chức (platform admin)',
+  'employee:read': 'Xem hồ sơ nhân viên',
+  'employee:create': 'Tạo hồ sơ nhân viên',
+  'employee:update': 'Cập nhật hồ sơ nhân viên',
+  'employee:delete': 'Xoá hồ sơ nhân viên',
+  'orgunit:manage': 'Quản lý cây cơ cấu tổ chức, loại đơn vị, chức danh',
+  'shift:manage': 'Quản lý ca làm việc, phân ca, lịch nghỉ lễ',
+  'attendance:read': 'Xem dữ liệu chấm công của bản thân',
+  'attendance:read_all': 'Xem dữ liệu chấm công của người khác (theo scope)',
+  'attendance:correct': 'Sửa công thủ công',
+  'leave:read': 'Xem số dư và đơn nghỉ phép',
+  'leave:request': 'Tạo đơn nghỉ phép',
+  'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',
+  'leave:manage_policy': 'Cấu hình loại phép và chính sách phép',
+  'approval:manage_flow': 'Cấu hình luồng phê duyệt',
+  'device:manage': 'Quản lý máy chấm công và mã nhân viên trên máy',
+  'worksite:manage': 'Quản lý địa điểm làm việc (geofence)',
+  'report:read': 'Xem và xuất báo cáo',
+  'face:enroll': 'Đăng ký khuôn mặt (bản thân hoặc HR đăng ký hộ)',
+  'face:manage': 'Quản lý / xoá dữ liệu khuôn mặt nhân viên',
 };
 
 /** Resource gốc của 1 permission, vd `user:read` → `user`. */

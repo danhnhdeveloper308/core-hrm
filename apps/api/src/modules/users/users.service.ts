@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   ERROR_CODES,
+  ORG_ROLES,
   ROLES,
   parseSort,
   type AssignRolesInput,
@@ -45,7 +46,12 @@ export class UsersService {
   async invite(
     actor: AccessTokenPayload,
     input: InviteUserInput,
+    opts?: { orgId?: string | null },
   ): Promise<UserResponse> {
+    // Org admin mời vào org mình; platform admin mời user platform —
+    // trừ khi caller nội bộ (tạo org) chỉ định orgId tường minh.
+    const targetOrgId = opts?.orgId !== undefined ? opts.orgId : actor.orgId;
+
     const existing = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -56,23 +62,33 @@ export class UsersService {
         ERROR_CODES.AUTH_EMAIL_TAKEN,
       );
     }
+    if (existing && existing.orgId !== targetOrgId) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        'Email này đã được mời vào tổ chức khác',
+        ERROR_CODES.AUTH_EMAIL_TAKEN,
+      );
+    }
 
-    // Roles gán sẵn — mặc định USER
+    // Roles gán sẵn — mặc định EMPLOYEE (org) / USER (platform)
     let roleIds = input.roleIds ?? [];
     if (roleIds.length === 0) {
-      const userRole = await this.prisma.role.findUnique({
-        where: { name: ROLES.USER },
+      const defaultRole = await this.prisma.role.findFirst({
+        where: targetOrgId
+          ? { name: ORG_ROLES.EMPLOYEE, orgId: targetOrgId }
+          : { name: ROLES.USER, orgId: null },
         select: { id: true },
       });
-      roleIds = userRole ? [userRole.id] : [];
+      roleIds = defaultRole ? [defaultRole.id] : [];
     } else {
+      // Role gán phải thuộc đúng scope của org đích (chống gán role org khác)
       const found = await this.prisma.role.count({
-        where: { id: { in: roleIds } },
+        where: { id: { in: roleIds }, orgId: targetOrgId },
       });
       if (found !== new Set(roleIds).size) {
         throw new AppException(
           HttpStatus.BAD_REQUEST,
-          'Danh sách role chứa id không tồn tại',
+          'Danh sách role chứa id không tồn tại hoặc không thuộc tổ chức này',
           ERROR_CODES.NOT_FOUND,
         );
       }
@@ -81,7 +97,12 @@ export class UsersService {
     const user =
       existing ??
       (await this.prisma.user.create({
-        data: { email: input.email, name: input.name, status: 'ACTIVE' },
+        data: {
+          email: input.email,
+          name: input.name,
+          status: 'ACTIVE',
+          orgId: targetOrgId,
+        },
       }));
 
     await this.prisma.$transaction([
@@ -109,9 +130,14 @@ export class UsersService {
     return this.findOne(user.id);
   }
 
-  async list(query: ListUsersQuery): Promise<Paginated<UserResponse>> {
+  async list(
+    query: ListUsersQuery,
+    actorOrgId: string | null,
+  ): Promise<Paginated<UserResponse>> {
     const sort = parseSort(query.sort, ['createdAt', 'email', 'name', 'status']);
     const where: Prisma.UserWhereInput = {
+      // Tenant scope: user thuộc org chỉ thấy user org mình
+      ...(actorOrgId ? { orgId: actorOrgId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.roleId ? { roles: { some: { roleId: query.roleId } } } : {}),
       ...(query.search
@@ -148,8 +174,8 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string): Promise<UserResponse> {
-    return toUserResponse(await this.requireUser(id));
+  async findOne(id: string, actorOrgId?: string | null): Promise<UserResponse> {
+    return toUserResponse(await this.requireUser(id, actorOrgId));
   }
 
   /** Đổi status — BAN thì revoke toàn bộ session + force:logout realtime. */
@@ -166,7 +192,7 @@ export class UsersService {
       );
     }
 
-    const target = await this.requireUser(targetId);
+    const target = await this.requireUser(targetId, actor.orgId);
     if (input.status !== 'ACTIVE') {
       await this.assertNotLastSuperAdmin(target, 'vô hiệu hoá');
     }
@@ -198,16 +224,17 @@ export class UsersService {
     targetId: string,
     input: AssignRolesInput,
   ): Promise<UserResponse> {
-    const target = await this.requireUser(targetId);
+    const target = await this.requireUser(targetId, actor.orgId);
 
+    // Role gán phải cùng scope org với user đích
     const roles = await this.prisma.role.findMany({
-      where: { id: { in: input.roleIds } },
+      where: { id: { in: input.roleIds }, orgId: target.orgId },
       select: { id: true, name: true },
     });
     if (roles.length !== new Set(input.roleIds).size) {
       throw new AppException(
         HttpStatus.BAD_REQUEST,
-        'Danh sách role chứa id không tồn tại',
+        'Danh sách role chứa id không tồn tại hoặc không thuộc tổ chức này',
         ERROR_CODES.NOT_FOUND,
       );
     }
@@ -250,7 +277,7 @@ export class UsersService {
       );
     }
 
-    const target = await this.requireUser(targetId);
+    const target = await this.requireUser(targetId, actor.orgId);
     await this.assertNotLastSuperAdmin(target, 'xoá');
 
     await this.sessions.revokeAllForUser(targetId, 'USER_BANNED', {
@@ -287,12 +314,16 @@ export class UsersService {
     return toUserResponse(updated);
   }
 
-  private async requireUser(id: string): Promise<UserWithRoles> {
+  private async requireUser(
+    id: string,
+    actorOrgId?: string | null,
+  ): Promise<UserWithRoles> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: USER_WITH_ROLES_INCLUDE,
     });
-    if (!user) {
+    // Trả 404 (không phải 403) khi khác org — không tiết lộ resource tồn tại
+    if (!user || (actorOrgId != null && user.orgId !== actorOrgId)) {
       throw new AppException(
         HttpStatus.NOT_FOUND,
         'Không tìm thấy user',

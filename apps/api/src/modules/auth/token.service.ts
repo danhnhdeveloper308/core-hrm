@@ -18,10 +18,14 @@ export class TokenService {
   ) {}
 
   /** Access JWT 15m — KHÔNG nhúng permissions (tránh stale). */
-  signAccessToken(user: { id: string; email: string }, sessionId: string): Promise<string> {
+  signAccessToken(
+    user: { id: string; email: string; orgId: string | null },
+    sessionId: string,
+  ): Promise<string> {
     const payload: Omit<AccessTokenPayload, 'typ'> & { typ: 'access' } = {
       sub: user.id,
       email: user.email,
+      orgId: user.orgId,
       sessionId,
       typ: 'access',
     };

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
+import { MotionProvider } from '@/components/motion/primitives';
 import { QueryProvider } from '@/components/providers/query-provider';
 import './globals.css';
 
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body className="min-h-screen font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <QueryProvider>{children}</QueryProvider>
+          <MotionProvider>
+            <QueryProvider>{children}</QueryProvider>
+          </MotionProvider>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>

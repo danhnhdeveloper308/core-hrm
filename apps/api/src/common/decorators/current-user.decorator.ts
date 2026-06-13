@@ -6,6 +6,8 @@ export interface AccessTokenPayload {
   /** userId */
   sub: string;
   email: string;
+  /** Null = platform admin (không thuộc tenant nào). */
+  orgId: string | null;
   sessionId: string;
   typ: 'access';
 }

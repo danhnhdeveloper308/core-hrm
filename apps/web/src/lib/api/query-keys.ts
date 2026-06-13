@@ -27,4 +27,18 @@ export const queryKeys = {
     list: (filters: Partial<Omit<AuditQuery, 'cursor'>>) =>
       ['audit', 'list', filters] as const,
   },
+
+  organizations: {
+    all: ['organizations'] as const,
+    list: (query: Record<string, unknown>) =>
+      ['organizations', 'list', query] as const,
+  },
+
+  org: {
+    info: ['org', 'info'] as const,
+    units: ['org', 'units'] as const,
+    unitTypes: ['org', 'unit-types'] as const,
+    positions: ['org', 'positions'] as const,
+    worksites: ['org', 'worksites'] as const,
+  },
 } as const;

@@ -8,6 +8,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { TenantGuard } from './common/guards/tenant.guard';
 import { ActivityInterceptor } from './common/interceptors/activity.interceptor';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
@@ -17,6 +18,8 @@ import { HealthController } from './health/health.controller';
 import { MailModule } from './mail/mail.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { OrgStructureModule } from './modules/org-structure/org-structure.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -54,6 +57,8 @@ import { StorageModule } from './storage/storage.module';
     RolesModule,
     PermissionsModule,
     AuditModule,
+    OrganizationsModule,
+    OrgStructureModule,
     GatewaysModule,
   ],
   controllers: [HealthController],
@@ -62,6 +67,7 @@ import { StorageModule } from './storage/storage.module';
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

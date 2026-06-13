@@ -17,6 +17,8 @@ export class StorageService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // Jest VM không hỗ trợ dynamic import của AWS SDK — bỏ qua khi test
+    if (process.env.NODE_ENV === 'test') return;
     if (this.provider instanceof S3StorageProvider) {
       try {
         await this.provider.ensureBucket();

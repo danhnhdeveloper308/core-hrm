@@ -801,8 +801,8 @@ export class AuthService {
 
   /** User mới (register/OAuth) nhận role USER mặc định. */
   async assignDefaultRole(userId: string): Promise<void> {
-    const role = await this.prisma.role.findUnique({
-      where: { name: ROLES.USER },
+    const role = await this.prisma.role.findFirst({
+      where: { name: ROLES.USER, orgId: null },
     });
     if (role) {
       await this.prisma.userRole.upsert({

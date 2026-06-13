@@ -18,6 +18,10 @@ import {
 } from '@nestjs/swagger';
 import { PERMISSIONS } from '@repo/shared';
 import { Audit } from '../../common/decorators/audit.decorator';
+import {
+  CurrentUser,
+  type AccessTokenPayload,
+} from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import {
   CreateRoleDto,
@@ -37,16 +41,22 @@ export class RolesController {
   @RequirePermissions(PERMISSIONS.ROLE_READ)
   @ApiOperation({ summary: 'Danh sách roles (kèm permissions + số user)' })
   @ApiOkResponse({ description: 'Paginated<RoleResponse>' })
-  list(@Query() query: ListRolesQueryDto) {
-    return this.roles.list(query);
+  list(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Query() query: ListRolesQueryDto,
+  ) {
+    return this.roles.list(query, actor.orgId);
   }
 
   @Get(':id')
   @RequirePermissions(PERMISSIONS.ROLE_READ)
   @ApiOperation({ summary: 'Chi tiết role' })
   @ApiOkResponse({ description: 'RoleResponse' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.roles.findOne(id);
+  findOne(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.roles.findOne(id, actor.orgId);
   }
 
   @Post()
@@ -54,8 +64,8 @@ export class RolesController {
   @Audit('role.create')
   @ApiOperation({ summary: 'Tạo role mới' })
   @ApiOkResponse({ description: 'RoleResponse' })
-  create(@Body() dto: CreateRoleDto) {
-    return this.roles.create(dto);
+  create(@CurrentUser() actor: AccessTokenPayload, @Body() dto: CreateRoleDto) {
+    return this.roles.create(dto, actor.orgId);
   }
 
   @Patch(':id')
@@ -63,8 +73,12 @@ export class RolesController {
   @Audit('role.update')
   @ApiOperation({ summary: 'Sửa tên/mô tả role (không áp dụng cho role hệ thống)' })
   @ApiOkResponse({ description: 'RoleResponse' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateRoleDto) {
-    return this.roles.update(id, dto);
+  update(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRoleDto,
+  ) {
+    return this.roles.update(id, dto, actor.orgId);
   }
 
   @Delete(':id')
@@ -72,8 +86,11 @@ export class RolesController {
   @Audit('role.delete')
   @ApiOperation({ summary: 'Xoá role (không áp dụng cho role hệ thống)' })
   @ApiOkResponse({ description: 'Đã xoá' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.roles.remove(id);
+  remove(
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.roles.remove(id, actor.orgId);
   }
 
   @Put(':id/permissions')
@@ -84,9 +101,10 @@ export class RolesController {
   })
   @ApiOkResponse({ description: 'RoleResponse' })
   setPermissions(
+    @CurrentUser() actor: AccessTokenPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SetRolePermissionsDto,
   ) {
-    return this.roles.setPermissions(id, dto);
+    return this.roles.setPermissions(id, dto, actor.orgId);
   }
 }

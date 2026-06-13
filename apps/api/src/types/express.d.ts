@@ -5,6 +5,8 @@ declare global {
     interface Request {
       /** Gắn bởi JwtAuthGuard sau khi verify access token. */
       user?: AccessTokenPayload;
+      /** Gắn bởi TenantGuard — orgId của user hiện tại (null = platform admin). */
+      orgId?: string | null;
     }
   }
 }

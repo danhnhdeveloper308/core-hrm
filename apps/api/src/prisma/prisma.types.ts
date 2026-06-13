@@ -7,7 +7,11 @@ import type {
   AuditLogModel,
   DeviceModel,
   OAuthAccountModel,
+  OrgUnitModel,
+  OrgUnitTypeModel,
+  OrganizationModel,
   PermissionModel,
+  PositionModel,
   RecoveryCodeModel,
   RoleModel,
   RolePermissionModel,
@@ -15,6 +19,7 @@ import type {
   UserModel,
   UserRoleModel,
   VerificationTokenModel,
+  WorksiteModel,
 } from '../generated/prisma/models';
 
 export type User = UserModel;
@@ -28,5 +33,15 @@ export type OAuthAccount = OAuthAccountModel;
 export type VerificationToken = VerificationTokenModel;
 export type RecoveryCode = RecoveryCodeModel;
 export type AuditLog = AuditLogModel;
+export type Organization = OrganizationModel;
+export type OrgUnitType = OrgUnitTypeModel;
+export type OrgUnit = OrgUnitModel;
+export type Position = PositionModel;
+export type Worksite = WorksiteModel;
 
-export { UserStatus, OAuthProvider, VerificationType } from '../generated/prisma/enums';
+export {
+  UserStatus,
+  OAuthProvider,
+  VerificationType,
+  OrgStatus,
+} from '../generated/prisma/enums';

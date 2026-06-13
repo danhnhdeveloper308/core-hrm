@@ -43,15 +43,22 @@ async function seedPermissions(): Promise<Map<string, string>> {
 
 async function seedRoles(permissionIdByName: Map<string, string>) {
   for (const roleName of ALL_ROLES) {
-    const role = await prisma.role.upsert({
-      where: { name: roleName },
-      update: { description: ROLE_DESCRIPTIONS[roleName], isSystem: true },
-      create: {
-        name: roleName,
-        description: ROLE_DESCRIPTIONS[roleName],
-        isSystem: true,
-      },
+    // Compound unique (orgId, name) không upsert được với orgId=null → find/create
+    const existing = await prisma.role.findFirst({
+      where: { name: roleName, orgId: null },
     });
+    const role = existing
+      ? await prisma.role.update({
+          where: { id: existing.id },
+          data: { description: ROLE_DESCRIPTIONS[roleName], isSystem: true },
+        })
+      : await prisma.role.create({
+          data: {
+            name: roleName,
+            description: ROLE_DESCRIPTIONS[roleName],
+            isSystem: true,
+          },
+        });
 
     const wantedIds = DEFAULT_ROLE_PERMISSIONS[roleName].map((p) => {
       const id = permissionIdByName.get(p);
@@ -80,8 +87,8 @@ async function seedSuperAdmin() {
     );
   }
 
-  const superAdminRole = await prisma.role.findUniqueOrThrow({
-    where: { name: ROLES.SUPER_ADMIN },
+  const superAdminRole = await prisma.role.findFirstOrThrow({
+    where: { name: ROLES.SUPER_ADMIN, orgId: null },
   });
 
   const existing = await prisma.user.findUnique({ where: { email } });

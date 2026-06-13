@@ -51,16 +51,23 @@ export class RolesService {
     private readonly permsCache: PermissionsCacheService,
   ) {}
 
-  async list(query: ListRolesQuery): Promise<Paginated<RoleResponse>> {
+  async list(
+    query: ListRolesQuery,
+    actorOrgId: string | null,
+  ): Promise<Paginated<RoleResponse>> {
     const sort = parseSort(query.sort, ['name', 'createdAt', 'updatedAt']);
-    const where: Prisma.RoleWhereInput = query.search
-      ? {
-          OR: [
-            { name: { contains: query.search, mode: 'insensitive' } },
-            { description: { contains: query.search, mode: 'insensitive' } },
-          ],
-        }
-      : {};
+    const where: Prisma.RoleWhereInput = {
+      // Tenant scope: org user thấy role org mình; platform thấy role platform
+      orgId: actorOrgId,
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' } },
+              { description: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
 
     const [total, roles] = await this.prisma.$transaction([
       this.prisma.role.count({ where }),
@@ -84,14 +91,17 @@ export class RolesService {
     };
   }
 
-  async findOne(id: string): Promise<RoleResponse> {
-    const role = await this.requireRole(id);
+  async findOne(id: string, actorOrgId?: string | null): Promise<RoleResponse> {
+    const role = await this.requireRole(id, actorOrgId);
     return toRoleResponse(role);
   }
 
-  async create(input: CreateRoleInput): Promise<RoleResponse> {
-    const existing = await this.prisma.role.findUnique({
-      where: { name: input.name },
+  async create(
+    input: CreateRoleInput,
+    actorOrgId: string | null,
+  ): Promise<RoleResponse> {
+    const existing = await this.prisma.role.findFirst({
+      where: { name: input.name, orgId: actorOrgId },
     });
     if (existing) {
       throw new AppException(
@@ -106,6 +116,7 @@ export class RolesService {
         name: input.name,
         description: input.description ?? null,
         isSystem: false,
+        orgId: actorOrgId,
       },
       include: ROLE_INCLUDE,
     });
@@ -114,13 +125,17 @@ export class RolesService {
     return toRoleResponse(role);
   }
 
-  async update(id: string, input: UpdateRoleInput): Promise<RoleResponse> {
-    const role = await this.requireRole(id);
+  async update(
+    id: string,
+    input: UpdateRoleInput,
+    actorOrgId?: string | null,
+  ): Promise<RoleResponse> {
+    const role = await this.requireRole(id, actorOrgId);
     this.assertNotSystem(role.isSystem, 'sửa');
 
     if (input.name && input.name !== role.name) {
-      const taken = await this.prisma.role.findUnique({
-        where: { name: input.name },
+      const taken = await this.prisma.role.findFirst({
+        where: { name: input.name, orgId: role.orgId },
       });
       if (taken) {
         throw new AppException(
@@ -149,8 +164,8 @@ export class RolesService {
     return toRoleResponse(updated);
   }
 
-  async remove(id: string): Promise<{ message: string }> {
-    const role = await this.requireRole(id);
+  async remove(id: string, actorOrgId?: string | null): Promise<{ message: string }> {
+    const role = await this.requireRole(id, actorOrgId);
     this.assertNotSystem(role.isSystem, 'xoá');
 
     // Invalidate cache user đang giữ role TRƯỚC khi cascade xoá UserRole
@@ -171,8 +186,9 @@ export class RolesService {
   async setPermissions(
     id: string,
     input: SetRolePermissionsInput,
+    actorOrgId?: string | null,
   ): Promise<RoleResponse> {
-    const role = await this.requireRole(id);
+    const role = await this.requireRole(id, actorOrgId);
 
     // SUPER_ADMIN luôn giữ toàn quyền — không cho chỉnh
     if (role.name === ROLES.SUPER_ADMIN) {
@@ -208,12 +224,16 @@ export class RolesService {
     return this.findOne(id);
   }
 
-  private async requireRole(id: string): Promise<RoleWithRelations> {
+  private async requireRole(
+    id: string,
+    actorOrgId?: string | null,
+  ): Promise<RoleWithRelations> {
     const role = await this.prisma.role.findUnique({
       where: { id },
       include: ROLE_INCLUDE,
     });
-    if (!role) {
+    // 404 khi role khác org — không tiết lộ resource tồn tại
+    if (!role || (actorOrgId !== undefined && role.orgId !== actorOrgId)) {
       throw new AppException(
         HttpStatus.NOT_FOUND,
         'Không tìm thấy role',

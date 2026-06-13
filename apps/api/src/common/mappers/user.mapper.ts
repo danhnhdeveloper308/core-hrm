@@ -1,7 +1,10 @@
 import type { Permission, UserResponse } from '@repo/shared';
-import type { Role, User, UserRole } from '../../prisma/prisma.types';
+import type { Organization, Role, User, UserRole } from '../../prisma/prisma.types';
 
-export type UserWithRoles = User & { roles: (UserRole & { role: Role })[] };
+export type UserWithRoles = User & {
+  roles: (UserRole & { role: Role })[];
+  org?: Organization | null;
+};
 
 /** Map Prisma User → shape public cho FE — không bao giờ lộ hash/secret. */
 export function toUserResponse(user: UserWithRoles): UserResponse {
@@ -14,6 +17,15 @@ export function toUserResponse(user: UserWithRoles): UserResponse {
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
     totpEnabled: user.totpEnabled,
     roles: user.roles.map(({ role }) => ({ id: role.id, name: role.name })),
+    orgId: user.orgId,
+    org: user.org
+      ? {
+          id: user.org.id,
+          name: user.org.name,
+          slug: user.org.slug,
+          timezone: user.org.timezone,
+        }
+      : null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -21,6 +33,7 @@ export function toUserResponse(user: UserWithRoles): UserResponse {
 
 export const USER_WITH_ROLES_INCLUDE = {
   roles: { include: { role: true } },
+  org: true,
 } as const;
 
 export function toMeResponse(

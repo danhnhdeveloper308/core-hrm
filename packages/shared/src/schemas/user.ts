@@ -22,6 +22,11 @@ export const userResponseSchema = z.object({
   emailVerifiedAt: z.string().nullable(),
   totpEnabled: z.boolean(),
   roles: z.array(userRoleRefSchema),
+  /** Null = platform admin. */
+  orgId: z.uuid().nullable(),
+  org: z
+    .object({ id: z.uuid(), name: z.string(), slug: z.string(), timezone: z.string() })
+    .nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -91,8 +91,8 @@ describe('Auth flows (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
 
-    const superAdminRole = await prisma.role.findUniqueOrThrow({
-      where: { name: 'SUPER_ADMIN' },
+    const superAdminRole = await prisma.role.findFirstOrThrow({
+      where: { name: 'SUPER_ADMIN', orgId: null },
     });
     await prisma.user.create({
       data: {

@@ -38,27 +38,38 @@ model User {
   /// TOTP secret đã mã hoá AES-256-GCM bằng TOTP_ENCRYPTION_KEY
   totpSecret      String?
   totpEnabled     Boolean    @default(false)
+  /// Null = platform admin (không thuộc tenant nào)
+  orgId           String?    @db.Uuid
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+  org           Organization?  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   roles         UserRole[]
   sessions      Session[]
   devices       Device[]
   oauthAccounts OAuthAccount[]
   recoveryCodes RecoveryCode[]
+
+  @@index([orgId])
 }
 
 model Role {
   id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
+  name        String
   description String?
   /// Role hệ thống (SUPER_ADMIN/ADMIN/USER) — không sửa tên, không xoá
   isSystem    Boolean  @default(false)
+  /// Null = role platform; có giá trị = role nội bộ 1 org (ORG_ADMIN, HR_MANAGER...)
+  orgId       String?  @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  org         Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   permissions RolePermission[]
   users       UserRole[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
 }
 
 model Permission {
@@ -187,4 +198,103 @@ model AuditLog {
   @@index([actorId, createdAt(sort: Desc)])
   @@index([resource, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id])
+}
+
+// ============================================================
+// HRM — Multi-tenant & cơ cấu tổ chức (Phase 1)
+// ============================================================
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Organization {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String    @unique
+  status    OrgStatus @default(ACTIVE)
+  timezone  String    @default("Asia/Ho_Chi_Minh")
+  settings  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users        User[]
+  roles        Role[]
+  orgUnitTypes OrgUnitType[]
+  orgUnits     OrgUnit[]
+  positions    Position[]
+  worksites    Worksite[]
+}
+
+/// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
+model OrgUnitType {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  code      String
+  name      String
+  /// Gợi ý thứ tự tầng cho UI + resolve approver — cây KHÔNG ép đúng rank
+  rank      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  units OrgUnit[]
+
+  @@unique([orgId, code])
+}
+
+model OrgUnit {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  parentId  String?  @db.Uuid
+  typeId    String   @db.Uuid
+  name      String
+  code      String
+  /// Materialized path "/rootId/.../selfId/" — query subtree bằng startsWith
+  path      String
+  /// Employee.id — FK gắn ở Phase 2 khi có model Employee
+  managerId String?  @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent   OrgUnit?     @relation("OrgUnitTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children OrgUnit[]    @relation("OrgUnitTree")
+  type     OrgUnitType  @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, code])
+  @@index([orgId, path])
+  @@index([parentId])
+}
+
+model Position {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, code])
+}
+
+model Worksite {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @db.Uuid
+  name            String
+  address         String?
+  lat             Float
+  lng             Float
+  radiusM         Int      @default(100)
+  requireFace     Boolean  @default(false)
+  requireLocation Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
 }
