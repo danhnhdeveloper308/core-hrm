@@ -4,6 +4,7 @@ import { PERMISSIONS, type Permission } from '@repo/shared';
 import {
   Briefcase,
   Building2,
+  Contact,
   FolderTree,
   Layers,
   LayoutDashboard,
@@ -32,6 +33,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
   { href: '/dashboard/organizations', label: 'Tổ chức', icon: Building2, permission: PERMISSIONS.ORG_CREATE },
+  { href: '/dashboard/employees', label: 'Nhân viên', icon: Contact, permission: PERMISSIONS.EMPLOYEE_READ },
   { href: '/dashboard/users', label: 'Người dùng', icon: Users, permission: PERMISSIONS.USER_READ },
   { href: '/dashboard/roles', label: 'Vai trò', icon: Shield, permission: PERMISSIONS.ROLE_READ },
   { href: '/dashboard/settings/org-structure', label: 'Cơ cấu tổ chức', icon: FolderTree, permission: PERMISSIONS.ORGUNIT_MANAGE },

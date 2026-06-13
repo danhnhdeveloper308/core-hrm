@@ -49,6 +49,7 @@ model User {
   devices       Device[]
   oauthAccounts OAuthAccount[]
   recoveryCodes RecoveryCode[]
+  employee      Employee?
 
   @@index([orgId])
 }
@@ -225,6 +226,8 @@ model Organization {
   orgUnits     OrgUnit[]
   positions    Position[]
   worksites    Worksite[]
+  employees    Employee[]
+  contracts    EmploymentContract[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -262,6 +265,9 @@ model OrgUnit {
   parent   OrgUnit?     @relation("OrgUnitTree", fields: [parentId], references: [id], onDelete: Restrict)
   children OrgUnit[]    @relation("OrgUnitTree")
   type     OrgUnitType  @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  manager  Employee?    @relation("OrgUnitManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  employees Employee[] @relation("EmployeeOrgUnit")
 
   @@unique([orgId, code])
   @@index([orgId, path])
@@ -276,7 +282,8 @@ model Position {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employees Employee[]
 
   @@unique([orgId, code])
 }
@@ -294,7 +301,88 @@ model Worksite {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employees Employee[]
 
   @@index([orgId])
+}
+
+// ============================================================
+// HRM — Employee management (Phase 2)
+// ============================================================
+
+enum EmployeeStatus {
+  ACTIVE
+  PROBATION
+  INACTIVE
+  TERMINATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ContractType {
+  PROBATION
+  FIXED_TERM
+  INDEFINITE
+}
+
+model Employee {
+  id         String         @id @default(uuid()) @db.Uuid
+  orgId      String         @db.Uuid
+  /// 1-1 User — null khi hồ sơ chưa được mời tài khoản
+  userId     String?        @unique @db.Uuid
+  code       String
+  fullName   String
+  dob        DateTime?      @db.Date
+  gender     Gender?
+  phone      String?
+  orgUnitId  String?        @db.Uuid
+  positionId String?        @db.Uuid
+  managerId  String?        @db.Uuid
+  worksiteId String?        @db.Uuid
+  joinDate   DateTime       @db.Date
+  leaveDate  DateTime?      @db.Date
+  status     EmployeeStatus @default(ACTIVE)
+  avatarKey  String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user     User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orgUnit  OrgUnit?     @relation("EmployeeOrgUnit", fields: [orgUnitId], references: [id], onDelete: SetNull)
+  position Position?    @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  manager  Employee?    @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports  Employee[]   @relation("EmployeeManager")
+  worksite Worksite?    @relation(fields: [worksiteId], references: [id], onDelete: SetNull)
+
+  contracts    EmploymentContract[]
+  managedUnits OrgUnit[]            @relation("OrgUnitManager")
+
+  @@unique([orgId, code])
+  @@index([orgId, orgUnitId])
+  @@index([orgId, status])
+  @@index([managerId])
+}
+
+model EmploymentContract {
+  id         String       @id @default(uuid()) @db.Uuid
+  orgId      String       @db.Uuid
+  employeeId String       @db.Uuid
+  type       ContractType
+  startDate  DateTime     @db.Date
+  endDate    DateTime?    @db.Date
+  /// Key file trên object storage — đọc qua signed URL
+  fileKey    String?
+  note       String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId])
 }

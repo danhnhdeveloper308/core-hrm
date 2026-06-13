@@ -174,6 +174,24 @@ export class OrgUnitsService {
     return { message: `Đã xoá đơn vị ${unit.name}` };
   }
 
+  /**
+   * Các path prefix subtree mà user này quản lý (qua OrgUnit.manager →
+   * Employee.userId). Dùng để scope mọi API list cho UNIT_MANAGER.
+   * Trả [] = không quản lý unit nào. Path cha đã bao path con → loại trùng.
+   */
+  async getManagedSubtreePaths(orgId: string, userId: string): Promise<string[]> {
+    const units = await this.prisma.orgUnit.findMany({
+      where: { orgId, manager: { userId } },
+      select: { path: true },
+      orderBy: { path: 'asc' },
+    });
+    const paths: string[] = [];
+    for (const { path } of units) {
+      if (!paths.some((p) => path.startsWith(p))) paths.push(path);
+    }
+    return paths;
+  }
+
   async requireUnit(orgId: string, id: string) {
     const unit = await this.prisma.orgUnit.findFirst({ where: { id, orgId } });
     if (!unit) {

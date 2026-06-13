@@ -18,6 +18,7 @@ import { HealthController } from './health/health.controller';
 import { MailModule } from './mail/mail.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { EmployeesModule } from './modules/employees/employees.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
@@ -59,6 +60,7 @@ import { StorageModule } from './storage/storage.module';
     AuditModule,
     OrganizationsModule,
     OrgStructureModule,
+    EmployeesModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

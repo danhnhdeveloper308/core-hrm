@@ -6,6 +6,8 @@
 import type {
   AuditLogModel,
   DeviceModel,
+  EmployeeModel,
+  EmploymentContractModel,
   OAuthAccountModel,
   OrgUnitModel,
   OrgUnitTypeModel,
@@ -34,6 +36,8 @@ export type VerificationToken = VerificationTokenModel;
 export type RecoveryCode = RecoveryCodeModel;
 export type AuditLog = AuditLogModel;
 export type Organization = OrganizationModel;
+export type Employee = EmployeeModel;
+export type EmploymentContract = EmploymentContractModel;
 export type OrgUnitType = OrgUnitTypeModel;
 export type OrgUnit = OrgUnitModel;
 export type Position = PositionModel;
@@ -44,4 +48,7 @@ export {
   OAuthProvider,
   VerificationType,
   OrgStatus,
+  EmployeeStatus,
+  Gender,
+  ContractType,
 } from '../generated/prisma/enums';

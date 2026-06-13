@@ -34,6 +34,14 @@ export const queryKeys = {
       ['organizations', 'list', query] as const,
   },
 
+  employees: {
+    all: ['employees'] as const,
+    list: (filters: Record<string, unknown>) =>
+      ['employees', 'list', filters] as const,
+    detail: (id: string) => ['employees', 'detail', id] as const,
+    me: ['employees', 'me'] as const,
+  },
+
   org: {
     info: ['org', 'info'] as const,
     units: ['org', 'units'] as const,

@@ -3,7 +3,9 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "declaration": false,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -21,7 +23,15 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "types": ["node", "jest"]
+    "types": [
+      "node",
+      "jest",
+      "multer"
+    ]
   },
-  "include": ["src", "test", "prisma"]
+  "include": [
+    "src",
+    "test",
+    "prisma"
+  ]
 }

@@ -130,6 +130,8 @@ async function parseErrorBody(res: Response): Promise<ApiErrorBody> {
 export interface ApiFetchOptions<T> extends Omit<RequestInit, 'body' | 'signal'> {
   /** Tự JSON.stringify — truyền object thẳng. */
   body?: unknown;
+  /** Multipart upload — không set content-type (browser tự thêm boundary). */
+  formData?: FormData;
   timeoutMs?: number;
   /** Parse + validate response bằng zod khi cần đảm bảo shape. */
   schema?: ZodType<T>;
@@ -143,6 +145,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const {
     body,
+    formData,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     schema,
     skipRefresh,
@@ -158,10 +161,16 @@ export async function apiFetch<T>(
         ...init,
         credentials: 'include',
         headers: {
-          ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+          ...(body !== undefined && !formData
+            ? { 'content-type': 'application/json' }
+            : {}),
           ...headers,
         },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(formData
+          ? { body: formData }
+          : body !== undefined
+            ? { body: JSON.stringify(body) }
+            : {}),
         signal: controller.signal,
       });
     } finally {
@@ -237,4 +246,7 @@ export const api = {
     apiFetch<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options?: ApiFetchOptions<T>) =>
     apiFetch<T>(path, { ...options, method: 'DELETE' }),
+  /** Multipart upload (POST mặc định — đổi qua options.method). */
+  upload: <T>(path: string, formData: FormData, options?: ApiFetchOptions<T>) =>
+    apiFetch<T>(path, { method: 'POST', ...options, formData }),
 };
