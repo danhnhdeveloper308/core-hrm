@@ -7,7 +7,7 @@ on:
 
 env:
   # Env tối thiểu cho typecheck/build/e2e — KHÔNG phải secrets thật
-  DATABASE_URL: postgresql://app:app_secret@localhost:5432/app_db?schema=public
+  DATABASE_URL: postgresql://hrm:hrm_secret@localhost:5432/hrm_db?schema=public
   REDIS_HOST: localhost
   REDIS_PORT: '6379'
   JWT_ACCESS_SECRET: ci_only_access_secret_min_32_chars________
@@ -28,12 +28,12 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: app
-          POSTGRES_PASSWORD: app_secret
-          POSTGRES_DB: app_db
+          POSTGRES_USER: hrm
+          POSTGRES_PASSWORD: hrm_secret
+          POSTGRES_DB: hrm_db
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U app -d app_db"
+          --health-cmd "pg_isready -U hrm -d hrm_db"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10

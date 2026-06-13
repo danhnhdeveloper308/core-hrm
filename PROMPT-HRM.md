@@ -20,7 +20,7 @@
    | Cron | `@Cron` trong service (xem `SessionsService.cleanupExpiredSessions`) |
    | FE fetch + auto-refresh | `lib/api/client.ts`; query keys ở `lib/api/query-keys.ts` |
    | FE form | RHF + zodResolver, schema import từ `@repo/shared` |
-   | Bảng dài | `@tanstack/react-virtual` (mẫu: trang audit) |
+   | Bảng dữ liệu danh sách | **AG Grid** (per 2.12); `@tanstack/react-virtual` chỉ giữ cho feed kiểu audit realtime |
    | Mời nhân viên vào hệ thống | flow invite có sẵn (`/users/invite` + `/accept-invite`) |
 
 2. **Chỉ pnpm** (`pnpm --filter <pkg> add ...`), phiên bản mới nhất stable. TypeScript strict. Zod ở `@repo/shared` là source of truth cho mọi DTO/type dùng chung — tuyệt đối không duplicate schema.
@@ -112,6 +112,22 @@
 - FE web: Firebase JS SDK + `public/firebase-messaging-sw.js` (nhận push khi tab đóng), xin quyền sau khi login (không xin ở landing), env `NEXT_PUBLIC_FIREBASE_*` (apiKey, projectId, messagingSenderId, appId, vapidKey). Chuông notification trên header: badge số chưa đọc, dropdown danh sách, realtime qua socket.
 - Mobile sau này (nếu có app) chỉ cần đăng ký token vào cùng API — kiến trúc không đổi.
 
+### 2.12 UI hiện đại: motion + animejs + AG Grid (kèm guardrails hiệu suất)
+**Phong cách:** hiện đại đậm tính công nghệ trên nền shadcn/ui sẵn có — accent gradient tinh tế, dark mode hoàn chỉnh, micro-interaction mượt; KHÔNG glassmorphism/particle nặng nề tràn lan.
+
+**Phân vai 3 thư viện (cài ở Phase 1, đều bản mới nhất stable):**
+- **`motion`** (tên mới của framer-motion, import từ `motion/react`): page transition nhẹ, animation vào/ra của card–dialog–sheet–sidebar, stagger khi list xuất hiện, hover/tap micro-interaction. **Bắt buộc dùng `LazyMotion` + component `m.*` + `domAnimation`** thay vì import `motion.*` đầy đủ — giảm ~70% bundle animation.
+- **`animejs`** (v4): CHỈ cho hiệu ứng "trang trí công nghệ" điểm nhấn — số liệu dashboard đếm tăng (count-up), vẽ đường SVG, hiệu ứng logo/empty-state. **Luôn `dynamic import` trong component dùng nó** — không vào bundle chung.
+- **`ag-grid-community` + `ag-grid-react`**: thay thế bảng tự dựng cho MỌI bảng dữ liệu danh sách (employees, bảng công tháng employee×ngày, số dư phép toàn org, log thiết bị, report preview). Bản Community (MIT) đủ: sort/filter/resize/pin column + row virtualization. Bảng < 2.000 dòng dùng Client-Side Row Model (fetch 1 lần); danh sách lớn dùng **Infinite Row Model** nối với cursor pagination sẵn có của backend. Theme Quartz, sync dark mode với next-themes. KHÔNG dùng tính năng Enterprise (row grouping/pivot — trả phí).
+- Tạo **`components/motion/primitives.tsx`** dùng chung (`<FadeIn>`, `<SlideUp>`, `<StaggerList>`, `<CountUp>`) — mọi page dùng qua primitives này, không viết animation rải rác mỗi nơi một kiểu.
+
+**Guardrails hiệu suất (bắt buộc, kiểm ở Phase 10):**
+1. Chỉ animate `transform`/`opacity` (GPU) — cấm animate width/height/top gây reflow; duration tương tác ≤ 300ms.
+2. Tôn trọng `prefers-reduced-motion` (hook `useReducedMotion` → tắt non-essential).
+3. KHÔNG animation per-row trong AG Grid/danh sách dài — chỉ animate container; không animation lặp vô hạn ở trang nền.
+4. Trang `/checkin` (chạy trên điện thoại yếu) giữ animation tối thiểu — ưu tiên tốc độ mở camera.
+5. Gate Phase 10: Lighthouse Performance ≥ 90 cho `/` và `/dashboard` (production build).
+
 ### 2.9 Partition AttendanceLog
 - Prisma không hỗ trợ declarative partitioning → migration SQL thủ công: tạo bảng partitioned by RANGE (`recordedAt`), partition theo tháng, function + cron (pg hoặc BullMQ monthly) tạo partition tháng kế. Prisma schema map bảng như thường (`@@map`). Viết rõ trong migration đầu của Phase 4; nếu vướng với `prisma migrate dev`, dùng `migrate dev --create-only` rồi sửa SQL.
 
@@ -169,13 +185,13 @@
 - `TenantGuard` + `@CurrentOrg()` decorator; JWT payload thêm `orgId`. Login flow: user có orgId → response kèm org info.
 - Platform admin API: CRUD Organization — tạo org chọn **preset cơ cấu** ("Công ty đơn" / "Tập đoàn sản xuất" per 2.10) → auto tạo OrgUnitType set + unit gốc + ORG_ADMIN roles + mời org admin đầu tiên (flow invite sẵn có).
 - API org-scoped: CRUD OrgUnitType; CRUD OrgUnit (tạo/sửa/**move node** — cập nhật path cả subtree trong transaction, cấm move vào chính subtree của mình), gán manager; CRUD Position, Worksite. Helper `getManagedSubtreePaths(userId)` + áp filter subtree vào mọi API list từ Phase 2 trở đi.
-- FE: trang platform `/dashboard/organizations`; org admin: `/dashboard/settings/org-structure` (**tree view** kéo-gãy gọn: expand/collapse, thêm con, move, gán manager, hiện loại đơn vị), `/dashboard/settings/{positions,worksites,unit-types}`.
+- FE: cài + setup bộ UI per 2.12 (`motion` với LazyMotion, `animejs`, AG Grid + theme Quartz sync dark mode, file `components/motion/primitives.tsx`). Trang platform `/dashboard/organizations`; org admin: `/dashboard/settings/org-structure` (**tree view** gọn: expand/collapse, thêm con, move, gán manager, hiện loại đơn vị), `/dashboard/settings/{positions,worksites,unit-types}`.
 - **Acceptance:** e2e — tạo org preset tập đoàn (cây ≥ 4 tầng), org admin chỉ thấy dữ liệu org mình; user org A gọi resource org B → 403/404; move unit → path subtree cập nhật đúng; manager nhà máy chỉ list được employee trong subtree (test ở Phase 2 nhắc lại).
 
 ### Phase 2 — Employee management
 - Model Employee + EmploymentContract. Tạo employee = tạo hồ sơ + (tuỳ chọn) mời tài khoản qua invite flow sẵn (gán orgId + role EMPLOYEE). Sync: User bị ban → Employee không đổi; Employee TERMINATED → revoke sessions + disable user.
 - API: CRUD employee (search/filter theo department/position/status, cursor pagination), upload avatar + tài liệu hợp đồng (StorageProvider, signed URL), org chart đơn giản (cây theo manager).
-- FE: `/dashboard/employees` (bảng + filter + detail drawer: thông tin, hợp đồng, tài liệu), form tạo/sửa (RHF + shared schema).
+- FE: `/dashboard/employees` (**AG Grid** Infinite Row Model nối cursor pagination + filter + detail drawer: thông tin, hợp đồng, tài liệu), form tạo/sửa (RHF + shared schema).
 - **Acceptance:** e2e CRUD + phân quyền (`employee:read` thấy, EMPLOYEE thường chỉ thấy hồ sơ mình qua `/employees/me`).
 
 ### Phase 3 — Shifts, lịch & ngày lễ
@@ -187,7 +203,7 @@
 - Migration SQL partition AttendanceLog (2.9). Model TimesheetDay, AttendanceCorrection.
 - API: `POST /attendance/check` (WEB source — chưa cần face/location, dùng để test engine), `GET /attendance/me?from&to`, HR: `GET /attendance?employeeId&from&to` (+`attendance:read_all`), sửa công thủ công (`attendance:correct`, qua Approval ở Phase 8 — tạm thời direct + audit diff).
 - Queue `timesheet-recalc` (2.7) + trigger đủ chỗ. Cron tạo partition tháng kế + cron 00:30 đánh ABSENT cho ngày hôm trước (employee có ca, không log, không phép).
-- FE: `/dashboard/attendance` — view tháng dạng lưới (employee × ngày, màu theo status) + detail ngày; trang `/checkin` đơn giản (nút check-in/out, hiện log hôm nay).
+- FE: `/dashboard/attendance` — view tháng dạng lưới **AG Grid** (employee × ngày, cell màu theo status, pin cột tên) + detail ngày; trang `/checkin` đơn giản (nút check-in/out, hiện log hôm nay).
 - **Acceptance:** e2e — check-in/out → TimesheetDay đúng status LATE khi vào trễ quá grace; nghỉ lễ → HOLIDAY; không log → cron đánh ABSENT.
 
 ### Phase 5 — Face + Location check-in
@@ -219,7 +235,7 @@
 
 ### Phase 9 — Dashboard & Reports
 - API thống kê (cache Redis 5 phút): hôm nay (đi làm/trễ/vắng/nghỉ phép, % checkin), xu hướng tháng, top trễ, headcount theo phòng ban; báo cáo bảng công tháng (employee × ngày) + **export XLSX** (`exceljs`, generate qua BullMQ + lưu storage + signed URL — không block request) và CSV.
-- FE: `/dashboard` org overview (cards + charts — dùng `recharts`), `/dashboard/reports` (chọn tháng/phòng ban → preview + nút export, nhận file realtime khi job xong qua socket `report:ready`).
+- FE: `/dashboard` org overview (cards số liệu dùng `<CountUp>` animejs + charts `recharts`, vào trang stagger nhẹ bằng motion primitives), `/dashboard/reports` (chọn tháng/đơn vị → preview AG Grid + nút export, nhận file realtime khi job xong qua socket `report:ready`).
 - **Acceptance:** export tháng của org 50 nhân viên ra XLSX mở được, số liệu khớp TimesheetDay.
 
 ### Phase 10 — Hardening, perf & nghiệm thu
@@ -235,6 +251,7 @@
   - [ ] Quota phép: pro-rata + carry-over + expiry đúng qua unit tests
   - [ ] Flow duyệt 2 cấp end-to-end realtime
   - [ ] Export XLSX bảng công khớp dữ liệu
+  - [ ] Lighthouse Performance ≥ 90 cho `/` và `/dashboard` (production build); guardrails animation mục 2.12 được tuân thủ (animejs lazy-import, LazyMotion, không animate per-row)
   - [ ] `pnpm typecheck && pnpm lint && pnpm test && test:e2e` pass toàn repo
   - [ ] `docker compose -f docker-compose.prod.yml build` thành công
 

@@ -26,6 +26,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuditQueueModule } from './queues/audit.queue';
 import { EmailQueueModule } from './queues/email.queue';
 import { RedisModule } from './redis/redis.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RedisModule } from './redis/redis.module';
     // Secret/expiry truyền theo từng lần sign trong TokenService
     JwtModule.register({ global: true }),
     MailModule,
+    StorageModule,
     EmailQueueModule,
     AuditQueueModule,
     RbacModule,

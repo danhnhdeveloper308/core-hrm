@@ -5,8 +5,8 @@ import { QueryProvider } from '@/components/providers/query-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'Forge', template: '%s | Forge' },
-  description: 'Monorepo template — Auth/RBAC/Realtime',
+  title: { default: 'HRM', template: '%s | HRM' },
+  description: 'Hệ thống quản trị nhân sự — chấm công thông minh, nghỉ phép, phê duyệt',
 };
 
 export default function RootLayout({

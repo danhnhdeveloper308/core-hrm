@@ -80,7 +80,7 @@ export function Sidebar() {
       {/* Desktop */}
       <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:block">
         <div className="flex h-14 items-center border-b px-4 font-semibold">
-          ⚒️ Forge
+          HRM
         </div>
         <NavLinks />
       </aside>
@@ -89,7 +89,7 @@ export function Sidebar() {
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="flex h-14 items-center border-b px-4 text-base">
-            ⚒️ Forge
+            HRM
           </SheetTitle>
           <NavLinks onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>

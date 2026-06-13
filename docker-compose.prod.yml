@@ -65,6 +65,24 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     logging: *default-logging
 
+
+  minio:
+    image: minio/minio:latest
+    restart: always
+    command: ['server', '/data']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?}
+    # KHÔNG publish port — chỉ api + caddy truy cập qua docker network
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
   api:
     build:
       context: .
@@ -80,10 +98,14 @@ services:
       CORS_ORIGINS: https://${DOMAIN}
       NEXT_PUBLIC_APP_URL: https://${DOMAIN}
       GOOGLE_CALLBACK_URL: https://${DOMAIN}/api/auth/google/callback
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_URL: https://${DOMAIN}/storage
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     # Chỉ nội bộ docker network — Caddy là cửa duy nhất ra ngoài
     expose:
@@ -130,5 +152,6 @@ services:
 volumes:
   pgdata:
   redisdata:
+  miniodata:
   caddy_data:
   caddy_config:

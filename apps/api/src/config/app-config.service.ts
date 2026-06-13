@@ -139,4 +139,24 @@ export class AppConfigService {
         this.config.get('MAIL_FROM_ADDRESS', { infer: true }) ?? 'no-reply@localhost',
     };
   }
+
+  get storage(): {
+    endpoint: string;
+    region: string;
+    bucket: string;
+    accessKey: string;
+    secretKey: string;
+    forcePathStyle: boolean;
+    publicUrl: string | undefined;
+  } {
+    return {
+      endpoint: this.config.get('S3_ENDPOINT', { infer: true }),
+      region: this.config.get('S3_REGION', { infer: true }),
+      bucket: this.config.get('S3_BUCKET', { infer: true }),
+      accessKey: this.config.get('S3_ACCESS_KEY', { infer: true }),
+      secretKey: this.config.get('S3_SECRET_KEY', { infer: true }),
+      forcePathStyle: this.config.get('S3_FORCE_PATH_STYLE', { infer: true }),
+      publicUrl: this.config.get('S3_PUBLIC_URL', { infer: true }),
+    };
+  }
 }

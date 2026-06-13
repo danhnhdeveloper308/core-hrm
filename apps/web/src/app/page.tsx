@@ -84,7 +84,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2 font-bold">
             <LayoutDashboard className="size-5" />
-            Forge
+            HRM
           </Link>
           <nav className="flex items-center gap-2">
             {maybeLoggedIn ? (
@@ -185,7 +185,7 @@ pnpm dev`}</code>
       {/* Footer */}
       <footer className="mt-auto border-t">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 text-sm text-muted-foreground">
-          <span>© {new Date().getFullYear()} Forge template</span>
+          <span>© {new Date().getFullYear()} HRM</span>
           <span>NestJS 11 · Next.js 16 · Prisma 7</span>
         </div>
       </footer>

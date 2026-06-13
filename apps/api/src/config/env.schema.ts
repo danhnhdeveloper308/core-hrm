@@ -28,7 +28,7 @@ export const envSchema = z.object({
   ACCESS_TOKEN_TTL: durationString.default('15m'),
   REFRESH_TOKEN_TTL: durationString.default('30d'),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
-  TOTP_ISSUER: z.string().default('MyApp'),
+  TOTP_ISSUER: z.string().default('HRM'),
   /** 32 bytes hex — mã hoá AES-256-GCM cho totpSecret trong DB. */
   TOTP_ENCRYPTION_KEY: z
     .string()
@@ -52,6 +52,19 @@ export const envSchema = z.object({
   MAIL_FROM_ADDRESS: optionalString,
 
   NEXT_PUBLIC_APP_URL: z.url().default('http://localhost:3000'),
+
+  // Object storage S3-compatible (dev: MinIO trong docker-compose)
+  S3_ENDPOINT: z.string().min(1).default('http://localhost:9000'),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_BUCKET: z.string().min(1).default('hrm'),
+  S3_ACCESS_KEY: z.string().min(1).default('minio'),
+  S3_SECRET_KEY: z.string().min(1).default('minio_secret'),
+  S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Origin public thay cho S3_ENDPOINT trong signed URL (prod: https://DOMAIN/storage). */
+  S3_PUBLIC_URL: optionalString,
 });
 
 export type Env = z.infer<typeof envSchema>;

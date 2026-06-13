@@ -1,4 +1,4 @@
-# Forge — Monorepo Template (Auth / RBAC / Realtime)
+# HRM — Hệ thống quản trị nhân sự đa doanh nghiệp
 
 Template production-grade: **NestJS 11** (API) + **Next.js 16** (Web) + **Prisma 7 / PostgreSQL** + **Redis** + **Socket.IO**, quản lý bằng **pnpm workspace**.
 
@@ -59,7 +59,7 @@ Swagger: `http://localhost:3001/api/docs`. Đăng nhập bằng `SEED_ADMIN_EMAI
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | — | **Bắt buộc**, ≥ 32 ký tự |
 | `ACCESS_TOKEN_TTL` / `REFRESH_TOKEN_TTL` | `15m` / `30d` | Format `<số><s\|m\|h\|d>` |
 | `OTP_TTL_SECONDS` | `300` | Hạn OTP email |
-| `TOTP_ISSUER` | `MyApp` | Tên hiện trong app authenticator |
+| `TOTP_ISSUER` | `HRM` | Tên hiện trong app authenticator |
 | `TOTP_ENCRYPTION_KEY` | — | **Bắt buộc**, 64 hex chars — mã hoá totpSecret (AES-256-GCM) |
 | `MAIL_HOST` … `MAIL_FROM_ADDRESS` | rỗng | Bỏ trống `MAIL_HOST` → OTP log ra console (dev) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | rỗng | Bỏ trống → endpoint Google trả 503 |

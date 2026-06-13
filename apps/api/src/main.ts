@@ -104,8 +104,8 @@ async function bootstrap(): Promise<void> {
   mountBullBoard(app, config);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('API')
-    .setDescription('Monorepo template — Auth/RBAC/Realtime API')
+    .setTitle('HRM API')
+    .setDescription('HRM đa doanh nghiệp — Attendance + Leave + Approval API')
     .setVersion('1.0')
     .addBearerAuth()
     .addCookieAuth('access_token')

@@ -21,7 +21,7 @@ export function createAppLogger(nodeEnv: string | undefined) {
           : winston.format.combine(
               winston.format.timestamp({ format: 'HH:mm:ss' }),
               winston.format.errors({ stack: true }),
-              utilities.format.nestLike('api', {
+              utilities.format.nestLike('hrm-api', {
                 colors: true,
                 prettyPrint: true,
               }),
