@@ -48,5 +48,10 @@ export const queryKeys = {
     unitTypes: ['org', 'unit-types'] as const,
     positions: ['org', 'positions'] as const,
     worksites: ['org', 'worksites'] as const,
+    shifts: ['org', 'shifts'] as const,
+    calendars: ['org', 'calendars'] as const,
+    holidays: (calendarId: string) => ['org', 'holidays', calendarId] as const,
+    shiftAssignments: (employeeId: string) =>
+      ['org', 'shift-assignments', employeeId] as const,
   },
 } as const;

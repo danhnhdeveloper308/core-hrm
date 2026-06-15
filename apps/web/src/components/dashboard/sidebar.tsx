@@ -4,6 +4,8 @@ import { PERMISSIONS, type Permission } from '@repo/shared';
 import {
   Briefcase,
   Building2,
+  CalendarDays,
+  Clock,
   Contact,
   FolderTree,
   Layers,
@@ -40,6 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/settings/unit-types', label: 'Loại đơn vị', icon: Layers, permission: PERMISSIONS.ORGUNIT_MANAGE },
   { href: '/dashboard/settings/positions', label: 'Chức danh', icon: Briefcase, permission: PERMISSIONS.ORGUNIT_MANAGE },
   { href: '/dashboard/settings/worksites', label: 'Địa điểm', icon: MapPin, permission: PERMISSIONS.WORKSITE_MANAGE },
+  { href: '/dashboard/settings/shifts', label: 'Ca làm việc', icon: Clock, permission: PERMISSIONS.SHIFT_MANAGE },
+  { href: '/dashboard/settings/holidays', label: 'Lịch nghỉ lễ', icon: CalendarDays, permission: PERMISSIONS.SHIFT_MANAGE },
   { href: '/dashboard/audit', label: 'Audit log', icon: ScrollText, permission: PERMISSIONS.AUDIT_READ },
   { href: '/dashboard/security', label: 'Bảo mật', icon: ShieldCheck, permission: null },
   { href: '/dashboard/profile', label: 'Hồ sơ', icon: User, permission: null },

@@ -4,15 +4,26 @@ import {
   PERMISSIONS,
   type ContractResponse,
   type EmployeeResponse,
+  type ShiftAssignmentResponse,
+  type WorkShiftResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Upload } from 'lucide-react';
-import { useRef } from 'react';
+import { Clock, FileText, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/permission-gate';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
@@ -222,10 +233,111 @@ export function EmployeeDetailSheet({
                   </div>
                 )}
               </div>
+
+              <Separator />
+              <ShiftAssignmentSection employeeId={data.id} />
             </div>
           </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Lịch sử gán ca + gán ca mới (permission shift:manage). */
+function ShiftAssignmentSection({ employeeId }: { employeeId: string }) {
+  const queryClient = useQueryClient();
+  const [shiftId, setShiftId] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+
+  const { data: assignments } = useQuery({
+    queryKey: queryKeys.org.shiftAssignments(employeeId),
+    queryFn: () =>
+      api.get<ShiftAssignmentResponse[]>(
+        `/shifts/assignments?employeeId=${employeeId}`,
+      ),
+  });
+  const { data: shifts } = useQuery({
+    queryKey: queryKeys.org.shifts,
+    queryFn: () => api.get<WorkShiftResponse[]>('/shifts'),
+  });
+
+  const assign = useMutation({
+    mutationFn: () =>
+      api.post<{ assigned: number }>('/shifts/assign', {
+        shiftId,
+        employeeId,
+        effectiveFrom,
+      }),
+    onSuccess: () => {
+      toast.success('Đã gán ca');
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.org.shiftAssignments(employeeId),
+      });
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Gán ca thất bại'),
+  });
+
+  return (
+    <div>
+      <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+        <Clock className="size-3.5" /> Ca làm việc
+      </h3>
+      {(assignments ?? []).length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Chưa gán ca riêng — dùng ca mặc định theo đơn vị/tổ chức
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {(assignments ?? []).map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center justify-between rounded-md border p-2 text-sm"
+            >
+              <span className="font-medium">{a.shiftName}</span>
+              <span className="text-xs text-muted-foreground">
+                {a.effectiveFrom} → {a.effectiveTo ?? 'hiện tại'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <PermissionGate permission={PERMISSIONS.SHIFT_MANAGE}>
+        <div className="mt-3 space-y-2 rounded-md border p-2">
+          <Label className="text-xs">Gán ca mới</Label>
+          <div className="flex gap-2">
+            <Select value={shiftId} onValueChange={setShiftId}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Chọn ca" />
+              </SelectTrigger>
+              <SelectContent>
+                {(shifts ?? []).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              className="w-36"
+              value={effectiveFrom}
+              onChange={(e) => setEffectiveFrom(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={() => assign.mutate()}
+            disabled={!shiftId || assign.isPending}
+          >
+            {assign.isPending ? 'Đang gán…' : 'Gán ca'}
+          </Button>
+        </div>
+      </PermissionGate>
+    </div>
   );
 }

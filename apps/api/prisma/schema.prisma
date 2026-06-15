@@ -220,6 +220,14 @@ model Organization {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  /// Ca mặc định toàn org — fallback cuối khi resolve ca
+  defaultShiftId    String? @db.Uuid
+  /// Lịch nghỉ lễ mặc định toàn org
+  defaultCalendarId String? @db.Uuid
+
+  defaultShift    WorkShift?       @relation("OrgDefaultShift", fields: [defaultShiftId], references: [id], onDelete: SetNull)
+  defaultCalendar HolidayCalendar? @relation("OrgDefaultCalendar", fields: [defaultCalendarId], references: [id], onDelete: SetNull)
+
   users        User[]
   roles        Role[]
   orgUnitTypes OrgUnitType[]
@@ -228,6 +236,9 @@ model Organization {
   worksites    Worksite[]
   employees    Employee[]
   contracts    EmploymentContract[]
+  workShifts        WorkShift[]
+  shiftAssignments  ShiftAssignment[]
+  holidayCalendars  HolidayCalendar[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -266,6 +277,13 @@ model OrgUnit {
   children OrgUnit[]    @relation("OrgUnitTree")
   type     OrgUnitType  @relation(fields: [typeId], references: [id], onDelete: Restrict)
   manager  Employee?    @relation("OrgUnitManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  /// Cấu hình kế thừa theo cây — resolve leo lên cha gần nhất có giá trị
+  defaultShiftId    String? @db.Uuid
+  holidayCalendarId String? @db.Uuid
+
+  defaultShift    WorkShift?       @relation("OrgUnitDefaultShift", fields: [defaultShiftId], references: [id], onDelete: SetNull)
+  holidayCalendar HolidayCalendar? @relation("OrgUnitCalendar", fields: [holidayCalendarId], references: [id], onDelete: SetNull)
 
   employees Employee[] @relation("EmployeeOrgUnit")
 
@@ -359,8 +377,9 @@ model Employee {
   reports  Employee[]   @relation("EmployeeManager")
   worksite Worksite?    @relation(fields: [worksiteId], references: [id], onDelete: SetNull)
 
-  contracts    EmploymentContract[]
-  managedUnits OrgUnit[]            @relation("OrgUnitManager")
+  contracts        EmploymentContract[]
+  managedUnits     OrgUnit[]            @relation("OrgUnitManager")
+  shiftAssignments ShiftAssignment[]
 
   @@unique([orgId, code])
   @@index([orgId, orgUnitId])
@@ -385,4 +404,77 @@ model EmploymentContract {
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([orgId, employeeId])
+}
+
+// ============================================================
+// HRM — Shifts, lịch làm việc & ngày lễ (Phase 3)
+// ============================================================
+
+model WorkShift {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @db.Uuid
+  name             String
+  /// "HH:mm" — giờ địa phương theo timezone của org
+  startTime        String
+  endTime          String
+  breakMinutes     Int      @default(60)
+  lateGraceMinutes Int      @default(5)
+  otEnabled        Boolean  @default(false)
+  /// Các thứ làm việc trong tuần: 1=Thứ 2 ... 7=Chủ nhật
+  workDays         Int[]    @default([1, 2, 3, 4, 5])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  org             Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignments     ShiftAssignment[]
+  defaultForUnits OrgUnit[]         @relation("OrgUnitDefaultShift")
+  defaultForOrgs  Organization[]    @relation("OrgDefaultShift")
+
+  @@index([orgId])
+}
+
+/// Lịch sử gán ca — ca áp dụng tại 1 ngày = bản ghi active gần nhất
+model ShiftAssignment {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String    @db.Uuid
+  employeeId    String    @db.Uuid
+  shiftId       String    @db.Uuid
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    WorkShift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, effectiveFrom(sort: Desc)])
+  @@index([orgId])
+}
+
+model HolidayCalendar {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org             Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  holidays        Holiday[]
+  defaultForUnits OrgUnit[]      @relation("OrgUnitCalendar")
+  defaultForOrgs  Organization[] @relation("OrgDefaultCalendar")
+
+  @@index([orgId])
+}
+
+model Holiday {
+  id         String   @id @default(uuid()) @db.Uuid
+  calendarId String   @db.Uuid
+  date       DateTime @db.Date
+  name       String
+  isHalfDay  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  calendar HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarId, date])
 }

@@ -24,6 +24,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { WorkScheduleModule } from './modules/schedule/schedule.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -61,6 +62,7 @@ import { StorageModule } from './storage/storage.module';
     OrganizationsModule,
     OrgStructureModule,
     EmployeesModule,
+    WorkScheduleModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

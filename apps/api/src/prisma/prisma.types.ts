@@ -8,6 +8,10 @@ import type {
   DeviceModel,
   EmployeeModel,
   EmploymentContractModel,
+  HolidayCalendarModel,
+  HolidayModel,
+  ShiftAssignmentModel,
+  WorkShiftModel,
   OAuthAccountModel,
   OrgUnitModel,
   OrgUnitTypeModel,
@@ -42,6 +46,10 @@ export type OrgUnitType = OrgUnitTypeModel;
 export type OrgUnit = OrgUnitModel;
 export type Position = PositionModel;
 export type Worksite = WorksiteModel;
+export type WorkShift = WorkShiftModel;
+export type ShiftAssignment = ShiftAssignmentModel;
+export type HolidayCalendar = HolidayCalendarModel;
+export type Holiday = HolidayModel;
 
 export {
   UserStatus,
