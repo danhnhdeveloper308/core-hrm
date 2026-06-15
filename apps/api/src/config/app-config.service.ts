@@ -140,6 +140,20 @@ export class AppConfigService {
     };
   }
 
+  get face(): {
+    matchThreshold: number;
+    antispoofThreshold: number;
+    modelsPath: string;
+    enrollMinScore: number;
+  } {
+    return {
+      matchThreshold: this.config.get('FACE_MATCH_THRESHOLD', { infer: true }),
+      antispoofThreshold: this.config.get('FACE_ANTISPOOF_THRESHOLD', { infer: true }),
+      modelsPath: this.config.get('FACE_MODELS_PATH', { infer: true }),
+      enrollMinScore: this.config.get('FACE_ENROLL_MIN_SCORE', { infer: true }),
+    };
+  }
+
   get storage(): {
     endpoint: string;
     region: string;

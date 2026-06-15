@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes } from '@nestjs/swagger';
 import {
   ApiCookieAuth,
   ApiOkResponse,
@@ -30,14 +40,19 @@ export class AttendanceController {
   @Post('check')
   @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
   @Audit('attendance.check')
-  @ApiOperation({ summary: 'Check-in/out web (source WEB) — tự suy IN/OUT nếu thiếu' })
+  @UseInterceptors(FileInterceptor('photo'))
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiOperation({
+    summary: 'Check-in/out — kèm ảnh khuôn mặt + toạ độ nếu worksite yêu cầu',
+  })
   @ApiOkResponse({ description: 'AttendanceLogResponse' })
   check(
     @CurrentOrg() orgId: string,
     @CurrentUser() actor: AccessTokenPayload,
     @Body() dto: CheckInDto,
+    @UploadedFile() photo?: Express.Multer.File,
   ) {
-    return this.attendance.check(orgId, actor, dto);
+    return this.attendance.check(orgId, actor, dto, photo?.buffer);
   }
 
   @Get('me')

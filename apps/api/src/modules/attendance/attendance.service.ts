@@ -17,7 +17,9 @@ import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AttendanceLog } from '../../prisma/prisma.types';
 import { TimesheetQueueService } from '../../queues/timesheet.queue';
+import { FaceService } from '../face/face.service';
 import { EmployeesService } from '../employees/employees.service';
+import { haversineMeters } from '../face/face.matching';
 import { localDayRangeUtc } from './timesheet.engine';
 import { TimesheetService, toTimesheetResponse } from './timesheet.service';
 
@@ -63,6 +65,7 @@ export class AttendanceService {
     private readonly recalcQueue: TimesheetQueueService,
     private readonly employees: EmployeesService,
     private readonly timesheet: TimesheetService,
+    private readonly face: FaceService,
   ) {}
 
   /**
@@ -107,30 +110,93 @@ export class AttendanceService {
     await this.recalcQueue.enqueueRecalc({ orgId, employeeId, date });
   }
 
-  /** Check-in/out web đơn giản (Phase 4) — source WEB, chưa cần face/location. */
+  /**
+   * Check-in/out: theo worksite của nhân viên, validate geofence (haversine)
+   * và/hoặc khuôn mặt (1:1) nếu worksite yêu cầu. Không yêu cầu gì → source WEB.
+   */
   async check(
     orgId: string,
     actor: AccessTokenPayload,
     input: CheckInInput,
+    photo?: Buffer,
   ): Promise<AttendanceLogResponse> {
-    const employee = await this.requireOwnEmployee(orgId, actor.sub);
+    const employee = await this.prisma.employee.findFirst({
+      where: { orgId, userId: actor.sub },
+      select: { id: true, worksiteId: true, worksite: true },
+    });
+    if (!employee) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Tài khoản chưa gắn hồ sơ nhân viên',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
     const now = new Date();
     const org = await this.prisma.organization.findUniqueOrThrow({
       where: { id: orgId },
       select: { timezone: true },
     });
     const type = input.type ?? (await this.inferType(employee.id, now, org.timezone));
+    const worksite = employee.worksite;
+
+    // ===== Geofence =====
+    let locationSuspect = false;
+    if (worksite?.requireLocation) {
+      if (input.lat === undefined || input.lng === undefined) {
+        throw new AppException(
+          HttpStatus.BAD_REQUEST,
+          'Cần bật định vị để chấm công tại địa điểm này',
+          ERROR_CODES.LOCATION_REQUIRED,
+        );
+      }
+      const dist = haversineMeters(input.lat, input.lng, worksite.lat, worksite.lng);
+      if (dist > worksite.radiusM) {
+        throw new AppException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          `Bạn đang cách địa điểm làm việc ${Math.round(dist)}m (giới hạn ${worksite.radiusM}m)`,
+          ERROR_CODES.OUT_OF_WORKSITE,
+          { distance: Math.round(dist), radiusM: worksite.radiusM },
+        );
+      }
+      // Không chống được mock GPS tuyệt đối → flag để HR đối soát
+      if (input.accuracy !== undefined && input.accuracy > 200) locationSuspect = true;
+    }
+
+    // ===== Face 1:1 =====
+    let source: 'FACE' | 'WEB' = 'WEB';
+    let faceScore: number | null = null;
+    let photoKey: string | null = null;
+    if (worksite?.requireFace) {
+      if (!photo) {
+        throw new AppException(
+          HttpStatus.BAD_REQUEST,
+          'Cần ảnh khuôn mặt để chấm công tại địa điểm này',
+          ERROR_CODES.FACE_REQUIRED,
+        );
+      }
+      const result = await this.face.verify(orgId, employee.id, photo);
+      source = 'FACE';
+      faceScore = result.score;
+      photoKey = result.photoKey;
+    }
 
     const log = await this.createLog({
       orgId,
       employeeId: employee.id,
       recordedAt: now,
       type,
-      source: 'WEB',
+      source,
+      worksiteId: employee.worksiteId,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
+      accuracy: input.accuracy ?? null,
+      locationSuspect,
+      faceScore,
+      photoKey,
       note: input.note ?? null,
       createdById: actor.sub,
     });
-    addAuditMetadata({ after: { type, source: 'WEB' } });
+    addAuditMetadata({ after: { type, source, locationSuspect } });
     return toLogResponse(log);
   }
 
@@ -145,12 +211,33 @@ export class AttendanceService {
     return this.employeeAttendance(orgId, employee.id, from, to);
   }
 
-  /** Log hôm nay của chính mình (cho trang /checkin). */
+  /** Log hôm nay + yêu cầu check-in (face/location) theo worksite — trang /checkin. */
   async myToday(
     orgId: string,
     actor: AccessTokenPayload,
-  ): Promise<{ logs: AttendanceLogResponse[]; serverTime: string }> {
-    const employee = await this.requireOwnEmployee(orgId, actor.sub);
+  ): Promise<{
+    logs: AttendanceLogResponse[];
+    serverTime: string;
+    requirement: {
+      requireFace: boolean;
+      requireLocation: boolean;
+      worksiteName: string | null;
+      worksiteLat: number | null;
+      worksiteLng: number | null;
+      radiusM: number | null;
+    };
+  }> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { orgId, userId: actor.sub },
+      select: { id: true, worksite: true },
+    });
+    if (!employee) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Tài khoản chưa gắn hồ sơ nhân viên',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
     const org = await this.prisma.organization.findUniqueOrThrow({
       where: { id: orgId },
       select: { timezone: true },
@@ -161,9 +248,18 @@ export class AttendanceService {
       where: { employeeId: employee.id, recordedAt: { gte: start, lt: end } },
       orderBy: { recordedAt: 'asc' },
     });
+    const ws = employee.worksite;
     return {
       logs: logs.map(toLogResponse),
       serverTime: new Date().toISOString(),
+      requirement: {
+        requireFace: ws?.requireFace ?? false,
+        requireLocation: ws?.requireLocation ?? false,
+        worksiteName: ws?.name ?? null,
+        worksiteLat: ws?.lat ?? null,
+        worksiteLng: ws?.lng ?? null,
+        radiusM: ws?.radiusM ?? null,
+      },
     };
   }
 

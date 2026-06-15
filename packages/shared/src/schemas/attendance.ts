@@ -32,6 +32,10 @@ export const checkInSchema = z.object({
   /** IN/OUT — bỏ trống để hệ thống tự suy theo log gần nhất trong ngày. */
   type: z.enum(['IN', 'OUT']).optional(),
   note: z.string().trim().max(500).optional(),
+  /** Toạ độ trình duyệt (coerce vì multipart gửi chuỗi). */
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  accuracy: z.coerce.number().min(0).optional(),
 });
 export type CheckInInput = z.infer<typeof checkInSchema>;
 

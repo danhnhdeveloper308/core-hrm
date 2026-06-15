@@ -11,3 +11,5 @@ allowBuilds:
   msgpackr-extract: true
   sharp: true
   "@scarf/scarf": false
+  "@tensorflow/tfjs-node": true
+  core-js: false

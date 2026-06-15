@@ -31,6 +31,8 @@
     "@prisma/client": "^7.8.0",
     "@repo/shared": "workspace:*",
     "@socket.io/redis-adapter": "^8.3.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "@vladmandic/human": "^3.3.6",
     "argon2": "^0.44.0",
     "bullmq": "^5.78.0",
     "cookie-parser": "^1.4.7",

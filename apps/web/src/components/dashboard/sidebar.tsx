@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarCheck,
   CalendarDays,
+  ScanFace,
   Clock,
   Contact,
   FolderTree,
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/settings/holidays', label: 'Lịch nghỉ lễ', icon: CalendarDays, permission: PERMISSIONS.SHIFT_MANAGE },
   { href: '/dashboard/audit', label: 'Audit log', icon: ScrollText, permission: PERMISSIONS.AUDIT_READ },
   { href: '/dashboard/security', label: 'Bảo mật', icon: ShieldCheck, permission: null },
+  { href: '/dashboard/face', label: 'Khuôn mặt', icon: ScanFace, permission: PERMISSIONS.FACE_ENROLL },
   { href: '/dashboard/profile', label: 'Hồ sơ', icon: User, permission: null },
 ];
 

@@ -20,6 +20,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmployeesModule } from './modules/employees/employees.module';
+import { FaceModule } from './modules/face/face.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
@@ -67,6 +68,7 @@ import { StorageModule } from './storage/storage.module';
     EmployeesModule,
     WorkScheduleModule,
     AttendanceModule,
+    FaceModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

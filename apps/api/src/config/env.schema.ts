@@ -65,6 +65,13 @@ export const envSchema = z.object({
     .transform((v) => v === 'true'),
   /** Origin public thay cho S3_ENDPOINT trong signed URL (prod: https://DOMAIN/storage). */
   S3_PUBLIC_URL: optionalString,
+
+  // Face check-in 1:1 (@vladmandic/human)
+  FACE_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.55),
+  FACE_ANTISPOOF_THRESHOLD: z.coerce.number().min(0).max(1).default(0.5),
+  FACE_MODELS_PATH: z.string().default('./models'),
+  /** Điểm chất lượng tối thiểu khi enroll (faceScore của human). */
+  FACE_ENROLL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.8),
 });
 
 export type Env = z.infer<typeof envSchema>;

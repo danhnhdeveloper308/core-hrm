@@ -10,6 +10,7 @@ import type {
   DeviceModel,
   EmployeeModel,
   EmploymentContractModel,
+  FaceProfileModel,
   HolidayCalendarModel,
   HolidayModel,
   ShiftAssignmentModel,
@@ -56,6 +57,7 @@ export type Holiday = HolidayModel;
 export type AttendanceLog = AttendanceLogModel;
 export type TimesheetDay = TimesheetDayModel;
 export type AttendanceCorrection = AttendanceCorrectionModel;
+export type FaceProfile = FaceProfileModel;
 
 export {
   UserStatus,
