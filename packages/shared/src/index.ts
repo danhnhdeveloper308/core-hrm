@@ -16,6 +16,7 @@ export * from './schemas/audit';
 export * from './schemas/org';
 export * from './schemas/employee';
 export * from './schemas/shift';
+export * from './schemas/attendance';
 
 export * from './types/api';
 export * from './types/socket';

@@ -239,6 +239,8 @@ model Organization {
   workShifts        WorkShift[]
   shiftAssignments  ShiftAssignment[]
   holidayCalendars  HolidayCalendar[]
+  timesheetDays         TimesheetDay[]
+  attendanceCorrections AttendanceCorrection[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -380,6 +382,9 @@ model Employee {
   contracts        EmploymentContract[]
   managedUnits     OrgUnit[]            @relation("OrgUnitManager")
   shiftAssignments ShiftAssignment[]
+  attendanceLogs        AttendanceLog[]
+  timesheetDays         TimesheetDay[]
+  attendanceCorrections AttendanceCorrection[]
 
   @@unique([orgId, code])
   @@index([orgId, orgUnitId])
@@ -477,4 +482,113 @@ model Holiday {
   calendar HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
   @@unique([calendarId, date])
+}
+
+// ============================================================
+// HRM — Attendance core + Timesheet engine (Phase 4)
+// ============================================================
+
+enum AttendanceType {
+  IN
+  OUT
+  UNKNOWN
+}
+
+enum AttendanceSource {
+  FACE
+  FINGERPRINT
+  MANUAL
+  WEB
+}
+
+enum TimesheetStatus {
+  PRESENT
+  LATE
+  EARLY_LEAVE
+  LATE_AND_EARLY
+  ABSENT
+  ON_LEAVE
+  HALF_LEAVE
+  HOLIDAY
+  WEEKEND
+  NOT_SCHEDULED
+}
+
+enum CorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// PARTITION BY RANGE(recordedAt) theo tháng — xem migration SQL thủ công.
+/// PK + unique đều chứa recordedAt (yêu cầu của partitioned table Postgres).
+model AttendanceLog {
+  id              String           @default(uuid()) @db.Uuid
+  orgId           String           @db.Uuid
+  employeeId      String           @db.Uuid
+  recordedAt      DateTime
+  type            AttendanceType   @default(UNKNOWN)
+  source          AttendanceSource
+  worksiteId      String?          @db.Uuid
+  lat             Float?
+  lng             Float?
+  accuracy        Float?
+  locationSuspect Boolean          @default(false)
+  faceScore       Float?
+  photoKey        String?
+  deviceId        String?          @db.Uuid
+  note            String?
+  createdById     String?          @db.Uuid
+  createdAt       DateTime         @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([recordedAt, id])
+  @@unique([employeeId, recordedAt, source])
+  @@index([orgId, recordedAt])
+  @@index([employeeId, recordedAt])
+}
+
+model TimesheetDay {
+  id           String          @id @default(uuid()) @db.Uuid
+  orgId        String          @db.Uuid
+  employeeId   String          @db.Uuid
+  date         DateTime        @db.Date
+  shiftId      String?         @db.Uuid
+  firstIn      DateTime?
+  lastOut      DateTime?
+  status       TimesheetStatus @default(NOT_SCHEDULED)
+  lateMinutes  Int             @default(0)
+  earlyMinutes Int             @default(0)
+  workMinutes  Int             @default(0)
+  otMinutes    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([orgId, date])
+}
+
+model AttendanceCorrection {
+  id           String           @id @default(uuid()) @db.Uuid
+  orgId        String           @db.Uuid
+  employeeId   String           @db.Uuid
+  date         DateTime         @db.Date
+  requestedIn  DateTime?
+  requestedOut DateTime?
+  reason       String
+  status       CorrectionStatus @default(PENDING)
+  createdById  String?          @db.Uuid
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId, date])
+  @@index([orgId, status])
 }

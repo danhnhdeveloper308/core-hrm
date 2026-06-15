@@ -39,7 +39,9 @@ export default function proxy(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
   const isAuthenticated = isTokenUsable(token);
 
-  if (pathname.startsWith('/dashboard') && !isAuthenticated) {
+  const isProtected =
+    pathname.startsWith('/dashboard') || pathname.startsWith('/checkin');
+  if (isProtected && !isAuthenticated) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname + search);
     const response = NextResponse.redirect(loginUrl);
@@ -58,6 +60,7 @@ export default function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/checkin',
     '/login',
     '/register',
     '/verify-email',

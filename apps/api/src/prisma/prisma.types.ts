@@ -4,6 +4,8 @@
  * trực tiếp vào src/generated.
  */
 import type {
+  AttendanceCorrectionModel,
+  AttendanceLogModel,
   AuditLogModel,
   DeviceModel,
   EmployeeModel,
@@ -11,6 +13,7 @@ import type {
   HolidayCalendarModel,
   HolidayModel,
   ShiftAssignmentModel,
+  TimesheetDayModel,
   WorkShiftModel,
   OAuthAccountModel,
   OrgUnitModel,
@@ -50,6 +53,9 @@ export type WorkShift = WorkShiftModel;
 export type ShiftAssignment = ShiftAssignmentModel;
 export type HolidayCalendar = HolidayCalendarModel;
 export type Holiday = HolidayModel;
+export type AttendanceLog = AttendanceLogModel;
+export type TimesheetDay = TimesheetDayModel;
+export type AttendanceCorrection = AttendanceCorrectionModel;
 
 export {
   UserStatus,
@@ -59,4 +65,8 @@ export {
   EmployeeStatus,
   Gender,
   ContractType,
+  AttendanceType,
+  AttendanceSource,
+  TimesheetStatus,
+  CorrectionStatus,
 } from '../generated/prisma/enums';

@@ -17,6 +17,7 @@ import { GatewaysModule } from './gateways/gateways.module';
 import { HealthController } from './health/health.controller';
 import { MailModule } from './mail/mail.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
@@ -29,6 +30,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditQueueModule } from './queues/audit.queue';
+import { TimesheetQueueModule } from './queues/timesheet.queue';
 import { EmailQueueModule } from './queues/email.queue';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
@@ -52,6 +54,7 @@ import { StorageModule } from './storage/storage.module';
     StorageModule,
     EmailQueueModule,
     AuditQueueModule,
+    TimesheetQueueModule,
     RbacModule,
     SessionsModule,
     AuthModule,
@@ -63,6 +66,7 @@ import { StorageModule } from './storage/storage.module';
     OrgStructureModule,
     EmployeesModule,
     WorkScheduleModule,
+    AttendanceModule,
     GatewaysModule,
   ],
   controllers: [HealthController],
