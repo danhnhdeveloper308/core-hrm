@@ -4,10 +4,18 @@
  * trực tiếp vào src/generated.
  */
 import type {
+  ApprovalActionModel,
+  ApprovalFlowModel,
+  ApprovalFlowStepModel,
+  ApprovalInstanceModel,
   AttendanceCorrectionModel,
   AttendanceLogModel,
   AuditLogModel,
   DeviceModel,
+  LeaveBalanceEntryModel,
+  LeavePolicyModel,
+  LeaveRequestModel,
+  LeaveTypeModel,
   EmployeeModel,
   EmploymentContractModel,
   FaceProfileModel,
@@ -58,6 +66,14 @@ export type AttendanceLog = AttendanceLogModel;
 export type TimesheetDay = TimesheetDayModel;
 export type AttendanceCorrection = AttendanceCorrectionModel;
 export type FaceProfile = FaceProfileModel;
+export type LeaveType = LeaveTypeModel;
+export type LeavePolicy = LeavePolicyModel;
+export type LeaveBalanceEntry = LeaveBalanceEntryModel;
+export type LeaveRequest = LeaveRequestModel;
+export type ApprovalFlow = ApprovalFlowModel;
+export type ApprovalFlowStep = ApprovalFlowStepModel;
+export type ApprovalInstance = ApprovalInstanceModel;
+export type ApprovalAction = ApprovalActionModel;
 
 export {
   UserStatus,
@@ -71,4 +87,12 @@ export {
   AttendanceSource,
   TimesheetStatus,
   CorrectionStatus,
+  LeaveAccrualType,
+  LeaveEntryType,
+  LeaveHalf,
+  LeaveRequestStatus,
+  ApprovalTargetType,
+  ApproverType,
+  ApprovalStatus,
+  ApprovalDecision,
 } from '../generated/prisma/enums';

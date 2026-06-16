@@ -19,8 +19,10 @@ import { MailModule } from './mail/mail.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ApprovalModule } from './modules/approval/approval.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { FaceModule } from './modules/face/face.module';
+import { LeaveModule } from './modules/leave/leave.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
@@ -69,6 +71,8 @@ import { StorageModule } from './storage/storage.module';
     WorkScheduleModule,
     AttendanceModule,
     FaceModule,
+    ApprovalModule,
+    LeaveModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

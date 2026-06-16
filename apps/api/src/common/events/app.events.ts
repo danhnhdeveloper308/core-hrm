@@ -15,7 +15,18 @@ export const APP_EVENTS = {
   AUDIT_RECORD: 'audit.record',
   /** Audit log đã được persist — gateway emit `audit:created` tới room:audit. */
   AUDIT_CREATED: 'audit.created',
+  /** Một ApprovalInstance kết thúc (APPROVED/REJECTED) — module đích xử lý hệ quả. */
+  APPROVAL_DECIDED: 'approval.decided',
+  /** Cần gửi thông báo tới user (Phase 8 Notification center). */
+  NOTIFY: 'notify.dispatch',
 } as const;
+
+export interface ApprovalDecidedEvent {
+  orgId: string;
+  targetType: 'LEAVE' | 'ATTENDANCE_CORRECTION' | 'OT';
+  targetId: string;
+  status: 'APPROVED' | 'REJECTED';
+}
 
 export type AuditCreatedEvent = AuditLog;
 

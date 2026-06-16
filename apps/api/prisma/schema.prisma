@@ -242,6 +242,12 @@ model Organization {
   timesheetDays         TimesheetDay[]
   attendanceCorrections AttendanceCorrection[]
   faceProfiles          FaceProfile[]
+  leaveTypes            LeaveType[]
+  leavePolicies         LeavePolicy[]
+  leaveBalanceEntries   LeaveBalanceEntry[]
+  leaveRequests         LeaveRequest[]
+  approvalFlows         ApprovalFlow[]
+  approvalInstances     ApprovalInstance[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -288,7 +294,8 @@ model OrgUnit {
   defaultShift    WorkShift?       @relation("OrgUnitDefaultShift", fields: [defaultShiftId], references: [id], onDelete: SetNull)
   holidayCalendar HolidayCalendar? @relation("OrgUnitCalendar", fields: [holidayCalendarId], references: [id], onDelete: SetNull)
 
-  employees Employee[] @relation("EmployeeOrgUnit")
+  employees    Employee[]    @relation("EmployeeOrgUnit")
+  leavePolicies LeavePolicy[]
 
   @@unique([orgId, parentId, code])
   @@index([orgId, path])
@@ -389,6 +396,8 @@ model Employee {
   timesheetDays         TimesheetDay[]
   attendanceCorrections AttendanceCorrection[]
   faceProfile           FaceProfile?
+  leaveBalanceEntries   LeaveBalanceEntry[]
+  leaveRequests         LeaveRequest[]
 
   @@unique([orgId, code])
   @@index([orgId, orgUnitId])
@@ -627,4 +636,233 @@ model FaceProfile {
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+// ============================================================
+// HRM — Leave management (Phase 7)
+// ============================================================
+
+enum LeaveAccrualType {
+  YEARLY_UPFRONT
+  MONTHLY
+}
+
+enum LeaveEntryType {
+  ACCRUAL
+  USAGE
+  REVERT
+  CARRY_OVER
+  EXPIRY
+  ADJUSTMENT
+}
+
+enum LeaveHalf {
+  FULL
+  AM
+  PM
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveType {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  code      String
+  paid      Boolean  @default(true)
+  color     String   @default("#3b82f6")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  policies LeavePolicy[]
+  requests LeaveRequest[]
+  entries  LeaveBalanceEntry[]
+
+  @@unique([orgId, code])
+}
+
+model LeavePolicy {
+  id                 String           @id @default(uuid()) @db.Uuid
+  orgId              String           @db.Uuid
+  leaveTypeId        String           @db.Uuid
+  /// Null = chính sách mặc định toàn org; có giá trị = override cho subtree đơn vị
+  orgUnitId          String?          @db.Uuid
+  daysPerYear        Decimal          @db.Decimal(5, 2)
+  accrualType        LeaveAccrualType @default(YEARLY_UPFRONT)
+  prorateFirstYear   Boolean          @default(true)
+  /// +seniorityBonusDays mỗi seniorityEveryYears năm thâm niên (0 = tắt)
+  seniorityBonusDays Int              @default(0)
+  seniorityEveryYears Int             @default(5)
+  carryOverMaxDays    Decimal         @default(0) @db.Decimal(5, 2)
+  /// "MM-DD" hạn dùng hết phép chuyển kỳ (vd "03-31"); null = không hết hạn
+  carryOverExpiresOn  String?
+  allowNegativeBalance Boolean        @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leaveType LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  orgUnit   OrgUnit?     @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, leaveTypeId, orgUnitId])
+}
+
+model LeaveBalanceEntry {
+  id          String         @id @default(uuid()) @db.Uuid
+  orgId       String         @db.Uuid
+  employeeId  String         @db.Uuid
+  leaveTypeId String         @db.Uuid
+  /// Năm hiệu lực của số dư
+  year        Int
+  /// Dương = cộng (accrual/carry-over/revert), âm = trừ (usage/expiry)
+  amount      Decimal        @db.Decimal(6, 2)
+  type        LeaveEntryType
+  reason      String
+  /// Khóa idempotent cho accrual: "2026" (năm) hoặc "2026-03" (tháng)
+  period      String?
+  expiresAt   DateTime?
+  requestId   String?        @db.Uuid
+  createdById String?        @db.Uuid
+  createdAt   DateTime       @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee  Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  /// Chống tạo trùng bút toán accrual/carry/expiry theo kỳ
+  @@unique([employeeId, leaveTypeId, type, period])
+  @@index([employeeId, leaveTypeId, year])
+  @@index([orgId])
+}
+
+model LeaveRequest {
+  id           String             @id @default(uuid()) @db.Uuid
+  orgId        String             @db.Uuid
+  employeeId   String             @db.Uuid
+  leaveTypeId  String             @db.Uuid
+  startDate    DateTime           @db.Date
+  endDate      DateTime           @db.Date
+  startHalf    LeaveHalf          @default(FULL)
+  endHalf      LeaveHalf          @default(FULL)
+  totalDays    Decimal            @db.Decimal(5, 2)
+  reason       String
+  status       LeaveRequestStatus @default(PENDING)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee  Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, employeeId])
+  @@index([orgId, status])
+}
+
+// ============================================================
+// HRM — Approval engine N cấp (Phase 8 core)
+// ============================================================
+
+enum ApprovalTargetType {
+  LEAVE
+  ATTENDANCE_CORRECTION
+  OT
+}
+
+enum ApproverType {
+  DIRECT_MANAGER
+  MANAGEMENT_CHAIN
+  UNIT_MANAGER_OF_TYPE
+  ROLE
+  SPECIFIC_USER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+}
+
+model ApprovalFlow {
+  id         String             @id @default(uuid()) @db.Uuid
+  orgId      String             @db.Uuid
+  targetType ApprovalTargetType
+  name       String
+  /// Flow priority cao hơn + conditions match sẽ được chọn trước
+  priority   Int                @default(0)
+  /// Điều kiện áp dụng, vd {"totalDays":{"gt":3}} / {"leaveTypeCode":"UNPAID"}
+  conditions Json?
+  active     Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  org   Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  steps ApprovalFlowStep[]
+
+  @@index([orgId, targetType])
+}
+
+model ApprovalFlowStep {
+  id           String       @id @default(uuid()) @db.Uuid
+  flowId       String       @db.Uuid
+  order        Int
+  approverType ApproverType
+  /// MANAGEMENT_CHAIN: leo n cấp quản lý
+  chainLevel   Int?
+  /// UNIT_MANAGER_OF_TYPE: code loại đơn vị (vd NHA_MAY)
+  unitTypeCode String?
+  roleId       String?      @db.Uuid
+  userId       String?      @db.Uuid
+  slaHours     Int?
+
+  flow ApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@unique([flowId, order])
+}
+
+model ApprovalInstance {
+  id                  String             @id @default(uuid()) @db.Uuid
+  orgId               String             @db.Uuid
+  targetType          ApprovalTargetType
+  targetId            String             @db.Uuid
+  flowId              String?            @db.Uuid
+  /// Employee tạo đơn
+  requesterEmpId      String             @db.Uuid
+  currentStep         Int                @default(0)
+  status              ApprovalStatus     @default(PENDING)
+  /// Snapshot các bước đã resolve approvers tại thời điểm submit
+  stepsSnapshot       Json
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  org     Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actions ApprovalAction[]
+
+  @@index([orgId, targetType, targetId])
+  @@index([orgId, status])
+}
+
+model ApprovalAction {
+  id         String           @id @default(uuid()) @db.Uuid
+  instanceId String           @db.Uuid
+  step       Int
+  actorId    String           @db.Uuid
+  decision   ApprovalDecision
+  note       String?
+  decidedAt  DateTime         @default(now())
+
+  instance ApprovalInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
 }

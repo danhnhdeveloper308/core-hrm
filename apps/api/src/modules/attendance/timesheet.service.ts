@@ -72,8 +72,7 @@ export class TimesheetService {
       select: { recordedAt: true, type: true },
     });
 
-    // Nghỉ phép (Phase 7 sẽ thay bằng truy vấn LeaveRequest APPROVED)
-    const leave = await this.resolveLeave();
+    const leave = await this.resolveLeave(employeeId, date);
 
     const todayStr = this.localToday(timezone);
     const result = computeTimesheet({
@@ -230,9 +229,30 @@ export class TimesheetService {
     });
   }
 
-  /** Hook nghỉ phép — Phase 7 sẽ truy vấn ledger. v1 luôn null. */
-  private resolveLeave(): Promise<'FULL' | 'HALF' | null> {
-    return Promise.resolve(null);
+  /**
+   * Nghỉ phép phủ ngày: đơn APPROVED chứa date. Nửa ngày khi date là ngày
+   * đầu/cuối của đơn và nửa buổi tương ứng != FULL.
+   */
+  private async resolveLeave(
+    employeeId: string,
+    date: string,
+  ): Promise<'FULL' | 'HALF' | null> {
+    const d = new Date(date);
+    const req = await this.prisma.leaveRequest.findFirst({
+      where: {
+        employeeId,
+        status: 'APPROVED',
+        startDate: { lte: d },
+        endDate: { gte: d },
+      },
+      select: { startDate: true, endDate: true, startHalf: true, endHalf: true },
+    });
+    if (!req) return null;
+    const isStart = req.startDate.toISOString().slice(0, 10) === date;
+    const isEnd = req.endDate.toISOString().slice(0, 10) === date;
+    if (isStart && req.startHalf !== 'FULL') return 'HALF';
+    if (isEnd && req.endHalf !== 'FULL') return 'HALF';
+    return 'FULL';
   }
 
   private localToday(timezone: string): string {
