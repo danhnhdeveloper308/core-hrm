@@ -79,7 +79,7 @@ describe('Leave + Approval N cấp (e2e)', () => {
     });
     const res = await request(app.getHttpServer())
       .post(`${PREFIX}/auth/login`)
-      .send({ email, password })
+      .send({ identifier: email, password })
       .expect(200);
     return { cookie: cookieOf(res), userId: user.id, empId: emp.id };
   }

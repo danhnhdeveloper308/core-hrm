@@ -27,7 +27,8 @@ export class LoginLockoutService {
     private readonly events: EventEmitter2,
   ) {}
 
-  async assertNotLocked(email: string): Promise<void> {
+  async assertNotLocked(email: string | null): Promise<void> {
+    if (!email) return;
     if (await this.redis.exists(lockKey(email))) {
       throw new AppException(
         HttpStatus.TOO_MANY_REQUESTS,
@@ -39,9 +40,10 @@ export class LoginLockoutService {
 
   /** Gọi mỗi lần sai mật khẩu / sai mã 2FA. */
   async registerFailure(
-    email: string,
+    email: string | null,
     ctx: { ip?: string | undefined; userAgent?: string | undefined } = {},
   ): Promise<void> {
+    if (!email) return;
     const failures = await this.redis.incr(failKey(email));
     await this.redis.expire(failKey(email), WINDOW_SECONDS);
 
@@ -59,7 +61,8 @@ export class LoginLockoutService {
   }
 
   /** Đăng nhập thành công → xoá bộ đếm. */
-  async reset(email: string): Promise<void> {
+  async reset(email: string | null): Promise<void> {
+    if (!email) return;
     await this.redis.del(failKey(email), lockKey(email));
   }
 }

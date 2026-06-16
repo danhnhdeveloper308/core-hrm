@@ -5,7 +5,8 @@ import type { Request } from 'express';
 export interface AccessTokenPayload {
   /** userId */
   sub: string;
-  email: string;
+  /** Null với nhân viên không có email (đăng nhập bằng username). */
+  email: string | null;
   /** Null = platform admin (không thuộc tenant nào). */
   orgId: string | null;
   sessionId: string;

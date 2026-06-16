@@ -46,6 +46,7 @@ import {
   RegisterDto,
   ResendOtpDto,
   ResetPasswordDto,
+  ResetPasswordByIdentityDto,
   Verify2faDto,
   VerifyOtpDto,
 } from './dto/auth.dto';
@@ -250,6 +251,18 @@ export class AuthController {
   @ApiOkResponse({ description: 'Đặt lại thành công' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
+  }
+
+  @Public()
+  @Throttle(STRICT_THROTTLE)
+  @Post('reset-password-by-identity')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Đặt lại mật khẩu bằng mã NV + SĐT (cho user không có email)',
+  })
+  @ApiOkResponse({ description: 'Đặt lại thành công' })
+  resetPasswordByIdentity(@Body() dto: ResetPasswordByIdentityDto) {
+    return this.auth.resetPasswordByIdentity(dto);
   }
 
   // ---------------- Google OAuth ----------------

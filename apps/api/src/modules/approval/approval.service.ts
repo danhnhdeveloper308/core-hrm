@@ -133,7 +133,6 @@ export class ApprovalService {
     orgId: string,
     instanceId: string,
     actorUserId: string,
-    actorName: string,
     decision: ApprovalDecision,
     note: string | null,
     canOverride: boolean,
@@ -170,8 +169,12 @@ export class ApprovalService {
       );
     }
 
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorUserId },
+      select: { name: true },
+    });
     const finalNote = !isApprover && canOverride ? `(duyệt thay) ${note ?? ''}`.trim() : note;
-    current.decidedByName = actorName;
+    current.decidedByName = actor?.name ?? null;
     current.decision = decision;
     current.note = finalNote ?? null;
     current.decidedAt = new Date().toISOString();

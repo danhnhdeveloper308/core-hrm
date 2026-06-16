@@ -2,6 +2,7 @@
 // Zod là source of truth: backend (nestjs-zod DTO) và frontend (RHF resolver)
 // đều import từ đây, tuyệt đối không duplicate schema.
 
+export * from './constants/auth';
 export * from './constants/permissions';
 export * from './constants/roles';
 export * from './constants/error-codes';

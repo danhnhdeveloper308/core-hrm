@@ -57,7 +57,8 @@ export const createEmployeeSchema = z.object({
   fullName: z.string().trim().min(1).max(200),
   dob: dateOnlySchema.nullish(),
   gender: genderSchema.nullish(),
-  phone: z.string().trim().max(20).nullish(),
+  /** Bắt buộc: dùng làm fallback đổi mật khẩu (mã NV + SĐT) khi không có email. */
+  phone: z.string().trim().min(1, 'Số điện thoại là bắt buộc').max(20),
   orgUnitId: z.uuid().nullish(),
   positionId: z.uuid().nullish(),
   managerId: z.uuid().nullish(),

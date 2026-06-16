@@ -10,6 +10,7 @@ import {
   registerSchema,
   resendOtpSchema,
   resetPasswordSchema,
+  resetPasswordByIdentitySchema,
   verify2faSchema,
   verifyOtpSchema,
 } from '@repo/shared';
@@ -25,6 +26,9 @@ export class RefreshDto extends createZodDto(refreshSchema) {}
 export class ChangePasswordDto extends createZodDto(changePasswordSchema) {}
 export class ForgotPasswordDto extends createZodDto(forgotPasswordSchema) {}
 export class ResetPasswordDto extends createZodDto(resetPasswordSchema) {}
+export class ResetPasswordByIdentityDto extends createZodDto(
+  resetPasswordByIdentitySchema,
+) {}
 export class Enable2faDto extends createZodDto(enable2faSchema) {}
 export class Verify2faDto extends createZodDto(verify2faSchema) {}
 export class Recovery2faDto extends createZodDto(recovery2faSchema) {}

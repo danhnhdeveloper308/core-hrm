@@ -131,7 +131,7 @@ describe('Auth flows (e2e)', () => {
     it('login trước khi verify → 403 AUTH_EMAIL_NOT_VERIFIED', async () => {
       const res = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(403);
       expect(res.body.errorCode).toBe('AUTH_EMAIL_NOT_VERIFIED');
     });
@@ -155,7 +155,7 @@ describe('Auth flows (e2e)', () => {
 
       const res = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
 
       expect(res.body.requires2fa).toBe(false);
@@ -173,11 +173,11 @@ describe('Auth flows (e2e)', () => {
     it('sai mật khẩu và email không tồn tại trả cùng lỗi 401', async () => {
       const res1 = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password: 'WrongPass123' })
+        .send({ identifier: email, password: 'WrongPass123' })
         .expect(401);
       const res2 = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email: 'khongtontai@example.com', password: 'WrongPass123' })
+        .send({ identifier: 'khongtontai@example.com', password: 'WrongPass123' })
         .expect(401);
       expect(res1.body.errorCode).toBe('AUTH_INVALID_CREDENTIALS');
       expect(res1.body.message).toBe(res2.body.message);
@@ -190,7 +190,7 @@ describe('Auth flows (e2e)', () => {
     beforeAll(async () => {
       const res = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       cookies = extractCookies(res);
     });
@@ -226,7 +226,7 @@ describe('Auth flows (e2e)', () => {
     it('logout revoke session và refresh sau đó fail', async () => {
       const login = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       const c = extractCookies(login);
 
@@ -246,7 +246,7 @@ describe('Auth flows (e2e)', () => {
     it('user thường bị 403 khi GET /users (thiếu user:read)', async () => {
       const login = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
 
       const res = await http()
@@ -265,7 +265,7 @@ describe('Auth flows (e2e)', () => {
     it('SUPER_ADMIN truy cập được /users và /audit', async () => {
       const login = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email: adminEmail, password: adminPassword })
+        .send({ identifier: adminEmail, password: adminPassword })
         .expect(200);
       const header = cookieHeader(extractCookies(login));
 
@@ -291,13 +291,13 @@ describe('Auth flows (e2e)', () => {
       for (let i = 0; i < 10; i++) {
         await http()
           .post(`${PREFIX}/auth/login`)
-          .send({ email: lockEmail, password: 'WrongPass1' })
+          .send({ identifier: lockEmail, password: 'WrongPass1' })
           .expect(401);
       }
 
       const locked = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email: lockEmail, password: 'WrongPass1' })
+        .send({ identifier: lockEmail, password: 'WrongPass1' })
         .expect(429);
       expect(locked.body.errorCode).toBe('AUTH_ACCOUNT_LOCKED');
     });
@@ -310,7 +310,7 @@ describe('Auth flows (e2e)', () => {
     it('admin mời → user đặt mật khẩu qua link → đăng nhập được', async () => {
       const adminLogin = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email: adminEmail, password: adminPassword })
+        .send({ identifier: adminEmail, password: adminPassword })
         .expect(200);
 
       const invited = await http()
@@ -345,7 +345,7 @@ describe('Auth flows (e2e)', () => {
       // Đăng nhập bằng mật khẩu vừa đặt
       await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email: inviteeEmail, password: inviteePassword })
+        .send({ identifier: inviteeEmail, password: inviteePassword })
         .expect(200);
     });
   });
@@ -357,7 +357,7 @@ describe('Auth flows (e2e)', () => {
       // Bật 2FA cho user test
       const login = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       const header = cookieHeader(extractCookies(login));
 
@@ -377,7 +377,7 @@ describe('Auth flows (e2e)', () => {
       // Login → yêu cầu 2FA
       const step1 = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       expect(step1.body.requires2fa).toBe(true);
 
@@ -397,14 +397,14 @@ describe('Auth flows (e2e)', () => {
       const direct = await http()
         .post(`${PREFIX}/auth/login`)
         .set('Cookie', `trusted_device=${trustedCookie}`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       expect(direct.body.requires2fa).toBe(false);
 
       // Không có cookie → vẫn đòi 2FA
       const noCookie = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       expect(noCookie.body.requires2fa).toBe(true);
 
@@ -412,7 +412,7 @@ describe('Auth flows (e2e)', () => {
       const cleanup = await http()
         .post(`${PREFIX}/auth/login`)
         .set('Cookie', `trusted_device=${trustedCookie}`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       await http()
         .post(`${PREFIX}/auth/2fa/disable`)
@@ -427,11 +427,11 @@ describe('Auth flows (e2e)', () => {
       // 2 phiên song song
       const loginA = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
       const loginB = await http()
         .post(`${PREFIX}/auth/login`)
-        .send({ email, password })
+        .send({ identifier: email, password })
         .expect(200);
 
       const headerA = cookieHeader(extractCookies(loginA));

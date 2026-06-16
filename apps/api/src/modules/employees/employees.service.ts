@@ -205,24 +205,29 @@ export class EmployeesService {
       include: EMPLOYEE_INCLUDE,
     });
 
-    // Tuỳ chọn: mời tài khoản qua invite flow sẵn có (role EMPLOYEE mặc định)
-    let result = employee;
-    if (input.inviteEmail) {
-      const user = await this.users.invite(
-        actor,
-        { email: input.inviteEmail, name: input.fullName },
-        { orgId },
-      );
-      result = await this.prisma.employee.update({
-        where: { id: employee.id },
-        data: { userId: user.id },
-        include: EMPLOYEE_INCLUDE,
-      });
-    }
+    // LUÔN tạo tài khoản đăng nhập: có email → invite (đặt mật khẩu qua link);
+    // không email → tài khoản username (= mã NV) + mật khẩu mặc định Abcd123@.
+    const user = input.inviteEmail
+      ? await this.users.invite(
+          actor,
+          { email: input.inviteEmail, name: input.fullName },
+          { orgId },
+        )
+      : await this.users.createEmployeeAccount(orgId, {
+          username: input.code,
+          name: input.fullName,
+        });
+    const result = await this.prisma.employee.update({
+      where: { id: employee.id },
+      data: { userId: user.id },
+      include: EMPLOYEE_INCLUDE,
+    });
 
     addAuditMetadata({
       after: { code: result.code, fullName: result.fullName },
-      ...(input.inviteEmail ? { invitedEmail: input.inviteEmail } : {}),
+      ...(input.inviteEmail
+        ? { invitedEmail: input.inviteEmail }
+        : { username: input.code }),
     });
     return this.toResponse(result);
   }

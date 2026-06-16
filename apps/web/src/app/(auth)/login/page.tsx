@@ -64,7 +64,7 @@ function LoginForm() {
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { identifier: '', password: '' },
   });
 
   async function finishLogin() {
@@ -99,7 +99,7 @@ function LoginForm() {
         if (error.errorCode === 'AUTH_EMAIL_NOT_VERIFIED') {
           toast.info(error.message);
           router.push(
-            `/verify-email?email=${encodeURIComponent(values.email)}`,
+            `/verify-email?email=${encodeURIComponent(values.identifier)}`,
           );
           return;
         }
@@ -230,15 +230,15 @@ function LoginForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email hoặc mã nhân viên</FormLabel>
                   <FormControl>
                     <Input
-                      type="email"
-                      placeholder="ban@example.com"
-                      autoComplete="email"
+                      type="text"
+                      placeholder="ban@example.com hoặc NV001"
+                      autoComplete="username"
                       {...field}
                     />
                   </FormControl>

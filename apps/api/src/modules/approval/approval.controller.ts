@@ -133,7 +133,6 @@ export class ApprovalController {
       orgId,
       id,
       actor.sub,
-      actor.email,
       dto.decision,
       dto.note ?? null,
       canOverride,

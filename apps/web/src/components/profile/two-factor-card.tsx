@@ -223,7 +223,7 @@ export function TwoFactorCard() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  downloadRecoveryCodes(recoveryCodes ?? [], user?.email);
+                  downloadRecoveryCodes(recoveryCodes ?? [], user?.email ?? undefined);
                   toast.success('Đã tải recovery codes (.txt)');
                 }}
               >

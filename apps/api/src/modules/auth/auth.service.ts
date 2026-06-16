@@ -14,6 +14,7 @@ import {
   type Recovery2faInput,
   type RegisterInput,
   type ResetPasswordInput,
+  type ResetPasswordByIdentityInput,
   type Setup2faResponse,
   type Verify2faInput,
 } from '@repo/shared';
@@ -144,29 +145,31 @@ export class AuthService {
     ctx: RequestContext,
     trustedDeviceToken?: string,
   ): Promise<{ response: LoginResponse; tokens: IssuedTokens | null }> {
-    await this.lockout.assertNotLocked(input.email);
+    await this.lockout.assertNotLocked(input.identifier);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: input.email },
+    // Định danh = email HOẶC username (mã NV). Cả hai đều @unique toàn cục.
+    const user = await this.prisma.user.findFirst({
+      where: { OR: [{ email: input.identifier }, { username: input.identifier }] },
       include: USER_WITH_ROLES_INCLUDE,
     });
 
     if (!user?.passwordHash) {
-      // Vẫn chạy argon2.verify để thời gian phản hồi không tiết lộ email tồn tại
+      // Vẫn chạy argon2.verify để thời gian phản hồi không tiết lộ định danh tồn tại
       await argon2.verify(await this.getDummyHash(), input.password).catch(() => false);
-      await this.lockout.registerFailure(input.email, ctx);
+      await this.lockout.registerFailure(input.identifier, ctx);
       this.throwInvalidCredentials();
     }
 
     const passwordValid = await argon2.verify(user.passwordHash, input.password);
     if (!passwordValid) {
-      await this.lockout.registerFailure(input.email, ctx);
+      await this.lockout.registerFailure(input.identifier, ctx);
       this.throwInvalidCredentials();
     }
 
     this.assertUserActive(user);
 
-    if (!user.emailVerifiedAt) {
+    // Chỉ tài khoản CÓ email mới phải xác thực email; user dùng username thì bỏ qua.
+    if (user.email && !user.emailVerifiedAt) {
       // Gửi lại OTP để user hoàn tất xác thực
       await this.otp.issue(user.email, 'EMAIL_VERIFY');
       throw new AppException(
@@ -192,7 +195,7 @@ export class AuthService {
       }
     }
 
-    await this.lockout.reset(user.email);
+    await this.lockout.reset(input.identifier);
     const tokens = await this.issueSession(user, ctx, 'local');
     return {
       response: { requires2fa: false, user: toUserResponse(user) },
@@ -511,6 +514,49 @@ export class AuthService {
     return { message: 'Đặt lại mật khẩu thành công, hãy đăng nhập lại' };
   }
 
+  /**
+   * Quên mật khẩu cho nhân viên KHÔNG có email: xác minh bằng mã NV + số điện
+   * thoại khớp hồ sơ. "1 cài đặt = 1 công ty" nên mã NV là duy nhất.
+   */
+  async resetPasswordByIdentity(
+    input: ResetPasswordByIdentityInput,
+  ): Promise<{ message: string }> {
+    const lockoutKey = `empcode:${input.employeeCode.toLowerCase()}`;
+    await this.lockout.assertNotLocked(lockoutKey);
+
+    const matches = await this.prisma.employee.findMany({
+      where: { code: input.employeeCode, phone: input.phone, userId: { not: null } },
+      select: { userId: true },
+    });
+    // Không tiết lộ sai phần nào; chặn brute-force bằng lockout theo mã NV.
+    if (matches.length !== 1 || !matches[0]?.userId) {
+      await this.lockout.registerFailure(lockoutKey);
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Mã nhân viên hoặc số điện thoại không đúng',
+        ERROR_CODES.AUTH_INVALID_CREDENTIALS,
+      );
+    }
+    const userId = matches[0].userId;
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await argon2.hash(input.newPassword, ARGON2_OPTIONS) },
+    });
+    await this.sessions.revokeAllForUser(user.id, 'PASSWORD_RESET', {
+      forceLogout: true,
+    });
+    await this.lockout.reset(lockoutKey);
+    this.audit({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'auth.reset_password_by_identity',
+      resource: 'user',
+      resourceId: user.id,
+    });
+    return { message: 'Đặt lại mật khẩu thành công, hãy đăng nhập lại' };
+  }
+
   // ---------------- Invitation ----------------
 
   /** User nhận lời mời đặt mật khẩu — token từ link email (type INVITE). */
@@ -572,7 +618,7 @@ export class AuthService {
       );
     }
 
-    const setup = await this.totp.createSetup(user.email);
+    const setup = await this.totp.createSetup(user.email ?? user.username ?? user.name);
     await this.prisma.user.update({
       where: { id: user.id },
       data: { totpSecret: this.totp.encrypt(setup.secret), totpEnabled: false },
@@ -721,8 +767,8 @@ export class AuthService {
       ...ctx,
     });
 
-    // Cảnh báo thiết bị lạ — bỏ qua thiết bị đầu tiên (lần đăng nhập đầu đời)
-    if (isNewDevice && (await this.sessions.countDevices(user.id)) > 1) {
+    // Cảnh báo thiết bị lạ — chỉ với user có email; bỏ qua thiết bị đầu tiên
+    if (user.email && isNewDevice && (await this.sessions.countDevices(user.id)) > 1) {
       const { deviceName } = parseUserAgent(ctx.userAgent);
       await this.emailQueue.enqueueNewDeviceAlert({
         to: user.email,

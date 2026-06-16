@@ -145,7 +145,7 @@ export default function UsersPage() {
     mutationFn: ({ id, status }: { id: string; status: UserStatus }) =>
       api.patch<UserResponse>(`/users/${id}/status`, { status }),
     onSuccess: (updated) => {
-      toast.success(`Đã đổi trạng thái ${updated.email}`);
+      toast.success(`Đã đổi trạng thái ${updated.email ?? updated.username}`);
       void invalidate();
     },
     onError: (error) =>
@@ -247,7 +247,7 @@ export default function UsersPage() {
                               ) : null}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {user.email}
+                              {user.email ?? user.username}
                             </div>
                           </div>
                         </div>
@@ -275,7 +275,7 @@ export default function UsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+                            <DropdownMenuLabel>{user.email ?? user.username}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <PermissionGate permission={PERMISSIONS.ROLE_ASSIGN}>
                               <DropdownMenuItem onClick={() => setAssignTarget(user)}>
@@ -363,7 +363,7 @@ export default function UsersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá {deleteTarget?.email}?</AlertDialogTitle>
+            <AlertDialogTitle>Xoá {deleteTarget?.email ?? deleteTarget?.username}?</AlertDialogTitle>
             <AlertDialogDescription>
               Hành động không thể hoàn tác. Mọi session, role và dữ liệu liên quan
               của user sẽ bị xoá.

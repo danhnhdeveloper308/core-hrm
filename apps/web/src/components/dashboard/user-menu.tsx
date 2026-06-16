@@ -60,7 +60,7 @@ export function UserMenu() {
         <DropdownMenuLabel className="font-normal">
           <div className="truncate font-medium">{user.name}</div>
           <div className="truncate text-xs text-muted-foreground">
-            {user.email}
+            {user.email ?? user.username}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

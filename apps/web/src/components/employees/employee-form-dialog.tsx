@@ -114,7 +114,7 @@ export function EmployeeFormDialog({
           fullName: employee?.fullName ?? '',
           dob: employee?.dob ?? null,
           gender: employee?.gender ?? null,
-          phone: employee?.phone ?? null,
+          phone: employee?.phone ?? '',
           orgUnitId: employee?.orgUnitId ?? null,
           positionId: employee?.positionId ?? null,
           managerId: employee?.managerId ?? null,
@@ -243,15 +243,18 @@ export function EmployeeFormDialog({
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Điện thoại</FormLabel>
+                    <FormLabel>Điện thoại *</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="09xxxxxxxx"
                         {...field}
                         value={field.value ?? ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Bắt buộc — dùng để khôi phục mật khẩu khi không có email.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -429,7 +432,9 @@ export function EmployeeFormDialog({
                       />
                     </FormControl>
                     <FormDescription>
-                      Bỏ trống nếu chỉ tạo hồ sơ. Tài khoản nhận role EMPLOYEE.
+                      Có email → gửi link kích hoạt. Bỏ trống → tự tạo tài khoản đăng
+                      nhập bằng <b>mã nhân viên</b> + mật khẩu mặc định{' '}
+                      <b>Abcd123@</b> (đổi sau lần đăng nhập đầu). Role EMPLOYEE.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

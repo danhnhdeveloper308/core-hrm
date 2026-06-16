@@ -15,7 +15,8 @@ export const userRoleRefSchema = z.object({
 /** Shape user trả về cho FE — không bao giờ chứa passwordHash/totpSecret. */
 export const userResponseSchema = z.object({
   id: z.uuid(),
-  email: z.string(),
+  email: z.string().nullable(),
+  username: z.string().nullable(),
   name: z.string(),
   avatarUrl: z.string().nullable(),
   status: userStatusSchema,

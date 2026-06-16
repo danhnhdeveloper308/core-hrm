@@ -24,8 +24,16 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1, 'Tên không được để trống').max(100),
 });
 
+/** Định danh đăng nhập: email HOẶC mã nhân viên (username). Lowercase để khớp. */
+export const loginIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1, 'Nhập email hoặc mã nhân viên')
+  .max(255)
+  .transform((v) => v.toLowerCase());
+
 export const loginSchema = z.object({
-  email: emailSchema,
+  identifier: loginIdentifierSchema,
   password: z.string().min(1, 'Mật khẩu không được để trống'),
 });
 
@@ -55,6 +63,17 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   email: emailSchema,
   code: otpCodeSchema,
+  newPassword: passwordSchema,
+});
+
+/**
+ * Quên mật khẩu cho user KHÔNG có email: xác minh bằng mã nhân viên + số điện
+ * thoại (phải khớp hồ sơ) → đặt lại mật khẩu. "1 cài đặt = 1 công ty" nên mã NV
+ * là duy nhất.
+ */
+export const resetPasswordByIdentitySchema = z.object({
+  employeeCode: z.string().trim().min(1, 'Nhập mã nhân viên').max(50),
+  phone: z.string().trim().min(1, 'Nhập số điện thoại').max(30),
   newPassword: passwordSchema,
 });
 
@@ -128,6 +147,7 @@ export type RefreshInput = z.infer<typeof refreshSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordByIdentityInput = z.infer<typeof resetPasswordByIdentitySchema>;
 export type Enable2faInput = z.infer<typeof enable2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;
 export type Recovery2faInput = z.infer<typeof recovery2faSchema>;

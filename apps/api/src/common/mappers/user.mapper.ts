@@ -11,6 +11,7 @@ export function toUserResponse(user: UserWithRoles): UserResponse {
   return {
     id: user.id,
     email: user.email,
+    username: user.username,
     name: user.name,
     avatarUrl: user.avatarUrl,
     status: user.status,

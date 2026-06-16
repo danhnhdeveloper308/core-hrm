@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
+  DEFAULT_EMPLOYEE_PASSWORD,
   ERROR_CODES,
   ORG_ROLES,
   ROLES,
@@ -12,6 +13,7 @@ import {
   type UpdateUserStatusInput,
   type UserResponse,
 } from '@repo/shared';
+import argon2 from 'argon2';
 import { addAuditMetadata } from '../../common/audit/audit-context';
 import type { AccessTokenPayload } from '../../common/decorators/current-user.decorator';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -115,11 +117,11 @@ export class UsersService {
       }),
     ]);
 
-    const token = await this.otp.issueInviteToken(user.email);
-    const link = `${this.config.appUrl}/accept-invite?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(token)}`;
+    const token = await this.otp.issueInviteToken(input.email);
+    const link = `${this.config.appUrl}/accept-invite?email=${encodeURIComponent(input.email)}&token=${encodeURIComponent(token)}`;
     await this.emailQueue.enqueueInvite({
-      to: user.email,
-      inviterEmail: actor.email,
+      to: input.email,
+      inviterEmail: actor.email ?? '',
       link,
     });
 
@@ -128,6 +130,42 @@ export class UsersService {
       resend: existing !== null,
     });
     return this.findOne(user.id);
+  }
+
+  /**
+   * Tạo tài khoản đăng nhập bằng username (= mã NV) + mật khẩu mặc định, cho
+   * nhân viên KHÔNG có email. Gán role EMPLOYEE. Trả userId để link Employee.
+   */
+  async createEmployeeAccount(
+    orgId: string,
+    input: { username: string; name: string },
+  ): Promise<{ id: string }> {
+    const username = input.username.toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { username } });
+    if (existing) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        'Mã nhân viên này đã có tài khoản đăng nhập',
+        ERROR_CODES.AUTH_EMAIL_TAKEN,
+      );
+    }
+    const defaultRole = await this.prisma.role.findFirst({
+      where: { name: ORG_ROLES.EMPLOYEE, orgId },
+      select: { id: true },
+    });
+    const user = await this.prisma.user.create({
+      data: {
+        username,
+        name: input.name,
+        status: 'ACTIVE',
+        orgId,
+        passwordHash: await argon2.hash(DEFAULT_EMPLOYEE_PASSWORD, {
+          type: argon2.argon2id,
+        }),
+        roles: defaultRole ? { create: { roleId: defaultRole.id } } : undefined,
+      },
+    });
+    return { id: user.id };
   }
 
   async list(

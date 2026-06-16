@@ -82,7 +82,7 @@ describe('Employee management (e2e)', () => {
     });
     const res = await request(app.getHttpServer())
       .post(`${PREFIX}/auth/login`)
-      .send({ email, password })
+      .send({ identifier: email, password })
       .expect(200);
     return { cookie: cookieHeader(extractCookies(res)), userId: user.id };
   }
@@ -160,6 +160,7 @@ describe('Employee management (e2e)', () => {
       .send({
         code: 'NV-001',
         fullName: 'Nhân Viên Một',
+        phone: '0900000001',
         joinDate: '2026-01-15',
         inviteEmail: `e2e-invited-${stamp}@example.com`,
       })
@@ -171,7 +172,7 @@ describe('Employee management (e2e)', () => {
     await request(app.getHttpServer())
       .post(`${PREFIX}/employees`)
       .set('Cookie', hrCookie)
-      .send({ code: 'NV-001', fullName: 'Trùng Mã', joinDate: '2026-01-15' })
+      .send({ code: 'NV-001', fullName: 'Trùng Mã', phone: '0900000002', joinDate: '2026-01-15' })
       .expect(409);
   });
 
@@ -184,6 +185,7 @@ describe('Employee management (e2e)', () => {
         .send({
           code: `NV-00${i}`,
           fullName: `Nhân Viên ${i}`,
+          phone: `09000000${i}`,
           joinDate: '2026-02-01',
           status: i === 4 ? 'PROBATION' : 'ACTIVE',
         })
@@ -239,7 +241,7 @@ describe('Employee management (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`${PREFIX}/employees`)
       .set('Cookie', hrCookie)
-      .send({ code: 'NV-SELF', fullName: 'Chính Mình', joinDate: '2026-03-01' })
+      .send({ code: 'NV-SELF', fullName: 'Chính Mình', phone: '0900000099', joinDate: '2026-03-01' })
       .expect(201);
     await prisma.employee.update({
       where: { id: res.body.id },
@@ -268,7 +270,7 @@ describe('Employee management (e2e)', () => {
     // Login được trước khi terminate
     await request(app.getHttpServer())
       .post(`${PREFIX}/auth/login`)
-      .send({ email: invitedUser.email, password })
+      .send({ identifier: invitedUser.email, password })
       .expect(200);
 
     await request(app.getHttpServer())
@@ -285,7 +287,7 @@ describe('Employee management (e2e)', () => {
     // Login lại → bị chặn vì INACTIVE
     await request(app.getHttpServer())
       .post(`${PREFIX}/auth/login`)
-      .send({ email: invitedUser.email, password })
+      .send({ identifier: invitedUser.email, password })
       .expect(403);
   });
 

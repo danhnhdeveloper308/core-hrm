@@ -142,7 +142,7 @@ describe('Face + Location check-in (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .post(`${PREFIX}/auth/login`)
-      .send({ email: user.email, password })
+      .send({ identifier: user.email, password })
       .expect(200);
     empCookie = cookieOf(res);
   });

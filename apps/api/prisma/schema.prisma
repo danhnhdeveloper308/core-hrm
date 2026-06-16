@@ -27,8 +27,11 @@ enum VerificationType {
 
 model User {
   id              String     @id @default(uuid()) @db.Uuid
-  /// Luôn lưu lowercase — normalize ở zod schema trước khi vào DB
-  email           String     @unique
+  /// Luôn lưu lowercase — normalize ở zod schema trước khi vào DB.
+  /// Null với nhân viên không có email (đăng nhập bằng username = mã NV).
+  email           String?    @unique
+  /// Username đăng nhập = mã nhân viên (lowercase). Cho user không có email.
+  username        String?    @unique
   /// Null với user chỉ đăng nhập qua OAuth
   passwordHash    String?
   name            String
