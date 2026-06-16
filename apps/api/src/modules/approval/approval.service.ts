@@ -120,7 +120,7 @@ export class ApprovalService {
     });
 
     if (status === 'APPROVED') {
-      this.emitDecided(orgId, targetType, targetId, 'APPROVED');
+      await this.emitDecided(orgId, targetType, targetId, 'APPROVED');
     }
     return { instanceId: instance.id, status };
   }
@@ -209,7 +209,7 @@ export class ApprovalService {
     });
 
     if (newStatus === 'APPROVED' || newStatus === 'REJECTED') {
-      this.emitDecided(orgId, instance.targetType, instance.targetId, newStatus);
+      await this.emitDecided(orgId, instance.targetType, instance.targetId, newStatus);
     }
 
     return this.getInstance(orgId, instance.id);
@@ -281,13 +281,18 @@ export class ApprovalService {
     };
   }
 
-  private emitDecided(
+  /**
+   * Phát APPROVAL_DECIDED và CHỜ các listener (leave/attendance) chạy xong, để
+   * trạng thái đơn gốc (LeaveRequest…) nhất quán ngay khi response trả về —
+   * tránh cửa sổ race giữa instance=APPROVED và đơn gốc còn PENDING.
+   */
+  private async emitDecided(
     orgId: string,
     targetType: ApprovalTargetType,
     targetId: string,
     status: 'APPROVED' | 'REJECTED',
-  ): void {
+  ): Promise<void> {
     const event: ApprovalDecidedEvent = { orgId, targetType, targetId, status };
-    this.events.emit(APP_EVENTS.APPROVAL_DECIDED, event);
+    await this.events.emitAsync(APP_EVENTS.APPROVAL_DECIDED, event);
   }
 }
