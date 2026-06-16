@@ -1,4 +1,9 @@
-import type { AuditQuery, ListRolesQuery, ListUsersQuery } from '@repo/shared';
+import type {
+  AuditQuery,
+  ListLeaveRequestsQuery,
+  ListRolesQuery,
+  ListUsersQuery,
+} from '@repo/shared';
 
 /** Factory query keys tập trung — invalidate theo prefix, không gõ chuỗi tay. */
 export const queryKeys = {
@@ -53,5 +58,22 @@ export const queryKeys = {
     holidays: (calendarId: string) => ['org', 'holidays', calendarId] as const,
     shiftAssignments: (employeeId: string) =>
       ['org', 'shift-assignments', employeeId] as const,
+  },
+
+  leave: {
+    types: ['leave', 'types'] as const,
+    policies: ['leave', 'policies'] as const,
+    balanceMe: (year: number) => ['leave', 'balance', 'me', year] as const,
+    ledgerMe: (year: number) => ['leave', 'ledger', 'me', year] as const,
+    balanceOf: (employeeId: string, year: number) =>
+      ['leave', 'balance', employeeId, year] as const,
+    requests: (query: Partial<ListLeaveRequestsQuery>) =>
+      ['leave', 'requests', query] as const,
+  },
+
+  approval: {
+    flows: (targetType?: string) => ['approval', 'flows', targetType ?? 'all'] as const,
+    inbox: ['approval', 'inbox'] as const,
+    instance: (id: string) => ['approval', 'instance', id] as const,
   },
 } as const;
