@@ -1,8 +1,21 @@
 'use client';
 
-import { PERMISSIONS, type Paginated, type SessionResponse, type UserResponse } from '@repo/shared';
+import {
+  PERMISSIONS,
+  type AttendanceLogResponse,
+  type Paginated,
+  type SessionResponse,
+  type UserResponse,
+} from '@repo/shared';
 import { useQuery } from '@tanstack/react-query';
-import { MonitorSmartphone, ShieldCheck, Users } from 'lucide-react';
+import {
+  LogIn,
+  LogOut,
+  MonitorSmartphone,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
 import { PermissionGate } from '@/components/permission-gate';
 import {
   Card,
@@ -12,9 +25,78 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { useAuthStore } from '@/stores/auth-store';
+
+interface TodayResponse {
+  logs: AttendanceLogResponse[];
+  serverTime: string;
+}
+
+function timeStr(iso: string): string {
+  return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Trạng thái chấm công hôm nay + nút check-in/checkout nhanh. */
+function TodayCheckinCard() {
+  const { data, isError } = useQuery({
+    queryKey: ['attendance', 'me', 'today'],
+    queryFn: () => api.get<TodayResponse>('/attendance/me/today'),
+    retry: false,
+  });
+
+  // Tài khoản chưa gắn hồ sơ nhân viên → ẩn card
+  if (isError) return null;
+
+  const logs = data?.logs ?? [];
+  const last = logs[logs.length - 1];
+  const isWorking = last?.type === 'IN';
+
+  return (
+    <Card className={isWorking ? 'border-emerald-500/40' : undefined}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span
+            className={`size-2.5 rounded-full ${isWorking ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground/40'}`}
+          />
+          Chấm công hôm nay
+        </CardTitle>
+        <CardDescription>
+          {logs.length === 0
+            ? 'Bạn chưa chấm công hôm nay'
+            : isWorking
+              ? `Đang trong giờ làm — vào lúc ${timeStr(last.recordedAt)}`
+              : `Đã chấm RA lúc ${last ? timeStr(last.recordedAt) : ''}`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex items-center gap-2">
+        {isWorking ? (
+          <Button asChild className="bg-orange-600 hover:bg-orange-700">
+            <Link href="/checkin?action=OUT">
+              <LogOut className="size-4" /> Chấm công RA
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+            <Link href="/checkin?action=IN">
+              <LogIn className="size-4" /> Chấm công VÀO
+            </Link>
+          </Button>
+        )}
+        <Button asChild variant="outline">
+          <Link href="/dashboard/my-attendance">Xem lịch sử</Link>
+        </Button>
+        {logs.length > 0 && (
+          <span className="ml-auto text-sm text-muted-foreground">
+            {logs.length} lượt chấm hôm nay
+          </span>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function StatCard({
   title,
@@ -75,6 +157,8 @@ export default function DashboardPage() {
           Tổng quan tài khoản và hệ thống
         </p>
       </div>
+
+      <TodayCheckinCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

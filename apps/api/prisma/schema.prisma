@@ -424,6 +424,10 @@ model WorkShift {
   /// "HH:mm" — giờ địa phương theo timezone của org
   startTime        String
   endTime          String
+  /// Cửa sổ nghỉ trưa "HH:mm" — giờ công trừ phần giao với cửa sổ này.
+  /// Null = dùng breakMinutes (trừ cứng) làm fallback.
+  breakStart       String?
+  breakEnd         String?
   breakMinutes     Int      @default(60)
   lateGraceMinutes Int      @default(5)
   otEnabled        Boolean  @default(false)

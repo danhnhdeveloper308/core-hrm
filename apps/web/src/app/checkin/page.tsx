@@ -10,6 +10,7 @@ import { CameraCapture } from '@/components/checkin/camera-capture';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api, ApiError } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 
 interface TodayResponse {
   logs: AttendanceLogResponse[];
@@ -47,6 +48,15 @@ export default function CheckinPage() {
   const [clock, setClock] = useState('');
   const [coords, setCoords] = useState<GeolocationCoordinates | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  // null = theo gợi ý; user bấm toggle để chọn rõ Vào/Ra
+  const [override, setOverride] = useState<'IN' | 'OUT' | null>(null);
+
+  // Preset Vào/Ra từ query ?action= (vd nút checkout trên dashboard) — đọc URL 1 lần
+  useEffect(() => {
+    const action = new URLSearchParams(window.location.search).get('action');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (action === 'IN' || action === 'OUT') setOverride(action);
+  }, []);
 
   useEffect(() => {
     const tick = () =>
@@ -86,12 +96,14 @@ export default function CheckinPage() {
   }, [req?.requireLocation]);
 
   const lastType = data?.logs[data.logs.length - 1]?.type;
-  const nextType: 'IN' | 'OUT' = lastType === 'IN' ? 'OUT' : 'IN';
+  // Gợi ý loại kế tiếp nhưng user tự chọn (tách rõ Vào/Ra)
+  const suggestedType: 'IN' | 'OUT' = lastType === 'IN' ? 'OUT' : 'IN';
+  const activeType: 'IN' | 'OUT' = override ?? suggestedType;
 
   const check = useMutation({
-    mutationFn: (photo?: Blob) => {
+    mutationFn: ({ type, photo }: { type: 'IN' | 'OUT'; photo?: Blob }) => {
       const form = new FormData();
-      form.append('type', nextType);
+      form.append('type', type);
       if (coords) {
         form.append('lat', String(coords.latitude));
         form.append('lng', String(coords.longitude));
@@ -102,6 +114,7 @@ export default function CheckinPage() {
     },
     onSuccess: (log) => {
       toast.success(`Đã chấm công ${TYPE_LABEL[log.type]} lúc ${timeStr(log.recordedAt)}`);
+      setOverride(null); // theo gợi ý mới sau khi chấm
       void queryClient.invalidateQueries({ queryKey: ['attendance', 'me', 'today'] });
     },
     onError: (error) =>
@@ -169,19 +182,46 @@ export default function CheckinPage() {
         </div>
       )}
 
+      {/* Chọn rõ Vào / Ra (gợi ý sẵn theo lượt gần nhất) */}
+      <div className="flex w-64 overflow-hidden rounded-lg border">
+        {(['IN', 'OUT'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setOverride(t)}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-semibold transition-colors',
+              activeType === t
+                ? t === 'IN'
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-orange-500 text-white'
+                : 'bg-background text-muted-foreground hover:bg-accent',
+            )}
+          >
+            {t === 'IN' ? <LogIn className="size-4" /> : <LogOut className="size-4" />}
+            {t === 'IN' ? 'VÀO' : 'RA'}
+          </button>
+        ))}
+      </div>
+
       {req?.requireFace ? (
         <CameraCapture
           disabled={check.isPending || (req.requireLocation && !inRange)}
-          onCapture={(blob) => check.mutate(blob)}
+          onCapture={(blob) => check.mutate({ type: activeType, photo: blob })}
         />
       ) : (
         <Button
           size="lg"
-          className="h-20 w-64 text-lg"
+          className={cn(
+            'h-20 w-64 text-lg',
+            activeType === 'IN'
+              ? 'bg-emerald-600 hover:bg-emerald-700'
+              : 'bg-orange-600 hover:bg-orange-700',
+          )}
           disabled={check.isPending || (req?.requireLocation && !inRange)}
-          onClick={() => check.mutate(undefined)}
+          onClick={() => check.mutate({ type: activeType })}
         >
-          {nextType === 'IN' ? (
+          {activeType === 'IN' ? (
             <>
               <LogIn className="size-6" /> Chấm công VÀO
             </>

@@ -304,6 +304,8 @@ function ShiftFormDialog({
       name: '',
       startTime: '08:00',
       endTime: '17:00',
+      breakStart: '',
+      breakEnd: '',
       breakMinutes: 60,
       lateGraceMinutes: 5,
       otEnabled: false,
@@ -314,6 +316,8 @@ function ShiftFormDialog({
           name: target?.name ?? '',
           startTime: target?.startTime ?? '08:00',
           endTime: target?.endTime ?? '17:00',
+          breakStart: target?.breakStart ?? '',
+          breakEnd: target?.breakEnd ?? '',
           breakMinutes: target?.breakMinutes ?? 60,
           lateGraceMinutes: target?.lateGraceMinutes ?? 5,
           otEnabled: target?.otEnabled ?? false,
@@ -388,6 +392,48 @@ function ShiftFormDialog({
                 )}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="breakStart"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bắt đầu nghỉ trưa</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="breakEnd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kết thúc nghỉ trưa</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Đặt cửa sổ nghỉ trưa để giờ công trừ đúng phần giao. Bỏ trống thì dùng
+              &quot;nghỉ giữa ca (phút)&quot; trừ cứng.
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

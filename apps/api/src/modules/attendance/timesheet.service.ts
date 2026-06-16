@@ -60,7 +60,7 @@ export class TimesheetService {
     const { start, end } = localDayRangeUtc(date, timezone);
     const logs = await this.prisma.attendanceLog.findMany({
       where: { employeeId, recordedAt: { gte: start, lt: end } },
-      select: { recordedAt: true },
+      select: { recordedAt: true, type: true },
     });
 
     // Nghỉ phép (Phase 7 sẽ thay bằng truy vấn LeaveRequest APPROVED)
@@ -72,13 +72,15 @@ export class TimesheetService {
         ? {
             startTime: shift.startTime,
             endTime: shift.endTime,
+            breakStart: shift.breakStart,
+            breakEnd: shift.breakEnd,
             breakMinutes: shift.breakMinutes,
             lateGraceMinutes: shift.lateGraceMinutes,
             otEnabled: shift.otEnabled,
           }
         : null,
       day: dayInfo as DayClassification,
-      logTimes: logs.map((l) => l.recordedAt),
+      logs: logs.map((l) => ({ at: l.recordedAt, type: l.type })),
       leave,
       timezone,
       isPast: date < todayStr,

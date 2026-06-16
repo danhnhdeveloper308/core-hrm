@@ -18,6 +18,8 @@ export function toShiftResponse(s: WorkShift): WorkShiftResponse {
     name: s.name,
     startTime: s.startTime,
     endTime: s.endTime,
+    breakStart: s.breakStart,
+    breakEnd: s.breakEnd,
     breakMinutes: s.breakMinutes,
     lateGraceMinutes: s.lateGraceMinutes,
     otEnabled: s.otEnabled,

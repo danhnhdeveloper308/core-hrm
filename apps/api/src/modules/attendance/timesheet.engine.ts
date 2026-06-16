@@ -3,9 +3,17 @@ import type { TimesheetStatus } from '@repo/shared';
 export interface ShiftInfo {
   startTime: string; // "HH:mm"
   endTime: string;
+  /** Cửa sổ nghỉ trưa "HH:mm"; null → dùng breakMinutes trừ cứng. */
+  breakStart: string | null;
+  breakEnd: string | null;
   breakMinutes: number;
   lateGraceMinutes: number;
   otEnabled: boolean;
+}
+
+export interface AttendanceLogPoint {
+  at: Date;
+  type: 'IN' | 'OUT' | 'UNKNOWN';
 }
 
 export interface DayClassification {
@@ -17,8 +25,8 @@ export interface DayClassification {
 export interface TimesheetInput {
   shift: ShiftInfo | null;
   day: DayClassification;
-  /** recordedAt của các log trong ngày (local-day range), không cần sort sẵn. */
-  logTimes: Date[];
+  /** Các log trong ngày (local-day range), không cần sort sẵn. */
+  logs: AttendanceLogPoint[];
   /** Trạng thái nghỉ phép đã duyệt phủ ngày này (Phase 7 mới truyền). */
   leave: 'FULL' | 'HALF' | null;
   timezone: string;
@@ -85,6 +93,11 @@ function parseHHmm(value: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
+/** Độ dài giao nhau (phút) của 2 khoảng [a1,a2] và [b1,b2]. */
+function overlapMinutes(a1: number, a2: number, b1: number, b2: number): number {
+  return Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
+}
+
 /**
  * Tính TimesheetDay từ dữ liệu gốc — thuần, không I/O, dễ test.
  * Ưu tiên: nghỉ phép → ngày lễ → cuối tuần → chưa xếp ca → tính công.
@@ -100,9 +113,18 @@ export function computeTimesheet(input: TimesheetInput): TimesheetResult {
     otMinutes: 0,
   };
 
-  const sorted = [...input.logTimes].sort((a, b) => a.getTime() - b.getTime());
-  const firstIn = sorted[0] ?? null;
-  const lastOut = sorted.length > 1 ? sorted[sorted.length - 1]! : null;
+  const sorted = [...input.logs].sort((a, b) => a.at.getTime() - b.at.getTime());
+  // firstIn = lần VÀO sớm nhất; lastOut = lần RA muộn nhất.
+  // Không có log đúng loại → fallback theo thứ tự thời gian (vd UNKNOWN từ máy vân tay).
+  const ins = sorted.filter((l) => l.type === 'IN');
+  const outs = sorted.filter((l) => l.type === 'OUT');
+  const firstIn = (ins[0] ?? sorted[0])?.at ?? null;
+  const lastOut =
+    outs.length > 0
+      ? outs[outs.length - 1]!.at
+      : sorted.length > 1
+        ? sorted[sorted.length - 1]!.at
+        : null;
 
   if (input.leave === 'FULL') return { ...empty, status: 'ON_LEAVE', firstIn, lastOut };
   if (input.leave === 'HALF') return { ...empty, status: 'HALF_LEAVE', firstIn, lastOut };
@@ -139,11 +161,23 @@ export function computeTimesheet(input: TimesheetInput): TimesheetResult {
     const outMin = localMinutesOfDay(lastOut, input.timezone);
     earlyMinutes = Math.max(0, shiftEnd - outMin);
     otMinutes = input.shift.otEnabled ? Math.max(0, outMin - shiftEnd) : 0;
-    workMinutes = Math.max(
-      0,
-      Math.round((lastOut.getTime() - firstIn!.getTime()) / 60_000) -
-        input.shift.breakMinutes,
-    );
+
+    // Giờ công = phần [in,out] nằm TRONG ca, trừ phần giao với nghỉ trưa.
+    const workStart = Math.max(inMin, shiftStart);
+    const workEnd = Math.min(outMin, shiftEnd);
+    let span = Math.max(0, workEnd - workStart);
+    if (input.shift.breakStart && input.shift.breakEnd) {
+      span -= overlapMinutes(
+        workStart,
+        workEnd,
+        parseHHmm(input.shift.breakStart),
+        parseHHmm(input.shift.breakEnd),
+      );
+    } else {
+      // Không cấu hình cửa sổ → chỉ trừ cứng breakMinutes nếu làm đủ dài
+      span -= span > input.shift.breakMinutes ? input.shift.breakMinutes : 0;
+    }
+    workMinutes = Math.max(0, Math.round(span));
   }
 
   let status: TimesheetStatus;

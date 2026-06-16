@@ -10,6 +10,8 @@ export const workShiftSchema = z.object({
   name: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  breakStart: z.string().nullable(),
+  breakEnd: z.string().nullable(),
   breakMinutes: z.number().int(),
   lateGraceMinutes: z.number().int(),
   otEnabled: z.boolean(),
@@ -17,10 +19,13 @@ export const workShiftSchema = z.object({
 });
 export type WorkShiftResponse = z.infer<typeof workShiftSchema>;
 
-export const createWorkShiftSchema = z.object({
+const workShiftBaseSchema = z.object({
   name: z.string().trim().min(1).max(200),
   startTime: timeSchema,
   endTime: timeSchema,
+  /** Cửa sổ nghỉ trưa — để trống thì dùng breakMinutes (trừ cứng). */
+  breakStart: timeSchema.nullish(),
+  breakEnd: timeSchema.nullish(),
   breakMinutes: z.number().int().min(0).max(480).default(60),
   lateGraceMinutes: z.number().int().min(0).max(120).default(5),
   otEnabled: z.boolean().default(false),
@@ -30,10 +35,31 @@ export const createWorkShiftSchema = z.object({
     .min(1)
     .default([1, 2, 3, 4, 5]),
 });
-export type CreateWorkShiftInput = z.infer<typeof createWorkShiftSchema>;
 
-export const updateWorkShiftSchema = createWorkShiftSchema.partial();
-export type UpdateWorkShiftInput = z.infer<typeof updateWorkShiftSchema>;
+/** Cửa sổ nghỉ trưa: cần đủ cặp + bắt đầu trước kết thúc. */
+function validBreakWindow(v: {
+  breakStart?: string | null;
+  breakEnd?: string | null;
+}): boolean {
+  if (v.breakStart && !v.breakEnd) return false;
+  if (v.breakStart && v.breakEnd && v.breakStart >= v.breakEnd) return false;
+  return true;
+}
+const breakWindowMsg = {
+  message: 'Cần cặp giờ nghỉ trưa hợp lệ (bắt đầu trước kết thúc)',
+  path: ['breakEnd'],
+};
+
+export const createWorkShiftSchema = workShiftBaseSchema.refine(
+  validBreakWindow,
+  breakWindowMsg,
+);
+export type CreateWorkShiftInput = z.infer<typeof workShiftBaseSchema>;
+
+export const updateWorkShiftSchema = workShiftBaseSchema
+  .partial()
+  .refine(validBreakWindow, breakWindowMsg);
+export type UpdateWorkShiftInput = Partial<CreateWorkShiftInput>;
 
 /** Gán ca: đúng 1 trong employeeId (cá nhân) / orgUnitId (cả subtree). */
 export const assignShiftSchema = z
