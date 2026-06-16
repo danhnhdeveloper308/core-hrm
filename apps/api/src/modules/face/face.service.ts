@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ERROR_CODES } from '@repo/shared';
 import { addAuditMetadata } from '../../common/audit/audit-context';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -16,7 +16,9 @@ export interface VerifyResult {
 }
 
 @Injectable()
-export class FaceService {
+export class FaceService implements OnModuleInit {
+  private readonly logger = new Logger(FaceService.name);
+
   constructor(
     @Inject(FACE_ENGINE) private readonly engine: FaceEngine,
     private readonly prisma: PrismaService,
@@ -24,8 +26,22 @@ export class FaceService {
     private readonly config: AppConfigService,
   ) {}
 
-  private assertReady(): void {
-    if (!this.engine.isReady()) {
+  /** Warmup model nền lúc boot — lần enroll/verify đầu không phải chờ load. */
+  onModuleInit(): void {
+    if (process.env.NODE_ENV === 'test') return;
+    void this.engine
+      .ensureReady()
+      .then((ok) =>
+        ok
+          ? this.logger.log('Face engine warmup xong')
+          : this.logger.warn('Face engine chưa sẵn sàng (thiếu model?)'),
+      )
+      .catch((err) => this.logger.error(`Face warmup lỗi: ${(err as Error).message}`));
+  }
+
+  /** Trigger lazy-load + ném 503 nếu engine không sẵn sàng (thiếu model). */
+  private async assertReady(): Promise<void> {
+    if (!(await this.engine.ensureReady())) {
       throw new AppException(
         HttpStatus.SERVICE_UNAVAILABLE,
         'Tính năng nhận diện khuôn mặt chưa sẵn sàng (thiếu model)',
@@ -36,7 +52,7 @@ export class FaceService {
 
   /** Trích embedding + kiểm tra chất lượng cho 1 ảnh enroll. */
   async extractEmbedding(image: Buffer): Promise<number[]> {
-    this.assertReady();
+    await this.assertReady();
     const detection = await this.engine.detect(image);
     if (!detection) {
       throw new AppException(
@@ -127,7 +143,7 @@ export class FaceService {
     employeeId: string,
     image: Buffer,
   ): Promise<VerifyResult> {
-    this.assertReady();
+    await this.assertReady();
     const profile = await this.prisma.faceProfile.findUnique({
       where: { employeeId },
     });

@@ -16,7 +16,9 @@ export interface FaceDetection {
 export interface FaceEngine {
   /** null khi không phát hiện được khuôn mặt nào. */
   detect(image: Buffer): Promise<FaceDetection | null>;
-  /** false khi model chưa load được → endpoint face trả 503 rõ ràng. */
+  /** Trigger lazy-load nếu cần; false khi không load được model (thiếu file...). */
+  ensureReady(): Promise<boolean>;
+  /** Trạng thái hiện tại (không trigger load) — dùng cho healthcheck. */
   isReady(): boolean;
 }
 

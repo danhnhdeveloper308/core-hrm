@@ -32,6 +32,7 @@ const stubStorage = {
 /** Mock engine: embedding theo byte đầu, luôn live + 1 mặt + score cao. */
 const mockEngine: FaceEngine = {
   isReady: () => true,
+  ensureReady: () => Promise.resolve(true),
   detect: (image: Buffer) => {
     const tag = image[11]; // tag person sau header JFIF
     const embedding =

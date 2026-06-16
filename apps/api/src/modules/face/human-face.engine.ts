@@ -28,6 +28,11 @@ export class HumanFaceEngine implements FaceEngine {
     return this.ready;
   }
 
+  async ensureReady(): Promise<boolean> {
+    await this.ensureLoaded();
+    return this.ready;
+  }
+
   private async ensureLoaded(): Promise<void> {
     if (this.ready) return;
     this.initPromise ??= this.load();
