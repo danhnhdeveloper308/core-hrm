@@ -16,6 +16,11 @@ export interface FaceDetection {
 export interface FaceEngine {
   /** null khi không phát hiện được khuôn mặt nào. */
   detect(image: Buffer): Promise<FaceDetection | null>;
+  /**
+   * Độ tương đồng 2 embedding [0,1] theo metric của engine (Human tinh chỉnh
+   * cho descriptor faceres — phân biệt tốt hơn cosine thô). 1 = trùng khớp.
+   */
+  similarity(a: number[], b: number[]): number;
   /** Trigger lazy-load nếu cần; false khi không load được model (thiếu file...). */
   ensureReady(): Promise<boolean>;
   /** Trạng thái hiện tại (không trigger load) — dùng cho healthcheck. */

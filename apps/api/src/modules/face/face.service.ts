@@ -6,7 +6,6 @@ import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { FACE_ENGINE, type FaceEngine } from './face-engine';
-import { bestMatch } from './face.matching';
 
 export interface VerifyResult {
   matched: boolean;
@@ -171,8 +170,12 @@ export class FaceService implements OnModuleInit {
       );
     }
 
+    // Khớp 1:1 với từng embedding đã enroll, lấy điểm cao nhất (metric engine)
     const enrolled = profile.embeddings as number[][];
-    const score = bestMatch(detection.embedding, enrolled);
+    const score = enrolled.reduce(
+      (best, e) => Math.max(best, this.engine.similarity(detection.embedding, e)),
+      0,
+    );
     const matched = score >= this.config.face.matchThreshold;
 
     const date = new Date().toISOString().slice(0, 10);

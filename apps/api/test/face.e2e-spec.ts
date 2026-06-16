@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { FACE_ENGINE, type FaceEngine } from '../src/modules/face/face-engine';
+import { cosineSimilarity } from '../src/modules/face/face.matching';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { EmailQueueService } from '../src/queues/email.queue';
 import { StorageService } from '../src/storage/storage.service';
@@ -33,6 +34,7 @@ const stubStorage = {
 const mockEngine: FaceEngine = {
   isReady: () => true,
   ensureReady: () => Promise.resolve(true),
+  similarity: (a, b) => cosineSimilarity(a, b),
   detect: (image: Buffer) => {
     const tag = image[11]; // tag person sau header JFIF
     const embedding =

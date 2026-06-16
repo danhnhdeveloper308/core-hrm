@@ -33,6 +33,12 @@ export class HumanFaceEngine implements FaceEngine {
     return this.ready;
   }
 
+  /** Human match.similarity — tinh chỉnh cho descriptor faceres (tốt hơn cosine). */
+  similarity(a: number[], b: number[]): number {
+    if (!this.human?.match?.similarity || a.length === 0 || b.length === 0) return 0;
+    return this.human.match.similarity(a, b);
+  }
+
   private async ensureLoaded(): Promise<void> {
     if (this.ready) return;
     this.initPromise ??= this.load();

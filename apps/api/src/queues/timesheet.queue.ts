@@ -33,9 +33,9 @@ export class TimesheetQueueService {
 
   async enqueueRecalc(job: TimesheetRecalcJob): Promise<void> {
     try {
-      // jobId gộp các trigger trùng (employee, ngày) trong khoảng ngắn
+      // jobId gộp các trigger trùng (employee, ngày). BullMQ cấm ký tự ':'.
       await this.queue.add(TIMESHEET_RECALC_JOB, job, {
-        jobId: `${job.employeeId}:${job.date}`,
+        jobId: `recalc_${job.employeeId}_${job.date}`,
       });
     } catch (error) {
       this.logger.error(`Không đẩy được timesheet recalc job: ${String(error)}`);
