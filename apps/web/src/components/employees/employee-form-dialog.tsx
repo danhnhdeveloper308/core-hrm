@@ -11,6 +11,7 @@ import {
   type WorksiteResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { z } from 'zod';
@@ -41,6 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { api, ApiError } from '@/lib/api/client';
+import { orgUnitOptions } from '@/lib/org';
 import { queryKeys } from '@/lib/api/query-keys';
 
 const NONE = '__none__';
@@ -74,6 +76,8 @@ export function EmployeeFormDialog({
     queryFn: () => api.get<OrgUnitResponse[]>('/org-units'),
     enabled: open,
   });
+  // Nhãn breadcrumb theo cây để phân biệt phòng ban trùng tên giữa các nhánh
+  const unitOptions = useMemo(() => orgUnitOptions(units ?? []), [units]);
   const { data: positions } = useQuery({
     queryKey: queryKeys.org.positions,
     queryFn: () => api.get<PositionResponse[]>('/positions'),
@@ -253,35 +257,35 @@ export function EmployeeFormDialog({
                 )}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="orgUnitId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Đơn vị</FormLabel>
-                    <Select
-                      value={field.value ?? NONE}
-                      onValueChange={(v) => field.onChange(v === NONE ? null : v)}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={NONE}>—</SelectItem>
-                        {(units ?? []).map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="orgUnitId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Đơn vị (phòng ban theo cơ cấu)</FormLabel>
+                  <Select
+                    value={field.value ?? NONE}
+                    onValueChange={(v) => field.onChange(v === NONE ? null : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn đơn vị" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      {unitOptions.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="positionId"

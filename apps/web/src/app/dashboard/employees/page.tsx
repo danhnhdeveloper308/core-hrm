@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { orgUnitOptions } from '@/lib/org';
 
 const ALL = '__all__';
 const PAGE_SIZE = 50;
@@ -179,9 +180,9 @@ export default function EmployeesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Mọi đơn vị</SelectItem>
-            {(units ?? []).map((u) => (
+            {orgUnitOptions(units ?? []).map((u) => (
               <SelectItem key={u.id} value={u.id}>
-                {u.name}
+                {u.label}
               </SelectItem>
             ))}
           </SelectContent>

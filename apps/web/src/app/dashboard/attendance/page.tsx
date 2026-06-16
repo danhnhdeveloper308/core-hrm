@@ -44,6 +44,7 @@ import {
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { formatMinutes } from '@/lib/format';
+import { orgUnitOptions } from '@/lib/org';
 import { cn } from '@/lib/utils';
 
 const ALL = '__all__';
@@ -253,9 +254,9 @@ export default function AttendancePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Mọi đơn vị</SelectItem>
-              {(units ?? []).map((u) => (
+              {orgUnitOptions(units ?? []).map((u) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.name}
+                  {u.label}
                 </SelectItem>
               ))}
             </SelectContent>
