@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { formatMinutes } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 const ALL = '__all__';
@@ -456,23 +457,28 @@ export default function AttendancePage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Đi trễ</span>
-                  <span className="font-medium">{detail.day.lateMinutes} phút</span>
+                  <span className="font-medium">
+                    {formatMinutes(detail.day.lateMinutes)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Về sớm</span>
-                  <span className="font-medium">{detail.day.earlyMinutes} phút</span>
+                  <span className="font-medium">
+                    {formatMinutes(detail.day.earlyMinutes)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Giờ công</span>
                   <span className="font-medium">
-                    {Math.floor(detail.day.workMinutes / 60)}h{' '}
-                    {detail.day.workMinutes % 60}p
+                    {formatMinutes(detail.day.workMinutes)}
                   </span>
                 </div>
                 {detail.day.otMinutes > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tăng ca</span>
-                    <span className="font-medium">{detail.day.otMinutes} phút</span>
+                    <span className="font-medium">
+                      {formatMinutes(detail.day.otMinutes)}
+                    </span>
                   </div>
                 )}
                 {detail.day.note && (

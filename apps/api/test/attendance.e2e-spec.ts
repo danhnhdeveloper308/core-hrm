@@ -123,7 +123,12 @@ describe('Attendance + Timesheet (e2e)', () => {
     const cal = await prisma.holidayCalendar.create({ data: { orgId, name: 'Lễ VN' } });
     calendarId = cal.id;
     await prisma.holiday.create({
-      data: { calendarId, date: new Date(holiday), name: 'Nghỉ test' },
+      data: {
+        calendarId,
+        startDate: new Date(holiday),
+        endDate: new Date(holiday),
+        name: 'Nghỉ test',
+      },
     });
     await prisma.organization.update({
       where: { id: orgId },

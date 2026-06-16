@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { api } from '@/lib/api/client';
+import { formatMinutes } from '@/lib/format';
 
 interface MyAttendance {
   logs: AttendanceLogResponse[];
@@ -170,9 +171,9 @@ export default function MyAttendancePage() {
                     <TableCell className="tabular-nums">{timeStr(day.firstIn)}</TableCell>
                     <TableCell className="tabular-nums">{timeStr(day.lastOut)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {day.lateMinutes > 0 ? `trễ ${day.lateMinutes}p` : ''}
+                      {day.lateMinutes > 0 ? `trễ ${formatMinutes(day.lateMinutes)}` : ''}
                       {day.lateMinutes > 0 && day.earlyMinutes > 0 ? ' · ' : ''}
-                      {day.earlyMinutes > 0 ? `sớm ${day.earlyMinutes}p` : ''}
+                      {day.earlyMinutes > 0 ? `sớm ${formatMinutes(day.earlyMinutes)}` : ''}
                       {day.lateMinutes === 0 && day.earlyMinutes === 0 ? '—' : ''}
                     </TableCell>
                     <TableCell>{dayLogs.length}</TableCell>

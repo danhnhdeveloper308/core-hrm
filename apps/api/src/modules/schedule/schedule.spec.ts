@@ -184,15 +184,18 @@ describe('CalendarsService.isWorkingDay', () => {
         ),
       },
       holiday: {
-        findUnique: jest.fn(
+        // isWorkingDay dùng findFirst với điều kiện startDate<=d<=endDate
+        findFirst: jest.fn(
           ({
             where,
           }: {
-            where: { calendarId_date: { calendarId: string; date: Date } };
+            where: { calendarId: string; startDate: { lte: Date }; endDate: { gte: Date } };
           }) => {
-            const key = `${where.calendarId_date.calendarId}:${where.calendarId_date.date.toISOString().slice(0, 10)}`;
-            const h = overrides.holidays?.[key];
-            return Promise.resolve(h ? { name: h.name, isHalfDay: h.isHalfDay } : null);
+            const d = where.startDate.lte; // = where.endDate.gte = ngày đang xét
+            const list = overrides.holidays?.[where.calendarId] ?? [];
+            const day = d.toISOString().slice(0, 10);
+            const h = list.find((x) => x.start <= day && x.end >= day);
+            return Promise.resolve(h ? { name: h.name } : null);
           },
         ),
       },
@@ -200,19 +203,23 @@ describe('CalendarsService.isWorkingDay', () => {
     return new CalendarsService(prisma as unknown as PrismaService);
   }
 
-  it('ngày lễ cả ngày → HOLIDAY không làm việc; nửa ngày → HOLIDAY vẫn làm', async () => {
+  it('ngày trong kỳ nghỉ → HOLIDAY (cả ngày); ngoài kỳ → không', async () => {
     const service = makeService({
       orgCalendarId: 'cal-org',
       holidays: {
-        'cal-org:2026-09-02': { name: 'Quốc khánh', isHalfDay: false },
-        'cal-org:2026-12-31': { name: 'Tất niên', isHalfDay: true },
+        // nghỉ Tết kéo dài 7 ngày
+        'cal-org': [{ start: '2026-02-16', end: '2026-02-22', name: 'Tết' }],
       },
     });
-    const full = await service.isWorkingDay(ORG, null, '2026-09-02');
-    expect(full).toMatchObject({ working: false, dayType: 'HOLIDAY', isHalfDay: false });
-
-    const half = await service.isWorkingDay(ORG, null, '2026-12-31');
-    expect(half).toMatchObject({ working: true, dayType: 'HOLIDAY', isHalfDay: true });
+    const inRange = await service.isWorkingDay(ORG, null, '2026-02-18');
+    expect(inRange).toMatchObject({
+      working: false,
+      dayType: 'HOLIDAY',
+      holidayName: 'Tết',
+    });
+    // Ngoài kỳ nghỉ (vẫn ngày thường trong tuần) → WORKING
+    const outRange = await service.isWorkingDay(ORG, null, '2026-02-25', [1, 2, 3, 4, 5, 6, 7]);
+    expect(outRange.dayType).toBe('WORKING');
   });
 
   it('cuối tuần theo workDays: ca 6 ngày làm Thứ 7, ca 5 ngày nghỉ', async () => {
@@ -237,7 +244,9 @@ describe('CalendarsService.isWorkingDay', () => {
       unitCalendars: { root: null, factory: 'cal-factory', team: null },
       orgCalendarId: 'cal-org',
       holidays: {
-        'cal-factory:2026-07-01': { name: 'Nghỉ bảo trì nhà máy', isHalfDay: false },
+        'cal-factory': [
+          { start: '2026-07-01', end: '2026-07-01', name: 'Nghỉ bảo trì nhà máy' },
+        ],
       },
     });
     // Unit trong subtree nhà máy → dính lễ riêng

@@ -24,7 +24,6 @@ const shift: ShiftInfo = {
 const workingDay: DayClassification = {
   working: true,
   dayType: 'WORKING',
-  isHalfDay: false,
 };
 
 /** Tạo Date UTC tương ứng giờ local VN (YYYY-MM-DD + HH:mm, +07). */
@@ -115,7 +114,7 @@ describe('computeTimesheet', () => {
   it('ngày lễ cả ngày → HOLIDAY', () => {
     const r = computeTimesheet({
       ...base,
-      day: { working: false, dayType: 'HOLIDAY', isHalfDay: false },
+      day: { working: false, dayType: 'HOLIDAY' },
       logs: [],
     });
     expect(r.status).toBe('HOLIDAY');
@@ -124,7 +123,7 @@ describe('computeTimesheet', () => {
   it('cuối tuần → WEEKEND', () => {
     const r = computeTimesheet({
       ...base,
-      day: { working: false, dayType: 'WEEKEND', isHalfDay: false },
+      day: { working: false, dayType: 'WEEKEND' },
       logs: [],
     });
     expect(r.status).toBe('WEEKEND');

@@ -28,3 +28,13 @@ export function initials(name: string): string {
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
 }
+
+/** Phút → "1h 30p" / "45p" / "0p" — cho hiển thị trễ/sớm/giờ công. */
+export function formatMinutes(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0p';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}p`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}p`;
+}
