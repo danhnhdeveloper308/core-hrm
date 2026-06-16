@@ -1,15 +1,41 @@
 'use client';
 
-import type {
-  AttendanceLogResponse,
-  TimesheetDayResponse,
-  TimesheetStatus,
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  requestCorrectionSchema,
+  type AttendanceLogResponse,
+  type CorrectionRequestResponse,
+  type RequestCorrectionInput,
+  type TimesheetDayResponse,
+  type TimesheetStatus,
 } from '@repo/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ClipboardEdit, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import type { z } from 'zod';
+import { AttachmentPicker } from '@/components/attachments/attachment-picker';
 import { FadeIn } from '@/components/motion/primitives';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,8 +47,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { api } from '@/lib/api/client';
+import { uploadAttachments } from '@/lib/api/attachments';
+import { api, ApiError } from '@/lib/api/client';
 import { formatMinutes } from '@/lib/format';
+
+const CORRECTION_STATUS: Record<
+  string,
+  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+> = {
+  PENDING: { label: 'Chờ duyệt', variant: 'secondary' },
+  APPROVED: { label: 'Đã duyệt', variant: 'default' },
+  REJECTED: { label: 'Từ chối', variant: 'destructive' },
+  CANCELLED: { label: 'Đã huỷ', variant: 'outline' },
+};
 
 interface MyAttendance {
   logs: AttendanceLogResponse[];
@@ -55,6 +92,7 @@ function timeStr(iso: string | null): string {
 
 export default function MyAttendancePage() {
   const now = new Date();
+  const [correctionOpen, setCorrectionOpen] = useState(false);
   const [month, setMonth] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
   );
@@ -66,6 +104,12 @@ export default function MyAttendancePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['attendance', 'me', { from, to }],
     queryFn: () => api.get<MyAttendance>(`/attendance/me?from=${from}&to=${to}`),
+  });
+
+  const { data: corrections } = useQuery({
+    queryKey: ['attendance', 'corrections', 'mine'],
+    queryFn: () =>
+      api.get<CorrectionRequestResponse[]>('/attendance/corrections/mine'),
   });
 
   const logsByDate = useMemo(() => {
@@ -93,9 +137,14 @@ export default function MyAttendancePage() {
 
   return (
     <FadeIn className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Chấm công của tôi</h1>
-        <p className="text-muted-foreground">Lịch sử chấm công và bảng công cá nhân</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Chấm công của tôi</h1>
+          <p className="text-muted-foreground">Lịch sử chấm công và bảng công cá nhân</p>
+        </div>
+        <Button variant="outline" onClick={() => setCorrectionOpen(true)}>
+          <ClipboardEdit className="size-4" /> Xin sửa công
+        </Button>
       </div>
 
       <div className="flex items-end gap-3">
@@ -184,6 +233,191 @@ export default function MyAttendancePage() {
           </TableBody>
         </Table>
       </div>
+
+      {(corrections ?? []).length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold">Đơn sửa công của tôi</h2>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ngày</TableHead>
+                  <TableHead>Giờ vào xin</TableHead>
+                  <TableHead>Giờ ra xin</TableHead>
+                  <TableHead>Lý do</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(corrections ?? []).map((c) => {
+                  const meta = CORRECTION_STATUS[c.status] ?? CORRECTION_STATUS.PENDING!;
+                  return (
+                    <TableRow key={c.id}>
+                      <TableCell>{c.date.slice(0, 10)}</TableCell>
+                      <TableCell className="tabular-nums">{timeStr(c.requestedIn)}</TableCell>
+                      <TableCell className="tabular-nums">{timeStr(c.requestedOut)}</TableCell>
+                      <TableCell className="max-w-48 truncate" title={c.reason}>
+                        {c.reason}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      <CorrectionRequestDialog
+        open={correctionOpen}
+        onClose={() => setCorrectionOpen(false)}
+      />
     </FadeIn>
+  );
+}
+
+// ===== Dialog xin sửa công =====
+
+function CorrectionRequestDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [files, setFiles] = useState<File[]>([]);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const form = useForm<
+    z.input<typeof requestCorrectionSchema>,
+    unknown,
+    RequestCorrectionInput
+  >({
+    resolver: zodResolver(requestCorrectionSchema),
+    defaultValues: { date: today, requestedIn: '', requestedOut: '', reason: '' },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (values: RequestCorrectionInput) => {
+      const created = await api.post<{ id: string }>(
+        '/attendance/corrections/request',
+        values,
+      );
+      if (files.length > 0) {
+        await uploadAttachments('ATTENDANCE_CORRECTION', created.id, files);
+      }
+      return created;
+    },
+    onSuccess: () => {
+      toast.success('Đã gửi yêu cầu sửa công — chờ duyệt');
+      void queryClient.invalidateQueries({ queryKey: ['attendance', 'corrections', 'mine'] });
+      form.reset();
+      setFiles([]);
+      onClose();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Gửi yêu cầu thất bại'),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Xin sửa công</DialogTitle>
+          <DialogDescription>
+            Đề xuất giờ vào/ra đúng cho 1 ngày — áp dụng sau khi được duyệt.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ngày</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="requestedIn"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Giờ vào (tuỳ chọn)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="requestedOut"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Giờ ra (tuỳ chọn)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lý do</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: Quên chấm công ra" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <AttachmentPicker
+              files={files}
+              onChange={setFiles}
+              label="Minh chứng (ảnh/PDF, không bắt buộc)"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                Gửi yêu cầu
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

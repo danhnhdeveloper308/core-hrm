@@ -147,3 +147,33 @@ export const createCorrectionSchema = z
     message: 'Cần ít nhất giờ vào hoặc giờ ra',
   });
 export type CreateCorrectionInput = z.infer<typeof createCorrectionSchema>;
+
+/** Nhân viên TỰ xin sửa công cho chính mình (qua luồng duyệt). */
+export const requestCorrectionSchema = z
+  .object({
+    date: dateOnlySchema,
+    requestedIn: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .nullish(),
+    requestedOut: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .nullish(),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .refine((v) => v.requestedIn || v.requestedOut, {
+    message: 'Cần ít nhất giờ vào hoặc giờ ra',
+  });
+export type RequestCorrectionInput = z.infer<typeof requestCorrectionSchema>;
+
+export const correctionRequestResponseSchema = z.object({
+  id: z.uuid(),
+  date: z.string(),
+  requestedIn: z.string().nullable(),
+  requestedOut: z.string().nullable(),
+  reason: z.string(),
+  status: correctionStatusSchema,
+  createdAt: z.string(),
+});
+export type CorrectionRequestResponse = z.infer<typeof correctionRequestResponseSchema>;

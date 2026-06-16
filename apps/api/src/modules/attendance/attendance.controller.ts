@@ -31,6 +31,7 @@ import {
   CreateCorrectionDto,
   EditTimesheetDto,
   OrgAttendanceQueryDto,
+  RequestCorrectionDto,
   ResetDayDto,
 } from './dto/attendance.dto';
 
@@ -118,6 +119,30 @@ export class AttendanceController {
     @Body() dto: CreateCorrectionDto,
   ) {
     return this.attendance.createCorrection(orgId, actor, dto);
+  }
+
+  @Post('corrections/request')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @Audit('attendance.correction_request')
+  @ApiOperation({ summary: 'Nhân viên TỰ xin sửa công (qua luồng duyệt)' })
+  @ApiOkResponse({ description: '{ id }' })
+  requestCorrection(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Body() dto: RequestCorrectionDto,
+  ) {
+    return this.attendance.requestCorrection(orgId, actor, dto);
+  }
+
+  @Get('corrections/mine')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @ApiOperation({ summary: 'Đơn sửa công của tôi + trạng thái duyệt' })
+  @ApiOkResponse({ description: 'CorrectionRequestResponse[]' })
+  myCorrections(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+  ) {
+    return this.attendance.listMyCorrections(orgId, actor.sub);
   }
 
   @Post('timesheet/recalc')

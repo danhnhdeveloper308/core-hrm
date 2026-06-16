@@ -3,6 +3,8 @@
 import {
   type ApprovalInstanceResponse,
   type ApprovalStepState,
+  type ApprovalTargetType,
+  type AttachmentTargetType,
   type DecideApprovalInput,
   type LeaveRequestResponse,
 } from '@repo/shared';
@@ -48,6 +50,14 @@ import {
   fmtDateTime,
   fmtDays,
 } from '../leave/shared';
+
+/** Map loại đơn → loại đối tượng đính kèm (để hiển thị giấy tờ cho người duyệt). */
+function attachmentTargetFor(t: ApprovalTargetType): AttachmentTargetType | null {
+  if (t === 'LEAVE') return 'LEAVE_REQUEST';
+  if (t === 'ATTENDANCE_CORRECTION') return 'ATTENDANCE_CORRECTION';
+  if (t === 'OT') return 'OT_REQUEST';
+  return null;
+}
 
 export default function ApprovalsPage() {
   return (
@@ -129,25 +139,21 @@ function InboxTab() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {leave ? (
-                  <div className="rounded-md bg-muted/40 p-2 text-sm">
-                    <div className="font-medium">{leave.leaveTypeName}</div>
-                    <div className="text-muted-foreground">
-                      {fmtDate(leave.startDate)}
-                      {leave.endDate !== leave.startDate && ` → ${fmtDate(leave.endDate)}`}
-                      {' · '}
-                      {fmtDays(leave.totalDays)} ngày
-                    </div>
+                <div className="rounded-md bg-muted/40 p-2 text-sm">
+                  <div className="font-medium">{inst.summary ?? '—'}</div>
+                  {leave?.reason && (
                     <div className="text-muted-foreground">Lý do: {leave.reason}</div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
+                  )}
+                  <div className="text-xs text-muted-foreground">
                     Gửi lúc {fmtDateTime(inst.createdAt)}
-                  </p>
-                )}
+                  </div>
+                </div>
 
-                {inst.targetType === 'LEAVE' && (
-                  <AttachmentList targetType="LEAVE_REQUEST" targetId={inst.targetId} />
+                {attachmentTargetFor(inst.targetType) && (
+                  <AttachmentList
+                    targetType={attachmentTargetFor(inst.targetType)!}
+                    targetId={inst.targetId}
+                  />
                 )}
 
                 <ApprovalChain steps={inst.steps} currentStep={inst.currentStep} />
@@ -397,8 +403,14 @@ function InstanceDetailDialog({
                 {APPROVAL_STATUS_LABELS[instance.status]}
               </Badge>
             </div>
-            {instance.targetType === 'LEAVE' && (
-              <AttachmentList targetType="LEAVE_REQUEST" targetId={instance.targetId} />
+            {instance.summary && (
+              <p className="text-sm font-medium">{instance.summary}</p>
+            )}
+            {attachmentTargetFor(instance.targetType) && (
+              <AttachmentList
+                targetType={attachmentTargetFor(instance.targetType)!}
+                targetId={instance.targetId}
+              />
             )}
             <ApprovalChain steps={instance.steps} currentStep={instance.currentStep} />
           </div>

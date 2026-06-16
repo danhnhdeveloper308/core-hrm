@@ -246,11 +246,18 @@ export class LeaveService {
     });
 
     // Tạo luồng duyệt (resolve theo vị trí requester trên cây)
-    await this.approval.createInstance(orgId, 'LEAVE', request.id, employee.id, {
-      totalDays,
-      leaveTypeCode: leaveType.code,
-      paid: leaveType.paid,
-    });
+    const rangeLabel =
+      input.startDate === input.endDate
+        ? input.startDate
+        : `${input.startDate} → ${input.endDate}`;
+    await this.approval.createInstance(
+      orgId,
+      'LEAVE',
+      request.id,
+      employee.id,
+      { totalDays, leaveTypeCode: leaveType.code, paid: leaveType.paid },
+      `${leaveType.name}: ${rangeLabel} (${totalDays} ngày)`,
+    );
 
     addAuditMetadata({ after: { leaveType: leaveType.code, totalDays, ...input } });
     return this.toRequestResponse(request.id);

@@ -120,6 +120,8 @@ export const approvalInstanceSchema = z.object({
   targetType: approvalTargetTypeSchema,
   targetId: z.uuid(),
   requesterName: z.string(),
+  /** Mô tả ngắn nội dung đơn để hiển thị trong inbox (mọi loại). */
+  summary: z.string().nullable(),
   currentStep: z.number().int(),
   status: approvalStatusSchema,
   steps: z.array(approvalStepStateSchema),

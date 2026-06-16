@@ -1,22 +1,30 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import {
   ERROR_CODES,
   type AttendanceLogResponse,
   type AttendanceSource,
   type AttendanceType,
   type CheckInInput,
+  type CorrectionRequestResponse,
   type CreateCorrectionInput,
   type OrgAttendanceQuery,
+  type RequestCorrectionInput,
   type TimesheetDayResponse,
   type TimesheetGridRow,
 } from '@repo/shared';
 import { addAuditMetadata } from '../../common/audit/audit-context';
+import {
+  APP_EVENTS,
+  type ApprovalDecidedEvent,
+} from '../../common/events/app.events';
 import type { AccessTokenPayload } from '../../common/decorators/current-user.decorator';
 import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AttendanceLog } from '../../prisma/prisma.types';
 import { TimesheetQueueService } from '../../queues/timesheet.queue';
+import { ApprovalService } from '../approval/approval.service';
 import { FaceService } from '../face/face.service';
 import { EmployeesService } from '../employees/employees.service';
 import { haversineMeters } from '../face/face.matching';
@@ -66,6 +74,7 @@ export class AttendanceService {
     private readonly employees: EmployeesService,
     private readonly timesheet: TimesheetService,
     private readonly face: FaceService,
+    private readonly approval: ApprovalService,
   ) {}
 
   /**
@@ -478,28 +487,7 @@ export class AttendanceService {
       },
     });
 
-    if (correction.requestedIn) {
-      await this.createLog({
-        orgId,
-        employeeId: input.employeeId,
-        recordedAt: correction.requestedIn,
-        type: 'IN',
-        source: 'MANUAL',
-        note: `Sửa công: ${input.reason}`,
-        createdById: actor.sub,
-      });
-    }
-    if (correction.requestedOut) {
-      await this.createLog({
-        orgId,
-        employeeId: input.employeeId,
-        recordedAt: correction.requestedOut,
-        type: 'OUT',
-        source: 'MANUAL',
-        note: `Sửa công: ${input.reason}`,
-        createdById: actor.sub,
-      });
-    }
+    await this.applyCorrection(correction, actor.sub);
 
     addAuditMetadata({
       after: {
@@ -511,8 +499,6 @@ export class AttendanceService {
       },
     });
 
-    // recalc đồng bộ để trả timesheet mới nhất ngay (worker queue cũng chạy idempotent)
-    await this.timesheet.recalc(orgId, input.employeeId, input.date);
     const updated = await this.prisma.timesheetDay.findUniqueOrThrow({
       where: {
         employeeId_date: {
@@ -522,6 +508,141 @@ export class AttendanceService {
       },
     });
     return toTimesheetResponse(updated);
+  }
+
+  /**
+   * Áp 1 correction vào bảng công: tạo log IN/OUT thủ công rồi recalc ngày đó.
+   * Dùng chung cho HR sửa trực tiếp và correction được DUYỆT qua luồng.
+   */
+  private async applyCorrection(
+    correction: {
+      orgId: string;
+      employeeId: string;
+      date: Date;
+      requestedIn: Date | null;
+      requestedOut: Date | null;
+      reason: string;
+    },
+    actorId: string | null,
+  ): Promise<void> {
+    if (correction.requestedIn) {
+      await this.createLog({
+        orgId: correction.orgId,
+        employeeId: correction.employeeId,
+        recordedAt: correction.requestedIn,
+        type: 'IN',
+        source: 'MANUAL',
+        note: `Sửa công: ${correction.reason}`,
+        createdById: actorId,
+      });
+    }
+    if (correction.requestedOut) {
+      await this.createLog({
+        orgId: correction.orgId,
+        employeeId: correction.employeeId,
+        recordedAt: correction.requestedOut,
+        type: 'OUT',
+        source: 'MANUAL',
+        note: `Sửa công: ${correction.reason}`,
+        createdById: actorId,
+      });
+    }
+    // recalc đồng bộ (worker queue cũng chạy idempotent)
+    await this.timesheet.recalc(
+      correction.orgId,
+      correction.employeeId,
+      correction.date.toISOString().slice(0, 10),
+    );
+  }
+
+  /**
+   * Nhân viên TỰ xin sửa công → tạo correction PENDING + luồng duyệt. Áp dụng
+   * bảng công chỉ khi được DUYỆT (onApprovalDecided). Trả id để đính kèm file.
+   */
+  async requestCorrection(
+    orgId: string,
+    actor: AccessTokenPayload,
+    input: RequestCorrectionInput,
+  ): Promise<{ id: string }> {
+    const employee = await this.requireOwnEmployee(orgId, actor.sub);
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: { timezone: true },
+    });
+    const correction = await this.prisma.attendanceCorrection.create({
+      data: {
+        orgId,
+        employeeId: employee.id,
+        date: new Date(input.date),
+        requestedIn: input.requestedIn
+          ? this.localTimeToUtc(input.date, input.requestedIn, org.timezone)
+          : null,
+        requestedOut: input.requestedOut
+          ? this.localTimeToUtc(input.date, input.requestedOut, org.timezone)
+          : null,
+        reason: input.reason,
+        status: 'PENDING',
+        createdById: actor.sub,
+      },
+    });
+    const parts = [
+      input.requestedIn ? `vào ${input.requestedIn}` : null,
+      input.requestedOut ? `ra ${input.requestedOut}` : null,
+    ].filter(Boolean);
+    await this.approval.createInstance(
+      orgId,
+      'ATTENDANCE_CORRECTION',
+      correction.id,
+      employee.id,
+      {},
+      `Sửa công ${input.date}: ${parts.join(', ')}`,
+    );
+    addAuditMetadata({ after: { date: input.date, reason: input.reason } });
+    return { id: correction.id };
+  }
+
+  /** Danh sách đơn sửa công của chính actor. */
+  async listMyCorrections(
+    orgId: string,
+    userId: string,
+  ): Promise<CorrectionRequestResponse[]> {
+    const employee = await this.requireOwnEmployee(orgId, userId);
+    const rows = await this.prisma.attendanceCorrection.findMany({
+      where: { orgId, employeeId: employee.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      date: c.date.toISOString(),
+      requestedIn: c.requestedIn?.toISOString() ?? null,
+      requestedOut: c.requestedOut?.toISOString() ?? null,
+      reason: c.reason,
+      status: c.status,
+      createdAt: c.createdAt.toISOString(),
+    }));
+  }
+
+  /** Correction được duyệt/từ chối → áp bảng công hoặc đánh dấu từ chối. */
+  @OnEvent(APP_EVENTS.APPROVAL_DECIDED)
+  async onCorrectionDecided(event: ApprovalDecidedEvent): Promise<void> {
+    if (event.targetType !== 'ATTENDANCE_CORRECTION') return;
+    const correction = await this.prisma.attendanceCorrection.findFirst({
+      where: { id: event.targetId, orgId: event.orgId },
+    });
+    if (!correction || correction.status !== 'PENDING') return;
+
+    if (event.status === 'REJECTED') {
+      await this.prisma.attendanceCorrection.update({
+        where: { id: correction.id },
+        data: { status: 'REJECTED' },
+      });
+      return;
+    }
+    await this.prisma.attendanceCorrection.update({
+      where: { id: correction.id },
+      data: { status: 'APPROVED' },
+    });
+    await this.applyCorrection(correction, correction.createdById);
   }
 
   // ===== helpers =====

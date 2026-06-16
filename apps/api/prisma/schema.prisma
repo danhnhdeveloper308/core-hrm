@@ -845,6 +845,8 @@ model ApprovalInstance {
   flowId              String?            @db.Uuid
   /// Employee tạo đơn
   requesterEmpId      String             @db.Uuid
+  /// Mô tả ngắn để người duyệt thấy nội dung đơn (loại bất kỳ) trong inbox
+  summary             String?
   currentStep         Int                @default(0)
   status              ApprovalStatus     @default(PENDING)
   /// Snapshot các bước đã resolve approvers tại thời điểm submit

@@ -57,6 +57,7 @@ export class ApprovalService {
     targetId: string,
     requesterEmpId: string,
     ctx: ConditionContext,
+    summary?: string,
   ): Promise<{ instanceId: string; status: 'PENDING' | 'APPROVED' }> {
     const flows = await this.prisma.approvalFlow.findMany({
       where: { orgId, targetType, active: true },
@@ -113,6 +114,7 @@ export class ApprovalService {
         targetId,
         flowId: flow.id,
         requesterEmpId,
+        summary: summary ?? null,
         currentStep: firstActive?.order ?? 0,
         status,
         stepsSnapshot: snapshot as unknown as Prisma.InputJsonValue,
@@ -287,6 +289,7 @@ export class ApprovalService {
     targetType: ApprovalTargetType;
     targetId: string;
     requesterEmpId: string;
+    summary: string | null;
     currentStep: number;
     status: string;
     stepsSnapshot: unknown;
@@ -301,6 +304,7 @@ export class ApprovalService {
       targetType: instance.targetType,
       targetId: instance.targetId,
       requesterName: requester?.fullName ?? '—',
+      summary: instance.summary,
       currentStep: instance.currentStep,
       status: instance.status as ApprovalInstanceResponse['status'],
       steps: instance.stepsSnapshot as unknown as ApprovalStepState[],
