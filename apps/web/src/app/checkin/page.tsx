@@ -128,18 +128,31 @@ export default function CheckinPage() {
         </p>
       </div>
 
-      {req?.requireLocation && (
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="size-4 text-muted-foreground" />
-          {geoError ? (
-            <span className="text-destructive">{geoError}</span>
-          ) : dist != null ? (
-            <span className={inRange ? 'text-green-600' : 'text-destructive'}>
-              Cách {req.worksiteName} {dist}m{' '}
-              {inRange ? '(trong phạm vi)' : `(vượt ${req.radiusM}m)`}
+      {req && (
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
+          {req.worksiteName ? (
+            <span className="text-muted-foreground">
+              Địa điểm: <span className="font-medium">{req.worksiteName}</span>
+              {req.requireFace && ' · yêu cầu khuôn mặt'}
             </span>
           ) : (
-            <span className="text-muted-foreground">Đang lấy vị trí…</span>
+            <span className="rounded-md bg-amber-500/10 px-2 py-1 text-amber-600">
+              Bạn chưa được gán địa điểm làm việc — chấm công không yêu cầu xác thực
+            </span>
+          )}
+          {req.requireLocation && (
+            <span className="flex items-center gap-1">
+              <MapPin className="size-4 text-muted-foreground" />
+              {geoError ? (
+                <span className="text-destructive">{geoError}</span>
+              ) : dist != null ? (
+                <span className={inRange ? 'text-green-600' : 'text-destructive'}>
+                  Cách {dist}m {inRange ? '(trong phạm vi)' : `(vượt ${req.radiusM}m)`}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Đang lấy vị trí…</span>
+              )}
+            </span>
           )}
         </div>
       )}
