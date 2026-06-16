@@ -116,11 +116,17 @@ export function EmployeeDetailSheet({
     <Sheet open={employeeId !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {isLoading || !data ? (
-          <div className="space-y-4 p-4">
-            <Skeleton className="h-16 w-16 rounded-full" />
-            <Skeleton className="h-6 w-2/3" />
-            <Skeleton className="h-40 w-full" />
-          </div>
+          <>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Chi tiết nhân viên</SheetTitle>
+              <SheetDescription>Đang tải hồ sơ…</SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 p-4">
+              <Skeleton className="h-16 w-16 rounded-full" />
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          </>
         ) : (
           <>
             <SheetHeader>

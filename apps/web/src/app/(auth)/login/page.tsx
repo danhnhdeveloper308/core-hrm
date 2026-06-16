@@ -69,18 +69,21 @@ function LoginForm() {
 
   async function finishLogin() {
     await hydrate();
-    // Có đích tường minh (proxy chặn rồi quay lại) → tôn trọng
-    if (explicitNext?.startsWith('/')) {
-      router.replace(explicitNext);
-      return;
-    }
-    // Login chủ động: nhân viên hiện trường (không có quyền quản lý) → thẳng /checkin
+    // Nhân viên hiện trường (không có quyền quản lý) → mặc định vào /checkin
     const user = useAuthStore.getState().user;
     const isFieldEmployee =
       user?.orgId != null &&
       !user.permissions.includes('employee:read') &&
       !user.permissions.includes('attendance:read_all');
-    router.replace(isFieldEmployee ? '/checkin' : '/dashboard');
+    const home = isFieldEmployee ? '/checkin' : '/dashboard';
+
+    // Tôn trọng đích cụ thể proxy lưu lại, TRỪ '/dashboard' chung chung
+    // (để nhân viên bị bounce từ /dashboard vẫn về /checkin)
+    if (explicitNext?.startsWith('/') && explicitNext !== '/dashboard') {
+      router.replace(explicitNext);
+      return;
+    }
+    router.replace(home);
   }
 
   async function onSubmit(values: LoginInput) {

@@ -2,16 +2,23 @@
 
 import {
   type OrgUnitResponse,
+  type TimesheetDayResponse,
   type TimesheetGridRow,
   type TimesheetStatus,
 } from '@repo/shared';
 import { useQuery } from '@tanstack/react-query';
-import type { ColDef, ICellRendererParams } from 'ag-grid-community';
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { DataGrid } from '@/components/data-grid';
-import { FadeIn } from '@/components/motion/primitives';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { CountUp, FadeIn } from '@/components/motion/primitives';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -19,36 +26,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { cn } from '@/lib/utils';
 
 const ALL = '__all__';
 const WEEKDAY_VN = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
-/** Mã trạng thái ngắn + màu cell (HSL nền nhạt) cho lưới công. */
-const STATUS_META: Record<TimesheetStatus, { label: string; bg: string; fg: string }> = {
-  PRESENT: { label: 'P', bg: 'rgba(34,197,94,0.18)', fg: '#15803d' },
-  LATE: { label: 'L', bg: 'rgba(234,179,8,0.20)', fg: '#a16207' },
-  EARLY_LEAVE: { label: 'E', bg: 'rgba(249,115,22,0.18)', fg: '#c2410c' },
-  LATE_AND_EARLY: { label: 'LE', bg: 'rgba(249,115,22,0.22)', fg: '#9a3412' },
-  ABSENT: { label: 'V', bg: 'rgba(239,68,68,0.20)', fg: '#b91c1c' },
-  ON_LEAVE: { label: 'N', bg: 'rgba(59,130,246,0.18)', fg: '#1d4ed8' },
-  HALF_LEAVE: { label: 'N½', bg: 'rgba(59,130,246,0.12)', fg: '#2563eb' },
-  HOLIDAY: { label: 'LE', bg: 'rgba(168,85,247,0.16)', fg: '#7e22ce' },
-  WEEKEND: { label: 'T7', bg: 'rgba(148,163,184,0.15)', fg: '#64748b' },
-  NOT_SCHEDULED: { label: '–', bg: 'transparent', fg: '#94a3b8' },
+/** Mã ngắn + class màu (nền + chữ) cho từng trạng thái — tông hiện đại, dark-mode ok. */
+const STATUS_META: Record<
+  TimesheetStatus,
+  { label: string; cell: string; dot: string; full: string }
+> = {
+  PRESENT: { label: 'P', cell: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500', full: 'Đủ công' },
+  LATE: { label: 'L', cell: 'bg-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500', full: 'Đi trễ' },
+  EARLY_LEAVE: { label: 'S', cell: 'bg-orange-500/15 text-orange-600 dark:text-orange-400', dot: 'bg-orange-500', full: 'Về sớm' },
+  LATE_AND_EARLY: { label: 'LS', cell: 'bg-orange-500/25 text-orange-700 dark:text-orange-300', dot: 'bg-orange-600', full: 'Trễ + về sớm' },
+  ABSENT: { label: 'V', cell: 'bg-red-500/15 text-red-600 dark:text-red-400', dot: 'bg-red-500', full: 'Vắng' },
+  ON_LEAVE: { label: 'N', cell: 'bg-blue-500/15 text-blue-600 dark:text-blue-400', dot: 'bg-blue-500', full: 'Nghỉ phép' },
+  HALF_LEAVE: { label: 'N½', cell: 'bg-blue-500/10 text-blue-500 dark:text-blue-300', dot: 'bg-blue-400', full: 'Nghỉ nửa ngày' },
+  HOLIDAY: { label: 'Lễ', cell: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', dot: 'bg-violet-500', full: 'Nghỉ lễ' },
+  WEEKEND: { label: '', cell: 'bg-muted/40 text-muted-foreground', dot: 'bg-slate-400', full: 'Cuối tuần' },
+  NOT_SCHEDULED: { label: '·', cell: 'text-muted-foreground/40', dot: 'bg-slate-300', full: 'Chưa xếp ca' },
 };
+
+const PRESENT_SET = ['PRESENT', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY'];
 
 function monthDays(year: number, month: number): string[] {
   const days: string[] = [];
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   for (let d = 1; d <= last; d++) {
-    days.push(
-      `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-    );
+    days.push(`${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
   }
   return days;
+}
+
+function timeStr(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function AttendancePage() {
@@ -57,11 +72,17 @@ export default function AttendancePage() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
   );
   const [orgUnitId, setOrgUnitId] = useState(ALL);
+  const [detail, setDetail] = useState<{
+    name: string;
+    date: string;
+    day: TimesheetDayResponse;
+  } | null>(null);
 
   const [year, monthNum] = month.split('-').map(Number) as [number, number];
   const days = useMemo(() => monthDays(year, monthNum), [year, monthNum]);
   const from = days[0] ?? `${month}-01`;
   const to = days[days.length - 1] ?? `${month}-28`;
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const { data: units } = useQuery({
     queryKey: queryKeys.org.units,
@@ -77,128 +98,82 @@ export default function AttendancePage() {
     },
   });
 
-  const columnDefs = useMemo<ColDef<TimesheetGridRow>[]>(() => {
-    const cols: ColDef<TimesheetGridRow>[] = [
-      {
-        field: 'employeeName',
-        headerName: 'Nhân viên',
-        pinned: 'left',
-        width: 190,
-        cellRenderer: (p: ICellRendererParams<TimesheetGridRow>) =>
-          p.data ? (
-            <div className="leading-tight">
-              <div className="font-medium">{p.data.employeeName}</div>
-              <div className="text-xs text-muted-foreground">
-                {p.data.employeeCode}
-                {p.data.orgUnitName ? ` · ${p.data.orgUnitName}` : ''}
-              </div>
-            </div>
-          ) : null,
-      },
-    ];
-    for (const date of days) {
-      const dayNum = Number(date.slice(8, 10));
-      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
-      const isWeekend = weekday === 0 || weekday === 6;
-      cols.push({
-        colId: date,
-        headerName: `${dayNum}`,
-        headerTooltip: `Ngày ${dayNum} (${WEEKDAY_VN[weekday]})`,
-        width: 44,
-        sortable: false,
-        headerClass: isWeekend ? 'ag-weekend-header' : '',
-        valueGetter: (p) => p.data?.days[date]?.status ?? '',
-        cellStyle: isWeekend ? { backgroundColor: 'rgba(148,163,184,0.06)' } : undefined,
-        cellRenderer: (p: ICellRendererParams<TimesheetGridRow>) => {
-          const day = p.data?.days[date];
-          if (!day) return '';
-          const meta = STATUS_META[day.status];
-          const tip =
-            day.lateMinutes || day.earlyMinutes
-              ? `${meta.label}: trễ ${day.lateMinutes}p, sớm ${day.earlyMinutes}p`
-              : meta.label;
-          return (
-            <div
-              className="m-0.5 flex h-[calc(100%-4px)] items-center justify-center rounded text-xs font-semibold"
-              style={{ backgroundColor: meta.bg, color: meta.fg }}
-              title={tip}
-            >
-              {meta.label}
-            </div>
-          );
-        },
-      });
-    }
-    // Cột tổng cuối: công / trễ / vắng
-    cols.push(
-      {
-        colId: 'totalPresent',
-        headerName: 'Công',
-        width: 64,
-        pinned: 'right',
-        cellClass: 'text-center font-semibold text-green-600',
-        valueGetter: (p) =>
-          Object.values(p.data?.days ?? {}).filter((d) =>
-            ['PRESENT', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY'].includes(d.status),
-          ).length,
-      },
-      {
-        colId: 'totalLate',
-        headerName: 'Trễ',
-        width: 56,
-        pinned: 'right',
-        cellClass: 'text-center text-amber-600',
-        valueGetter: (p) =>
-          Object.values(p.data?.days ?? {}).filter((d) => d.lateMinutes > 0).length,
-      },
-      {
-        colId: 'totalAbsent',
-        headerName: 'Vắng',
-        width: 60,
-        pinned: 'right',
-        cellClass: 'text-center text-destructive',
-        valueGetter: (p) =>
-          Object.values(p.data?.days ?? {}).filter((d) => d.status === 'ABSENT')
-            .length,
-      },
-    );
-    return cols;
-  }, [days]);
+  const rows = useMemo(() => data ?? [], [data]);
 
-  const legend: { status: TimesheetStatus; text: string }[] = [
-    { status: 'PRESENT', text: 'Đủ công' },
-    { status: 'LATE', text: 'Đi trễ' },
-    { status: 'EARLY_LEAVE', text: 'Về sớm' },
-    { status: 'ABSENT', text: 'Vắng' },
-    { status: 'ON_LEAVE', text: 'Nghỉ phép' },
-    { status: 'HOLIDAY', text: 'Nghỉ lễ' },
-    { status: 'WEEKEND', text: 'Cuối tuần' },
+  // Tổng hợp toàn bảng cho cards trên cùng
+  const totals = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+    for (const r of rows) {
+      for (const d of Object.values(r.days)) {
+        if (PRESENT_SET.includes(d.status)) present++;
+        if (d.lateMinutes > 0) late++;
+        if (d.status === 'ABSENT') absent++;
+      }
+    }
+    return { employees: rows.length, present, late, absent };
+  }, [rows]);
+
+  function rowSummary(row: TimesheetGridRow) {
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+    for (const d of Object.values(row.days)) {
+      if (PRESENT_SET.includes(d.status)) present++;
+      if (d.lateMinutes > 0) late++;
+      if (d.status === 'ABSENT') absent++;
+    }
+    return { present, late, absent };
+  }
+
+  function shiftMonth(delta: number) {
+    const d = new Date(Date.UTC(year, monthNum - 1 + delta, 1));
+    setMonth(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
+    );
+  }
+
+  const legend: TimesheetStatus[] = [
+    'PRESENT',
+    'LATE',
+    'EARLY_LEAVE',
+    'ABSENT',
+    'ON_LEAVE',
+    'HOLIDAY',
+    'WEEKEND',
   ];
 
   return (
     <FadeIn className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Bảng công tháng</h1>
-        <p className="text-muted-foreground">
-          Mỗi ô = trạng thái 1 ngày. Di chuột để xem chi tiết trễ/sớm.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Tháng</Label>
-          <Input
-            type="month"
-            className="w-40"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Bảng công tháng</h1>
+          <p className="text-muted-foreground">
+            Toàn bộ ngày trong tháng · click ô để xem chi tiết
+          </p>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Đơn vị</Label>
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded-md border p-2 hover:bg-accent"
+            onClick={() => shiftMonth(-1)}
+            aria-label="Tháng trước"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="min-w-28 text-center font-semibold tabular-nums">
+            Tháng {monthNum}/{year}
+          </span>
+          <button
+            className="rounded-md border p-2 hover:bg-accent"
+            onClick={() => shiftMonth(1)}
+            aria-label="Tháng sau"
+          >
+            <ChevronRight className="size-4" />
+          </button>
           <Select value={orgUnitId} onValueChange={setOrgUnitId}>
-            <SelectTrigger className="w-52">
-              <SelectValue />
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Đơn vị" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Mọi đơn vị</SelectItem>
@@ -212,41 +187,202 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Chú giải màu */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        {legend.map((l) => {
-          const meta = STATUS_META[l.status];
-          return (
-            <span key={l.status} className="flex items-center gap-1.5">
-              <span
-                className="inline-flex size-5 items-center justify-center rounded text-[10px] font-semibold"
-                style={{ backgroundColor: meta.bg, color: meta.fg }}
-              >
-                {meta.label}
-              </span>
-              {l.text}
-            </span>
-          );
-        })}
+      {/* Cards tổng hợp tháng */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Nhân viên', value: totals.employees, cls: '', icon: true },
+          { label: 'Lượt đủ công', value: totals.present, cls: 'text-emerald-600' },
+          { label: 'Lượt đi trễ', value: totals.late, cls: 'text-amber-600' },
+          { label: 'Lượt vắng', value: totals.absent, cls: 'text-red-600' },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardContent className="flex items-center gap-3 p-4">
+              {s.icon && (
+                <div className="flex size-9 items-center justify-center rounded-full bg-primary/10">
+                  <Users className="size-4 text-primary" />
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className={cn('text-2xl font-bold', s.cls)}>
+                  <CountUp value={s.value} />
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* Chú giải */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        {legend.map((st) => (
+          <span key={st} className="flex items-center gap-1.5">
+            <span className={cn('size-2.5 rounded-full', STATUS_META[st].dot)} />
+            {STATUS_META[st].full}
+          </span>
+        ))}
+      </div>
+
+      {/* Lưới calendar */}
       {isLoading ? (
-        <Skeleton className="h-[560px] w-full" />
-      ) : (data ?? []).length === 0 ? (
-        <div className="rounded-md border py-16 text-center text-muted-foreground">
+        <Skeleton className="h-130 w-full" />
+      ) : rows.length === 0 ? (
+        <div className="rounded-lg border py-16 text-center text-muted-foreground">
           Không có nhân viên nào trong phạm vi xem
         </div>
       ) : (
-        <DataGrid<TimesheetGridRow>
-          containerClassName="h-[600px]"
-          rowData={data ?? []}
-          columnDefs={columnDefs}
-          defaultColDef={{ resizable: false, suppressMovable: true }}
-          headerHeight={34}
-          rowHeight={40}
-          tooltipShowDelay={300}
-        />
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 w-48 min-w-48 border-b bg-card px-3 py-2 text-left font-semibold">
+                  Nhân viên
+                </th>
+                {days.map((date) => {
+                  const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
+                  const isWeekend = wd === 0 || wd === 6;
+                  const isToday = date === todayStr;
+                  return (
+                    <th
+                      key={date}
+                      className={cn(
+                        'border-b border-l px-0 py-1 text-center text-xs font-medium',
+                        isWeekend && 'bg-muted/40',
+                        isToday && 'bg-primary/10',
+                      )}
+                      style={{ minWidth: 34 }}
+                    >
+                      <div className={cn(isToday && 'font-bold text-primary')}>
+                        {Number(date.slice(8))}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {WEEKDAY_VN[wd]}
+                      </div>
+                    </th>
+                  );
+                })}
+                <th className="sticky right-0 z-20 border-b border-l bg-card px-2 py-2 text-center font-semibold">
+                  Tổng
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const sum = rowSummary(row);
+                return (
+                  <tr key={row.employeeId} className="group">
+                    <td className="sticky left-0 z-10 border-b bg-card px-3 py-1.5 group-hover:bg-accent/40">
+                      <div className="font-medium leading-tight">{row.employeeName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.employeeCode}
+                        {row.orgUnitName ? ` · ${row.orgUnitName}` : ''}
+                      </div>
+                    </td>
+                    {days.map((date) => {
+                      const day = row.days[date];
+                      const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
+                      const isWeekend = wd === 0 || wd === 6;
+                      const meta = day ? STATUS_META[day.status] : null;
+                      return (
+                        <td
+                          key={date}
+                          className={cn(
+                            'border-b border-l p-0.5 text-center',
+                            isWeekend && 'bg-muted/20',
+                          )}
+                        >
+                          {day && meta ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDetail({ name: row.employeeName, date, day })
+                              }
+                              title={`${meta.full}${day.lateMinutes ? ` · trễ ${day.lateMinutes}p` : ''}${day.earlyMinutes ? ` · sớm ${day.earlyMinutes}p` : ''}`}
+                              className={cn(
+                                'flex h-7 w-full items-center justify-center rounded text-[11px] font-semibold transition-transform hover:scale-110',
+                                meta.cell,
+                              )}
+                            >
+                              {meta.label}
+                            </button>
+                          ) : (
+                            <span className="block h-7" />
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="sticky right-0 z-10 border-b border-l bg-card px-2 py-1.5 group-hover:bg-accent/40">
+                      <div className="flex items-center justify-center gap-1.5 text-xs font-semibold tabular-nums">
+                        <span className="text-emerald-600" title="Đủ công">
+                          {sum.present}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-amber-600" title="Trễ">
+                          {sum.late}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-red-600" title="Vắng">
+                          {sum.absent}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {/* Dialog chi tiết 1 ngày */}
+      <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{detail?.name}</DialogTitle>
+            <DialogDescription>
+              {detail?.date} ·{' '}
+              {detail ? STATUS_META[detail.day.status].full : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Giờ vào</span>
+                <span className="font-medium tabular-nums">
+                  {timeStr(detail.day.firstIn)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Giờ ra</span>
+                <span className="font-medium tabular-nums">
+                  {timeStr(detail.day.lastOut)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Đi trễ</span>
+                <span className="font-medium">{detail.day.lateMinutes} phút</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Về sớm</span>
+                <span className="font-medium">{detail.day.earlyMinutes} phút</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Giờ công</span>
+                <span className="font-medium">
+                  {Math.floor(detail.day.workMinutes / 60)}h{' '}
+                  {detail.day.workMinutes % 60}p
+                </span>
+              </div>
+              {detail.day.otMinutes > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tăng ca</span>
+                  <span className="font-medium">{detail.day.otMinutes} phút</span>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </FadeIn>
   );
 }
