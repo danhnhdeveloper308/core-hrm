@@ -229,6 +229,7 @@ function TypeFormDialog({
           code: target?.code ?? '',
           paid: target?.paid ?? true,
           color: target?.color ?? '#3b82f6',
+          requiresDocument: target?.requiresDocument ?? false,
         }
       : undefined,
   });
@@ -311,6 +312,24 @@ function TypeFormDialog({
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="requiresDocument"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="!mt-0">
+                    Cần giấy tờ đính kèm (bệnh, thai sản…) — form đăng ký sẽ hiện ô tải file
+                  </FormLabel>
+                </FormItem>
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Loại phép <b>không lương</b> sẽ không cần cấu hình chính sách (nghỉ không
+              giới hạn, không trừ số dư).
+            </p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
                 Huỷ
@@ -538,11 +557,13 @@ function PolicyFormDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {(types ?? []).map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
+                        {(types ?? [])
+                          .filter((t) => t.paid)
+                          .map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -248,6 +248,7 @@ model Organization {
   leaveRequests         LeaveRequest[]
   approvalFlows         ApprovalFlow[]
   approvalInstances     ApprovalInstance[]
+  attachments           Attachment[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -676,6 +677,8 @@ model LeaveType {
   code      String
   paid      Boolean  @default(true)
   color     String   @default("#3b82f6")
+  /// Loại phép cần đính kèm giấy tờ (bệnh, thai sản…) — gợi ý ô upload khi đăng ký
+  requiresDocument Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -865,4 +868,30 @@ model ApprovalAction {
   instance ApprovalInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
   @@index([instanceId])
+}
+
+/// Loại đối tượng mà file đính kèm gắn vào (đa hình theo targetId).
+enum AttachmentTargetType {
+  LEAVE_REQUEST
+  ATTENDANCE_CORRECTION
+  OT_REQUEST
+}
+
+/// File đính kèm chung (ảnh/PDF) cho đơn từ — giấy tờ bệnh, minh chứng công…
+/// Lưu key trên object storage; FE đọc qua signed URL.
+model Attachment {
+  id          String               @id @default(uuid()) @db.Uuid
+  orgId       String               @db.Uuid
+  targetType  AttachmentTargetType
+  targetId    String               @db.Uuid
+  key         String
+  fileName    String
+  contentType String
+  size        Int
+  uploadedById String?             @db.Uuid
+  createdAt   DateTime             @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, targetType, targetId])
 }

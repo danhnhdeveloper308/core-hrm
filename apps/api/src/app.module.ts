@@ -20,6 +20,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ApprovalModule } from './modules/approval/approval.module';
+import { AttachmentModule } from './modules/attachment/attachment.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { FaceModule } from './modules/face/face.module';
 import { LeaveModule } from './modules/leave/leave.module';
@@ -72,6 +73,7 @@ import { StorageModule } from './storage/storage.module';
     AttendanceModule,
     FaceModule,
     ApprovalModule,
+    AttachmentModule,
     LeaveModule,
     GatewaysModule,
   ],

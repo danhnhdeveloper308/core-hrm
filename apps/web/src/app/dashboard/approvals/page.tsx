@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AttachmentList } from '@/components/attachments/attachment-list';
 import { FadeIn } from '@/components/motion/primitives';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -139,6 +140,10 @@ function InboxTab() {
                   <p className="text-xs text-muted-foreground">
                     Gửi lúc {fmtDateTime(inst.createdAt)}
                   </p>
+                )}
+
+                {inst.targetType === 'LEAVE' && (
+                  <AttachmentList targetType="LEAVE_REQUEST" targetId={inst.targetId} />
                 )}
 
                 <ApprovalChain steps={inst.steps} currentStep={inst.currentStep} />
@@ -339,6 +344,9 @@ function InstanceDetailDialog({
                 {APPROVAL_STATUS_LABELS[instance.status]}
               </Badge>
             </div>
+            {instance.targetType === 'LEAVE' && (
+              <AttachmentList targetType="LEAVE_REQUEST" targetId={instance.targetId} />
+            )}
             <ApprovalChain steps={instance.steps} currentStep={instance.currentStep} />
           </div>
         )}

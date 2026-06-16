@@ -16,7 +16,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { accrualMonths, monthlyAccrual, yearlyQuota } from './leave.engine';
 
 function toTypeResponse(t: LeaveType): LeaveTypeResponse {
-  return { id: t.id, name: t.name, code: t.code, paid: t.paid, color: t.color };
+  return {
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    paid: t.paid,
+    color: t.color,
+    requiresDocument: t.requiresDocument,
+  };
 }
 
 @Injectable()

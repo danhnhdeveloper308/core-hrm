@@ -8,6 +8,7 @@ import type {
   ApprovalFlowModel,
   ApprovalFlowStepModel,
   ApprovalInstanceModel,
+  AttachmentModel,
   AttendanceCorrectionModel,
   AttendanceLogModel,
   AuditLogModel,
@@ -74,6 +75,7 @@ export type ApprovalFlow = ApprovalFlowModel;
 export type ApprovalFlowStep = ApprovalFlowStepModel;
 export type ApprovalInstance = ApprovalInstanceModel;
 export type ApprovalAction = ApprovalActionModel;
+export type Attachment = AttachmentModel;
 
 export {
   UserStatus,

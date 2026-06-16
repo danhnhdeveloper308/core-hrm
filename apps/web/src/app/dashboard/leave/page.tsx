@@ -53,7 +53,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AttachmentPicker } from '@/components/attachments/attachment-picker';
 import { api, ApiError } from '@/lib/api/client';
+import { uploadAttachments } from '@/lib/api/attachments';
 import { queryKeys } from '@/lib/api/query-keys';
 import {
   HALF_LABELS,
@@ -325,6 +327,7 @@ function RequestFormDialog({
 }) {
   const queryClient = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
+  const [files, setFiles] = useState<File[]>([]);
 
   const { data: types } = useQuery({
     queryKey: queryKeys.leave.types,
@@ -349,12 +352,18 @@ function RequestFormDialog({
   });
 
   const mutation = useMutation({
-    mutationFn: (values: CreateLeaveRequestInput) =>
-      api.post<LeaveRequestResponse>('/leave/requests', values),
+    mutationFn: async (values: CreateLeaveRequestInput) => {
+      const created = await api.post<LeaveRequestResponse>('/leave/requests', values);
+      if (files.length > 0) {
+        await uploadAttachments('LEAVE_REQUEST', created.id, files);
+      }
+      return created;
+    },
     onSuccess: () => {
       toast.success('Đã gửi đơn nghỉ — chờ duyệt');
       void queryClient.invalidateQueries({ queryKey: ['leave'] });
       form.reset();
+      setFiles([]);
       onClose();
     },
     onError: (error) =>
@@ -364,6 +373,8 @@ function RequestFormDialog({
   const startDate = form.watch('startDate');
   const endDate = form.watch('endDate');
   const sameDay = startDate === endDate;
+  const selectedTypeId = form.watch('leaveTypeId');
+  const selectedType = (types ?? []).find((t) => t.id === selectedTypeId);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -494,6 +505,9 @@ function RequestFormDialog({
                 </FormItem>
               )}
             />
+            {selectedType?.requiresDocument && (
+              <AttachmentPicker files={files} onChange={setFiles} />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
                 Huỷ

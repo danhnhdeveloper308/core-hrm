@@ -40,6 +40,7 @@ export const leaveTypeSchema = z.object({
   code: z.string(),
   paid: z.boolean(),
   color: z.string(),
+  requiresDocument: z.boolean(),
 });
 export type LeaveTypeResponse = z.infer<typeof leaveTypeSchema>;
 
@@ -48,6 +49,8 @@ export const createLeaveTypeSchema = z.object({
   code: codeSchema,
   paid: z.boolean().default(true),
   color: z.string().trim().default('#3b82f6'),
+  /** Loại phép cần giấy tờ (bệnh/thai sản) → form đăng ký hiện ô đính kèm. */
+  requiresDocument: z.boolean().default(false),
 });
 export type CreateLeaveTypeInput = z.infer<typeof createLeaveTypeSchema>;
 

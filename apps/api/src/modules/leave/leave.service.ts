@@ -46,7 +46,8 @@ export class LeaveService {
     employeeId: string,
     year: number,
   ): Promise<LeaveBalanceResponse[]> {
-    const types = await this.prisma.leaveType.findMany({ where: { orgId } });
+    // Chỉ phép CÓ lương mới có khái niệm số dư; phép không lương là không giới hạn.
+    const types = await this.prisma.leaveType.findMany({ where: { orgId, paid: true } });
     const entries = await this.prisma.leaveBalanceEntry.findMany({
       where: { orgId, employeeId, year },
     });
@@ -160,8 +161,11 @@ export class LeaveService {
     if (!leaveType) {
       throw new AppException(HttpStatus.NOT_FOUND, 'Loại phép không tồn tại', ERROR_CODES.NOT_FOUND);
     }
-    const policy = await this.resolvePolicy(orgId, input.leaveTypeId, employee.orgUnitId);
-    if (!policy) {
+    // Phép KHÔNG lương: không giới hạn, không cần chính sách/số dư.
+    const policy = leaveType.paid
+      ? await this.resolvePolicy(orgId, input.leaveTypeId, employee.orgUnitId)
+      : null;
+    if (leaveType.paid && !policy) {
       throw new AppException(
         HttpStatus.BAD_REQUEST,
         'Chưa cấu hình chính sách cho loại phép này',
@@ -211,8 +215,8 @@ export class LeaveService {
       );
     }
 
-    // Đủ số dư khả dụng (trừ khi policy cho phép âm)
-    if (!policy.allowNegativeBalance) {
+    // Đủ số dư khả dụng (chỉ phép có lương; trừ khi policy cho phép âm)
+    if (leaveType.paid && policy && !policy.allowNegativeBalance) {
       const year = new Date(input.startDate).getUTCFullYear();
       const balances = await this.getBalance(orgId, employee.id, year);
       const bal = balances.find((b) => b.leaveTypeId === input.leaveTypeId);
@@ -364,25 +368,37 @@ export class LeaveService {
       return;
     }
 
-    // APPROVED: trừ phép (USAGE âm) + recalc các ngày → ON_LEAVE/HALF_LEAVE
-    await this.prisma.$transaction([
-      this.prisma.leaveRequest.update({
+    // APPROVED: phép CÓ lương mới trừ số dư (USAGE âm); phép không lương chỉ đổi
+    // trạng thái. Luôn recalc các ngày → ON_LEAVE/HALF_LEAVE.
+    const leaveType = await this.prisma.leaveType.findUnique({
+      where: { id: request.leaveTypeId },
+      select: { paid: true },
+    });
+    if (leaveType?.paid) {
+      await this.prisma.$transaction([
+        this.prisma.leaveRequest.update({
+          where: { id: request.id },
+          data: { status: 'APPROVED' },
+        }),
+        this.prisma.leaveBalanceEntry.create({
+          data: {
+            orgId: request.orgId,
+            employeeId: request.employeeId,
+            leaveTypeId: request.leaveTypeId,
+            year: request.startDate.getUTCFullYear(),
+            amount: -Number(request.totalDays),
+            type: 'USAGE',
+            reason: `Đơn nghỉ ${request.id}`,
+            requestId: request.id,
+          },
+        }),
+      ]);
+    } else {
+      await this.prisma.leaveRequest.update({
         where: { id: request.id },
         data: { status: 'APPROVED' },
-      }),
-      this.prisma.leaveBalanceEntry.create({
-        data: {
-          orgId: request.orgId,
-          employeeId: request.employeeId,
-          leaveTypeId: request.leaveTypeId,
-          year: request.startDate.getUTCFullYear(),
-          amount: -Number(request.totalDays),
-          type: 'USAGE',
-          reason: `Đơn nghỉ ${request.id}`,
-          requestId: request.id,
-        },
-      }),
-    ]);
+      });
+    }
     await this.recalcRange(request.orgId, request.employeeId, request.startDate, request.endDate);
   }
 

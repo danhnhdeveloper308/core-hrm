@@ -19,6 +19,7 @@ export * from './schemas/shift';
 export * from './schemas/attendance';
 export * from './schemas/leave';
 export * from './schemas/approval';
+export * from './schemas/attachment';
 
 export * from './types/api';
 export * from './types/socket';
