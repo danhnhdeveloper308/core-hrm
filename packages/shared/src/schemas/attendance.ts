@@ -177,3 +177,37 @@ export const correctionRequestResponseSchema = z.object({
   createdAt: z.string(),
 });
 export type CorrectionRequestResponse = z.infer<typeof correctionRequestResponseSchema>;
+
+// ===== Tăng ca / dời giờ (OT) =====
+
+export const otRequestTypeSchema = z.enum(['OVERTIME', 'SHIFT_SHIFT']);
+export type OtRequestType = z.infer<typeof otRequestTypeSchema>;
+
+const otHhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ dạng HH:mm');
+
+export const createOtRequestSchema = z
+  .object({
+    type: otRequestTypeSchema,
+    date: dateOnlySchema,
+    /** OVERTIME: khung giờ làm thêm; SHIFT_SHIFT: giờ vào/ra mới (giữ ca). */
+    startTime: otHhmm,
+    endTime: otHhmm,
+    reason: z.string().trim().min(1).max(500),
+  })
+  .refine((v) => v.startTime < v.endTime, {
+    message: 'Giờ kết thúc phải sau giờ bắt đầu',
+    path: ['endTime'],
+  });
+export type CreateOtRequestInput = z.infer<typeof createOtRequestSchema>;
+
+export const otRequestResponseSchema = z.object({
+  id: z.uuid(),
+  type: otRequestTypeSchema,
+  date: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  reason: z.string(),
+  status: correctionStatusSchema,
+  createdAt: z.string(),
+});
+export type OtRequestResponse = z.infer<typeof otRequestResponseSchema>;

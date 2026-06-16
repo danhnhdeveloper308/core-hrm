@@ -2,6 +2,7 @@ import {
   attendanceRangeQuerySchema,
   checkInSchema,
   createCorrectionSchema,
+  createOtRequestSchema,
   editTimesheetSchema,
   orgAttendanceQuerySchema,
   requestCorrectionSchema,
@@ -14,5 +15,6 @@ export class AttendanceRangeQueryDto extends createZodDto(attendanceRangeQuerySc
 export class OrgAttendanceQueryDto extends createZodDto(orgAttendanceQuerySchema) {}
 export class CreateCorrectionDto extends createZodDto(createCorrectionSchema) {}
 export class RequestCorrectionDto extends createZodDto(requestCorrectionSchema) {}
+export class CreateOtRequestDto extends createZodDto(createOtRequestSchema) {}
 export class EditTimesheetDto extends createZodDto(editTimesheetSchema) {}
 export class ResetDayDto extends createZodDto(resetDaySchema) {}

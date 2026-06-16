@@ -10,6 +10,7 @@ import type {
   ApprovalInstanceModel,
   AttachmentModel,
   AttendanceCorrectionModel,
+  OtRequestModel,
   AttendanceLogModel,
   AuditLogModel,
   DeviceModel,
@@ -76,6 +77,7 @@ export type ApprovalFlowStep = ApprovalFlowStepModel;
 export type ApprovalInstance = ApprovalInstanceModel;
 export type ApprovalAction = ApprovalActionModel;
 export type Attachment = AttachmentModel;
+export type OtRequest = OtRequestModel;
 
 export {
   UserStatus,

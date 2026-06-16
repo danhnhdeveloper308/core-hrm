@@ -2,15 +2,18 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  createOtRequestSchema,
   requestCorrectionSchema,
   type AttendanceLogResponse,
   type CorrectionRequestResponse,
+  type CreateOtRequestInput,
+  type OtRequestResponse,
   type RequestCorrectionInput,
   type TimesheetDayResponse,
   type TimesheetStatus,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardEdit, Loader2 } from 'lucide-react';
+import { ClipboardEdit, Clock4, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -38,6 +41,13 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -93,6 +103,7 @@ function timeStr(iso: string | null): string {
 export default function MyAttendancePage() {
   const now = new Date();
   const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [otOpen, setOtOpen] = useState(false);
   const [month, setMonth] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
   );
@@ -110,6 +121,11 @@ export default function MyAttendancePage() {
     queryKey: ['attendance', 'corrections', 'mine'],
     queryFn: () =>
       api.get<CorrectionRequestResponse[]>('/attendance/corrections/mine'),
+  });
+
+  const { data: otRequests } = useQuery({
+    queryKey: ['attendance', 'ot', 'mine'],
+    queryFn: () => api.get<OtRequestResponse[]>('/attendance/ot/mine'),
   });
 
   const logsByDate = useMemo(() => {
@@ -142,9 +158,14 @@ export default function MyAttendancePage() {
           <h1 className="text-2xl font-bold">Chấm công của tôi</h1>
           <p className="text-muted-foreground">Lịch sử chấm công và bảng công cá nhân</p>
         </div>
-        <Button variant="outline" onClick={() => setCorrectionOpen(true)}>
-          <ClipboardEdit className="size-4" /> Xin sửa công
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCorrectionOpen(true)}>
+            <ClipboardEdit className="size-4" /> Xin sửa công
+          </Button>
+          <Button variant="outline" onClick={() => setOtOpen(true)}>
+            <Clock4 className="size-4" /> Tăng ca / đổi giờ
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-end gap-3">
@@ -271,10 +292,52 @@ export default function MyAttendancePage() {
         </div>
       )}
 
+      {(otRequests ?? []).length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold">Đơn tăng ca / đổi giờ của tôi</h2>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ngày</TableHead>
+                  <TableHead>Loại</TableHead>
+                  <TableHead>Khung giờ</TableHead>
+                  <TableHead>Lý do</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(otRequests ?? []).map((o) => {
+                  const meta = CORRECTION_STATUS[o.status] ?? CORRECTION_STATUS.PENDING!;
+                  return (
+                    <TableRow key={o.id}>
+                      <TableCell>{o.date.slice(0, 10)}</TableCell>
+                      <TableCell>
+                        {o.type === 'OVERTIME' ? 'Tăng ca' : 'Đổi giờ'}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {timeStr(o.startTime)}–{timeStr(o.endTime)}
+                      </TableCell>
+                      <TableCell className="max-w-48 truncate" title={o.reason}>
+                        {o.reason}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       <CorrectionRequestDialog
         open={correctionOpen}
         onClose={() => setCorrectionOpen(false)}
       />
+      <OtRequestDialog open={otOpen} onClose={() => setOtOpen(false)} />
     </FadeIn>
   );
 }
@@ -405,6 +468,153 @@ function CorrectionRequestDialog({
               files={files}
               onChange={setFiles}
               label="Minh chứng (ảnh/PDF, không bắt buộc)"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Huỷ
+              </Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                Gửi yêu cầu
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ===== Dialog tăng ca / đổi giờ =====
+
+function OtRequestDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const form = useForm<
+    z.input<typeof createOtRequestSchema>,
+    unknown,
+    CreateOtRequestInput
+  >({
+    resolver: zodResolver(createOtRequestSchema),
+    defaultValues: {
+      type: 'OVERTIME',
+      date: today,
+      startTime: '17:30',
+      endTime: '19:30',
+      reason: '',
+    },
+  });
+  const type = form.watch('type');
+
+  const mutation = useMutation({
+    mutationFn: (values: CreateOtRequestInput) =>
+      api.post<{ id: string }>('/attendance/ot/request', values),
+    onSuccess: () => {
+      toast.success('Đã gửi yêu cầu — chờ duyệt');
+      void queryClient.invalidateQueries({ queryKey: ['attendance', 'ot', 'mine'] });
+      form.reset();
+      onClose();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Gửi yêu cầu thất bại'),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Tăng ca / đổi giờ</DialogTitle>
+          <DialogDescription>
+            Tăng ca: khung giờ làm thêm → cộng giờ OT. Đổi giờ: giờ vào/ra mới
+            (giữ ca) → tính lại trễ/sớm. Áp dụng sau khi được duyệt.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Loại yêu cầu</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="OVERTIME">Tăng ca (làm thêm giờ)</SelectItem>
+                      <SelectItem value="SHIFT_SHIFT">Đổi giờ vào/ra (giữ ca)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ngày</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{type === 'OVERTIME' ? 'OT từ' : 'Giờ vào mới'}</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="endTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{type === 'OVERTIME' ? 'OT đến' : 'Giờ ra mới'}</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lý do</FormLabel>
+                  <FormControl>
+                    <Input placeholder="VD: Làm gấp đơn hàng" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>

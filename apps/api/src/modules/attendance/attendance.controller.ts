@@ -29,6 +29,7 @@ import {
   AttendanceRangeQueryDto,
   CheckInDto,
   CreateCorrectionDto,
+  CreateOtRequestDto,
   EditTimesheetDto,
   OrgAttendanceQueryDto,
   RequestCorrectionDto,
@@ -143,6 +144,27 @@ export class AttendanceController {
     @CurrentUser() actor: AccessTokenPayload,
   ) {
     return this.attendance.listMyCorrections(orgId, actor.sub);
+  }
+
+  @Post('ot/request')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @Audit('attendance.ot_request')
+  @ApiOperation({ summary: 'Đăng ký tăng ca / dời giờ vào-ra (qua luồng duyệt)' })
+  @ApiOkResponse({ description: '{ id }' })
+  requestOt(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Body() dto: CreateOtRequestDto,
+  ) {
+    return this.attendance.requestOt(orgId, actor, dto);
+  }
+
+  @Get('ot/mine')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @ApiOperation({ summary: 'Đơn tăng ca / dời giờ của tôi + trạng thái' })
+  @ApiOkResponse({ description: 'OtRequestResponse[]' })
+  myOt(@CurrentOrg() orgId: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.attendance.listMyOt(orgId, actor.sub);
   }
 
   @Post('timesheet/recalc')

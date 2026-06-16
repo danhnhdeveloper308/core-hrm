@@ -8,7 +8,9 @@ import {
   type CheckInInput,
   type CorrectionRequestResponse,
   type CreateCorrectionInput,
+  type CreateOtRequestInput,
   type OrgAttendanceQuery,
+  type OtRequestResponse,
   type RequestCorrectionInput,
   type TimesheetDayResponse,
   type TimesheetGridRow,
@@ -643,6 +645,114 @@ export class AttendanceService {
       data: { status: 'APPROVED' },
     });
     await this.applyCorrection(correction, correction.createdById);
+  }
+
+  // ===== Tăng ca / dời giờ (OT) =====
+
+  /** Nhân viên đăng ký tăng ca / dời giờ → đơn PENDING + luồng duyệt OT. */
+  async requestOt(
+    orgId: string,
+    actor: AccessTokenPayload,
+    input: CreateOtRequestInput,
+  ): Promise<{ id: string }> {
+    const employee = await this.requireOwnEmployee(orgId, actor.sub);
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: { timezone: true },
+    });
+    const ot = await this.prisma.otRequest.create({
+      data: {
+        orgId,
+        employeeId: employee.id,
+        date: new Date(input.date),
+        type: input.type,
+        startTime: this.localTimeToUtc(input.date, input.startTime, org.timezone),
+        endTime: this.localTimeToUtc(input.date, input.endTime, org.timezone),
+        reason: input.reason,
+        status: 'PENDING',
+        createdById: actor.sub,
+      },
+    });
+    const label =
+      input.type === 'OVERTIME'
+        ? `Tăng ca ${input.date}: ${input.startTime}–${input.endTime}`
+        : `Dời giờ ${input.date}: vào ${input.startTime}, ra ${input.endTime}`;
+    await this.approval.createInstance(orgId, 'OT', ot.id, employee.id, {}, label);
+    addAuditMetadata({ after: { type: input.type, date: input.date } });
+    return { id: ot.id };
+  }
+
+  async listMyOt(orgId: string, userId: string): Promise<OtRequestResponse[]> {
+    const employee = await this.requireOwnEmployee(orgId, userId);
+    const rows = await this.prisma.otRequest.findMany({
+      where: { orgId, employeeId: employee.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((o) => ({
+      id: o.id,
+      type: o.type,
+      date: o.date.toISOString(),
+      startTime: o.startTime.toISOString(),
+      endTime: o.endTime.toISOString(),
+      reason: o.reason,
+      status: o.status,
+      createdAt: o.createdAt.toISOString(),
+    }));
+  }
+
+  /** Đơn OT được duyệt → cộng giờ OT hoặc tính lại theo khung giờ mới. */
+  @OnEvent(APP_EVENTS.APPROVAL_DECIDED)
+  async onOtDecided(event: ApprovalDecidedEvent): Promise<void> {
+    if (event.targetType !== 'OT') return;
+    const ot = await this.prisma.otRequest.findFirst({
+      where: { id: event.targetId, orgId: event.orgId },
+    });
+    if (!ot || ot.status !== 'PENDING') return;
+
+    if (event.status === 'REJECTED') {
+      await this.prisma.otRequest.update({
+        where: { id: ot.id },
+        data: { status: 'REJECTED' },
+      });
+      return;
+    }
+    await this.prisma.otRequest.update({
+      where: { id: ot.id },
+      data: { status: 'APPROVED' },
+    });
+
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: ot.orgId },
+      select: { timezone: true },
+    });
+    const dateStr = ot.date.toISOString().slice(0, 10);
+    const toLocalHhmm = (d: Date) =>
+      d.toLocaleTimeString('en-GB', {
+        timeZone: org.timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+
+    if (ot.type === 'OVERTIME') {
+      const minutes = Math.round((ot.endTime.getTime() - ot.startTime.getTime()) / 60_000);
+      await this.timesheet.applyApprovedOt(
+        ot.orgId,
+        ot.employeeId,
+        dateStr,
+        minutes,
+        `OT duyệt: ${toLocalHhmm(ot.startTime)}–${toLocalHhmm(ot.endTime)}`,
+      );
+    } else {
+      await this.timesheet.applyShiftAdjustment(
+        ot.orgId,
+        ot.employeeId,
+        dateStr,
+        toLocalHhmm(ot.startTime),
+        toLocalHhmm(ot.endTime),
+        `Dời giờ duyệt: ${toLocalHhmm(ot.startTime)}–${toLocalHhmm(ot.endTime)}`,
+      );
+    }
   }
 
   // ===== helpers =====

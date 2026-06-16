@@ -230,6 +230,113 @@ export class TimesheetService {
   }
 
   /**
+   * Tăng ca được DUYỆT: tính lại ngày (base) rồi CỘNG otMinutes + khoá để
+   * recalc tự động không xoá. Idempotent theo lần gọi (mỗi đơn gọi 1 lần).
+   */
+  async applyApprovedOt(
+    orgId: string,
+    employeeId: string,
+    date: string,
+    otMinutes: number,
+    note: string,
+  ): Promise<void> {
+    await this.recalc(orgId, employeeId, date);
+    const day = await this.prisma.timesheetDay.findUnique({
+      where: { employeeId_date: { employeeId, date: new Date(date) } },
+    });
+    await this.prisma.timesheetDay.upsert({
+      where: { employeeId_date: { employeeId, date: new Date(date) } },
+      create: {
+        orgId,
+        employeeId,
+        date: new Date(date),
+        status: day?.status ?? 'NOT_SCHEDULED',
+        otMinutes,
+        locked: true,
+        note,
+      },
+      update: { otMinutes: (day?.otMinutes ?? 0) + otMinutes, locked: true, note },
+    });
+  }
+
+  /**
+   * Dời giờ vào/ra (giữ ca) được DUYỆT: tính lại trễ/sớm theo khung giờ MỚI
+   * (newIn/newOut) trên log thực tế, rồi khoá ngày.
+   */
+  async applyShiftAdjustment(
+    orgId: string,
+    employeeId: string,
+    date: string,
+    newIn: string,
+    newOut: string,
+    note: string,
+  ): Promise<void> {
+    const employee = await this.prisma.employee.findFirstOrThrow({
+      where: { id: employeeId, orgId },
+      select: { orgUnitId: true, org: { select: { timezone: true } } },
+    });
+    const timezone = employee.org.timezone;
+    const shift = await this.shifts.resolveShift(employeeId, date);
+    const dayInfo = await this.calendars.isWorkingDay(
+      orgId,
+      employee.orgUnitId,
+      date,
+      shift?.workDays,
+    );
+    const { start, end } = localDayRangeUtc(date, timezone);
+    const logs = await this.prisma.attendanceLog.findMany({
+      where: { employeeId, recordedAt: { gte: start, lt: end } },
+      select: { recordedAt: true, type: true },
+    });
+    const result = computeTimesheet({
+      shift: {
+        startTime: newIn,
+        endTime: newOut,
+        breakStart: shift?.breakStart ?? null,
+        breakEnd: shift?.breakEnd ?? null,
+        breakMinutes: shift?.breakMinutes ?? 0,
+        lateGraceMinutes: shift?.lateGraceMinutes ?? 0,
+        otEnabled: shift?.otEnabled ?? false,
+      },
+      day: dayInfo as DayClassification,
+      logs: logs.map((l) => ({ at: l.recordedAt, type: l.type })),
+      leave: await this.resolveLeave(employeeId, date),
+      timezone,
+      isPast: date < this.localToday(timezone),
+    });
+    await this.prisma.timesheetDay.upsert({
+      where: { employeeId_date: { employeeId, date: new Date(date) } },
+      create: {
+        orgId,
+        employeeId,
+        date: new Date(date),
+        shiftId: shift?.id ?? null,
+        firstIn: result.firstIn,
+        lastOut: result.lastOut,
+        status: result.status,
+        lateMinutes: result.lateMinutes,
+        earlyMinutes: result.earlyMinutes,
+        workMinutes: result.workMinutes,
+        otMinutes: result.otMinutes,
+        locked: true,
+        note,
+      },
+      update: {
+        shiftId: shift?.id ?? null,
+        firstIn: result.firstIn,
+        lastOut: result.lastOut,
+        status: result.status,
+        lateMinutes: result.lateMinutes,
+        earlyMinutes: result.earlyMinutes,
+        workMinutes: result.workMinutes,
+        otMinutes: result.otMinutes,
+        locked: true,
+        note,
+      },
+    });
+  }
+
+  /**
    * Nghỉ phép phủ ngày: đơn APPROVED chứa date. Nửa ngày khi date là ngày
    * đầu/cuối của đơn và nửa buổi tương ứng != FULL.
    */

@@ -252,6 +252,7 @@ model Organization {
   approvalFlows         ApprovalFlow[]
   approvalInstances     ApprovalInstance[]
   attachments           Attachment[]
+  otRequests            OtRequest[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -402,6 +403,7 @@ model Employee {
   faceProfile           FaceProfile?
   leaveBalanceEntries   LeaveBalanceEntry[]
   leaveRequests         LeaveRequest[]
+  otRequests            OtRequest[]
 
   @@unique([orgId, code])
   @@index([orgId, orgUnitId])
@@ -880,6 +882,35 @@ enum AttachmentTargetType {
   LEAVE_REQUEST
   ATTENDANCE_CORRECTION
   OT_REQUEST
+}
+
+/// Loại yêu cầu liên quan giờ làm: tăng ca hoặc dời giờ vào/ra (giữ ca).
+enum OtRequestType {
+  OVERTIME
+  SHIFT_SHIFT
+}
+
+/// Đơn tăng ca / dời giờ — duyệt xong: OVERTIME cộng otMinutes; SHIFT_SHIFT
+/// tính lại trễ/sớm theo khung giờ mới (giữ ca). startTime/endTime là UTC.
+model OtRequest {
+  id          String           @id @default(uuid()) @db.Uuid
+  orgId       String           @db.Uuid
+  employeeId  String           @db.Uuid
+  date        DateTime         @db.Date
+  type        OtRequestType
+  startTime   DateTime
+  endTime     DateTime
+  reason      String
+  status      CorrectionStatus @default(PENDING)
+  createdById String?          @db.Uuid
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, employeeId, date])
+  @@index([orgId, status])
 }
 
 /// File đính kèm chung (ảnh/PDF) cho đơn từ — giấy tờ bệnh, minh chứng công…
