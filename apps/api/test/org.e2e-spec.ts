@@ -348,4 +348,41 @@ describe('Multi-tenancy + org structure (e2e)', () => {
       .set('Cookie', platformCookie)
       .expect(403);
   });
+
+  it('code đơn vị trùng nhau ở KHÁC nhánh cha được phép; cùng cha thì 409', async () => {
+    const typesRes = await request(app.getHttpServer())
+      .get(`${PREFIX}/org-unit-types`)
+      .set('Cookie', orgACookie);
+    const pbType = (typesRes.body as { code: string; id: string }[]).find(
+      (t) => t.code === 'PHONG_BAN',
+    )!;
+    // 2 phòng ban dưới 2 nhà máy khác nhau
+    const nm1 = await prisma.orgUnit.findFirstOrThrow({
+      where: { orgId: orgAId, code: 'NM-01' },
+    });
+    const kn2 = await prisma.orgUnit.findFirstOrThrow({
+      where: { orgId: orgAId, code: 'KN-02' },
+    });
+
+    // QTNNL dưới NM-01
+    await request(app.getHttpServer())
+      .post(`${PREFIX}/org-units`)
+      .set('Cookie', orgACookie)
+      .send({ name: 'Quản trị NNL', code: 'QTNNL', typeId: pbType.id, parentId: nm1.id })
+      .expect(201);
+
+    // QTNNL dưới KN-02 (khác nhánh) → vẫn được phép
+    await request(app.getHttpServer())
+      .post(`${PREFIX}/org-units`)
+      .set('Cookie', orgACookie)
+      .send({ name: 'Quản trị NNL', code: 'QTNNL', typeId: pbType.id, parentId: kn2.id })
+      .expect(201);
+
+    // QTNNL lần 2 dưới NM-01 (cùng cha) → 409
+    await request(app.getHttpServer())
+      .post(`${PREFIX}/org-units`)
+      .set('Cookie', orgACookie)
+      .send({ name: 'Trùng', code: 'QTNNL', typeId: pbType.id, parentId: nm1.id })
+      .expect(409);
+  });
 });

@@ -135,12 +135,15 @@ export const positionSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   code: z.string(),
+  level: z.number().int(),
 });
 export type PositionResponse = z.infer<typeof positionSchema>;
 
 export const createPositionSchema = z.object({
   name: z.string().trim().min(1).max(200),
   code: unitCodeSchema,
+  /** Cấp bậc (1 = thấp nhất) — chính sách phép theo cấp + định tuyến duyệt. */
+  level: z.number().int().min(1).max(100).default(1),
 });
 export type CreatePositionInput = z.infer<typeof createPositionSchema>;
 

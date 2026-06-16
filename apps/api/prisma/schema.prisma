@@ -290,7 +290,7 @@ model OrgUnit {
 
   employees Employee[] @relation("EmployeeOrgUnit")
 
-  @@unique([orgId, code])
+  @@unique([orgId, parentId, code])
   @@index([orgId, path])
   @@index([parentId])
 }
@@ -300,6 +300,8 @@ model Position {
   orgId     String   @db.Uuid
   name      String
   code      String
+  /// Cấp bậc chức danh (1 = thấp nhất). Dùng cho chính sách phép theo cấp + định tuyến duyệt.
+  level     Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

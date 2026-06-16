@@ -42,12 +42,12 @@ export class OrgUnitsService {
   }
 
   async create(orgId: string, input: CreateOrgUnitInput): Promise<OrgUnitResponse> {
-    await this.assertCodeFree(orgId, input.code);
     await this.requireType(orgId, input.typeId);
 
     const parent = input.parentId
       ? await this.requireUnit(orgId, input.parentId)
       : null;
+    await this.assertCodeFree(orgId, parent?.id ?? null, input.code);
 
     const unit = await this.prisma.$transaction(async (tx) => {
       const created = await tx.orgUnit.create({
@@ -80,7 +80,7 @@ export class OrgUnitsService {
   ): Promise<OrgUnitResponse> {
     const unit = await this.requireUnit(orgId, id);
     if (input.code && input.code !== unit.code) {
-      await this.assertCodeFree(orgId, input.code);
+      await this.assertCodeFree(orgId, unit.parentId, input.code, id);
     }
     if (input.typeId) await this.requireType(orgId, input.typeId);
 
@@ -127,6 +127,8 @@ export class OrgUnitsService {
         ERROR_CODES.ORGUNIT_MOVE_INTO_SELF,
       );
     }
+    // Cha mới không được có sẵn đơn vị con trùng code
+    await this.assertCodeFree(orgId, newParent?.id ?? null, unit.code, id);
 
     const oldPath = unit.path;
     const newPath = `${newParent?.path ?? '/'}${unit.id}/`;
@@ -218,14 +220,28 @@ export class OrgUnitsService {
     return type;
   }
 
-  private async assertCodeFree(orgId: string, code: string) {
-    const taken = await this.prisma.orgUnit.findUnique({
-      where: { orgId_code: { orgId, code } },
+  /**
+   * Code đơn vị unique TRONG CÙNG 1 đơn vị cha (không phải toàn org) — vì trong
+   * tập đoàn cùng 1 phòng ban (vd QTNNL) lặp lại ở nhiều nhà máy/chuỗi khác nhánh.
+   */
+  private async assertCodeFree(
+    orgId: string,
+    parentId: string | null,
+    code: string,
+    excludeId?: string,
+  ) {
+    const taken = await this.prisma.orgUnit.findFirst({
+      where: {
+        orgId,
+        parentId,
+        code,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
     });
     if (taken) {
       throw new AppException(
         HttpStatus.CONFLICT,
-        `Code "${code}" đã được dùng trong tổ chức`,
+        `Code "${code}" đã được dùng trong cùng đơn vị cha`,
         ERROR_CODES.ORG_CODE_TAKEN,
       );
     }

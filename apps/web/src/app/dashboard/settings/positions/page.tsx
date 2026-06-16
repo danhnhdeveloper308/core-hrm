@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { toast } from 'sonner';
 import { FadeIn } from '@/components/motion/primitives';
 import { PermissionGate } from '@/components/permission-gate';
@@ -91,21 +92,30 @@ export default function PositionsPage() {
             <TableRow>
               <TableHead>Tên</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead>Cấp bậc</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={3}>
+                <TableCell colSpan={4}>
                   <Skeleton className="h-8 w-full" />
                 </TableCell>
               </TableRow>
             ) : (
-              (data ?? []).map((position) => (
+              (data ?? [])
+                .slice()
+                .sort((a, b) => b.level - a.level)
+                .map((position) => (
                 <TableRow key={position.id}>
                   <TableCell className="font-medium">{position.name}</TableCell>
                   <TableCell className="font-mono text-xs">{position.code}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex size-6 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">
+                      {position.level}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <PermissionGate permission={PERMISSIONS.ORGUNIT_MANAGE}>
                       <div className="flex gap-1">
@@ -160,11 +170,19 @@ function PositionFormDialog({
   onSaved: () => void;
 }) {
   const isEdit = target !== null;
-  const form = useForm<CreatePositionInput>({
+  const form = useForm<
+    z.input<typeof createPositionSchema>,
+    unknown,
+    CreatePositionInput
+  >({
     resolver: zodResolver(createPositionSchema),
-    defaultValues: { name: '', code: '' },
+    defaultValues: { name: '', code: '', level: 1 },
     values: open
-      ? { name: target?.name ?? '', code: target?.code ?? '' }
+      ? {
+          name: target?.name ?? '',
+          code: target?.code ?? '',
+          level: target?.level ?? 1,
+        }
       : undefined,
   });
 
@@ -206,19 +224,43 @@ function PositionFormDialog({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Code</FormLabel>
-                  <FormControl>
-                    <Input placeholder="TP" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="TP" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="level"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cấp bậc</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Cấp bậc càng cao càng nhiều quyền lợi (dùng cho chính sách nghỉ phép
+              &amp; định tuyến duyệt ở các bước sau).
+            </p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
                 Huỷ

@@ -23,7 +23,7 @@ function toTypeResponse(t: OrgUnitType): OrgUnitTypeResponse {
 }
 
 function toPositionResponse(p: Position): PositionResponse {
-  return { id: p.id, name: p.name, code: p.code };
+  return { id: p.id, name: p.name, code: p.code, level: p.level };
 }
 
 function toWorksiteResponse(w: Worksite): WorksiteResponse {
