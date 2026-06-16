@@ -5,17 +5,27 @@ import {
   type CreateHolidayInput,
   type HolidayCalendarResponse,
   type HolidayResponse,
+  type UpdateHolidayInput,
   type UpdateScheduleDefaultsInput,
 } from '@repo/shared';
 import { addAuditMetadata } from '../../common/audit/audit-context';
 import { AppException } from '../../common/exceptions/app.exception';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { Holiday } from '../../prisma/prisma.types';
+
+function toHolidayResponse(h: Holiday): HolidayResponse {
+  return {
+    id: h.id,
+    startDate: h.startDate.toISOString().slice(0, 10),
+    endDate: h.endDate.toISOString().slice(0, 10),
+    name: h.name,
+  };
+}
 
 export interface DayInfo {
-  /** Có phải ngày phải đi làm không (lễ nửa ngày vẫn = true). */
+  /** Có phải ngày phải đi làm không. */
   working: boolean;
   dayType: 'WORKING' | 'WEEKEND' | 'HOLIDAY';
-  isHalfDay: boolean;
   holidayName: string | null;
 }
 
@@ -68,14 +78,9 @@ export class CalendarsService {
     await this.requireCalendar(orgId, calendarId);
     const holidays = await this.prisma.holiday.findMany({
       where: { calendarId },
-      orderBy: { date: 'asc' },
+      orderBy: { startDate: 'asc' },
     });
-    return holidays.map((h) => ({
-      id: h.id,
-      date: h.date.toISOString().slice(0, 10),
-      name: h.name,
-      isHalfDay: h.isHalfDay,
-    }));
+    return holidays.map(toHolidayResponse);
   }
 
   async addHoliday(
@@ -84,31 +89,44 @@ export class CalendarsService {
     input: CreateHolidayInput,
   ): Promise<HolidayResponse> {
     await this.requireCalendar(orgId, calendarId);
-    const existing = await this.prisma.holiday.findUnique({
-      where: { calendarId_date: { calendarId, date: new Date(input.date) } },
+    const start = new Date(input.startDate);
+    const end = new Date(input.endDate ?? input.startDate);
+    const holiday = await this.prisma.holiday.create({
+      data: { calendarId, startDate: start, endDate: end, name: input.name },
     });
-    if (existing) {
+    addAuditMetadata({
+      after: { startDate: input.startDate, endDate: input.endDate, name: input.name },
+    });
+    return toHolidayResponse(holiday);
+  }
+
+  async updateHoliday(
+    orgId: string,
+    calendarId: string,
+    holidayId: string,
+    input: UpdateHolidayInput,
+  ): Promise<HolidayResponse> {
+    await this.requireCalendar(orgId, calendarId);
+    const holiday = await this.requireHoliday(calendarId, holidayId);
+    const start = input.startDate ? new Date(input.startDate) : holiday.startDate;
+    const end = input.endDate ? new Date(input.endDate) : holiday.endDate;
+    if (end < start) {
       throw new AppException(
-        HttpStatus.CONFLICT,
-        `Ngày ${input.date} đã có trong lịch`,
+        HttpStatus.BAD_REQUEST,
+        'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu',
         ERROR_CODES.VALIDATION_ERROR,
       );
     }
-    const holiday = await this.prisma.holiday.create({
+    const updated = await this.prisma.holiday.update({
+      where: { id: holidayId },
       data: {
-        calendarId,
-        date: new Date(input.date),
-        name: input.name,
-        isHalfDay: input.isHalfDay,
+        startDate: start,
+        endDate: end,
+        ...(input.name !== undefined ? { name: input.name } : {}),
       },
     });
-    addAuditMetadata({ after: { date: input.date, name: input.name } });
-    return {
-      id: holiday.id,
-      date: input.date,
-      name: holiday.name,
-      isHalfDay: holiday.isHalfDay,
-    };
+    addAuditMetadata({ after: { id: holidayId, name: updated.name } });
+    return toHolidayResponse(updated);
   }
 
   async removeHoliday(
@@ -117,6 +135,13 @@ export class CalendarsService {
     holidayId: string,
   ): Promise<{ message: string }> {
     await this.requireCalendar(orgId, calendarId);
+    const holiday = await this.requireHoliday(calendarId, holidayId);
+    await this.prisma.holiday.delete({ where: { id: holidayId } });
+    addAuditMetadata({ before: { name: holiday.name } });
+    return { message: `Đã xoá ${holiday.name}` };
+  }
+
+  private async requireHoliday(calendarId: string, holidayId: string) {
     const holiday = await this.prisma.holiday.findFirst({
       where: { id: holidayId, calendarId },
     });
@@ -127,9 +152,7 @@ export class CalendarsService {
         ERROR_CODES.NOT_FOUND,
       );
     }
-    await this.prisma.holiday.delete({ where: { id: holidayId } });
-    addAuditMetadata({ before: { name: holiday.name } });
-    return { message: `Đã xoá ${holiday.name}` };
+    return holiday;
   }
 
   // ===== Defaults =====
@@ -228,7 +251,7 @@ export class CalendarsService {
   }
 
   /**
-   * Phân loại 1 ngày cho 1 đơn vị: lễ (cả/nửa ngày) → HOLIDAY;
+   * Phân loại 1 ngày cho 1 đơn vị: rơi vào khoảng nghỉ lễ → HOLIDAY (cả ngày);
    * không thuộc workDays (của ca resolve theo cây hoặc Thứ2–6) → WEEKEND;
    * còn lại WORKING. workDaysOverride: truyền workDays của ca đã resolve
    * theo employee (chính xác hơn fallback theo unit).
@@ -241,24 +264,21 @@ export class CalendarsService {
   ): Promise<DayInfo> {
     const calendarId = await this.resolveCalendarId(orgId, orgUnitId);
     if (calendarId) {
-      const holiday = await this.prisma.holiday.findUnique({
-        where: { calendarId_date: { calendarId, date: new Date(date) } },
+      const d = new Date(date);
+      // Ngày nằm trong khoảng [startDate, endDate] của bất kỳ kỳ nghỉ nào
+      const holiday = await this.prisma.holiday.findFirst({
+        where: { calendarId, startDate: { lte: d }, endDate: { gte: d } },
       });
       if (holiday) {
-        return {
-          working: holiday.isHalfDay,
-          dayType: 'HOLIDAY',
-          isHalfDay: holiday.isHalfDay,
-          holidayName: holiday.name,
-        };
+        return { working: false, dayType: 'HOLIDAY', holidayName: holiday.name };
       }
     }
 
     const workDays = workDaysOverride ?? (await this.resolveWorkDays(orgId, orgUnitId));
     if (!workDays.includes(weekdayOf(date))) {
-      return { working: false, dayType: 'WEEKEND', isHalfDay: false, holidayName: null };
+      return { working: false, dayType: 'WEEKEND', holidayName: null };
     }
-    return { working: true, dayType: 'WORKING', isHalfDay: false, holidayName: null };
+    return { working: true, dayType: 'WORKING', holidayName: null };
   }
 
   private async resolveWorkDays(

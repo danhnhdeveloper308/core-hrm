@@ -88,9 +88,9 @@ export type ShiftAssignmentResponse = z.infer<typeof shiftAssignmentSchema>;
 
 export const holidaySchema = z.object({
   id: z.uuid(),
-  date: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
   name: z.string(),
-  isHalfDay: z.boolean(),
 });
 export type HolidayResponse = z.infer<typeof holidaySchema>;
 
@@ -106,12 +106,30 @@ export const createHolidayCalendarSchema = z.object({
 });
 export type CreateHolidayCalendarInput = z.infer<typeof createHolidayCalendarSchema>;
 
-export const createHolidaySchema = z.object({
-  date: dateOnlySchema,
-  name: z.string().trim().min(1).max(200),
-  isHalfDay: z.boolean().default(false),
-});
+export const createHolidaySchema = z
+  .object({
+    startDate: dateOnlySchema,
+    /** Bỏ trống = nghỉ 1 ngày (endDate = startDate). */
+    endDate: dateOnlySchema.optional(),
+    name: z.string().trim().min(1).max(200),
+  })
+  .refine((v) => !v.endDate || v.endDate >= v.startDate, {
+    message: 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu',
+    path: ['endDate'],
+  });
 export type CreateHolidayInput = z.infer<typeof createHolidaySchema>;
+
+export const updateHolidaySchema = z
+  .object({
+    startDate: dateOnlySchema.optional(),
+    endDate: dateOnlySchema.optional(),
+    name: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, {
+    message: 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu',
+    path: ['endDate'],
+  });
+export type UpdateHolidayInput = z.infer<typeof updateHolidaySchema>;
 
 /** Cấu hình mặc định ca/lịch — cho org (PATCH /org/defaults) và OrgUnit. */
 export const updateScheduleDefaultsSchema = z.object({

@@ -19,7 +19,6 @@ export interface AttendanceLogPoint {
 export interface DayClassification {
   working: boolean;
   dayType: 'WORKING' | 'WEEKEND' | 'HOLIDAY';
-  isHalfDay: boolean;
 }
 
 export interface TimesheetInput {
@@ -129,8 +128,8 @@ export function computeTimesheet(input: TimesheetInput): TimesheetResult {
   if (input.leave === 'FULL') return { ...empty, status: 'ON_LEAVE', firstIn, lastOut };
   if (input.leave === 'HALF') return { ...empty, status: 'HALF_LEAVE', firstIn, lastOut };
 
-  // Lễ cả ngày → HOLIDAY; lễ nửa ngày vẫn tính công như ngày làm
-  if (input.day.dayType === 'HOLIDAY' && !input.day.working) {
+  // Ngày lễ (cả ngày) → HOLIDAY
+  if (input.day.dayType === 'HOLIDAY') {
     return { ...empty, status: 'HOLIDAY', firstIn, lastOut };
   }
   if (input.day.dayType === 'WEEKEND') {

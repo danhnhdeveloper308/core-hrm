@@ -24,6 +24,7 @@ import {
   AssignShiftDto,
   CreateHolidayCalendarDto,
   CreateHolidayDto,
+  UpdateHolidayDto,
   CreateWorkShiftDto,
   UpdateScheduleDefaultsDto,
   UpdateWorkShiftDto,
@@ -144,7 +145,7 @@ export class HolidayCalendarsController {
   @Post(':id/holidays')
   @RequirePermissions(PERMISSIONS.SHIFT_MANAGE)
   @Audit('holiday.create')
-  @ApiOperation({ summary: 'Thêm ngày lễ (cả ngày / nửa ngày)' })
+  @ApiOperation({ summary: 'Thêm kỳ nghỉ lễ (khoảng từ–đến, vd nghỉ Tết 7 ngày)' })
   @ApiOkResponse({ description: 'HolidayResponse' })
   addHoliday(
     @CurrentOrg() orgId: string,
@@ -152,6 +153,20 @@ export class HolidayCalendarsController {
     @Body() dto: CreateHolidayDto,
   ) {
     return this.calendars.addHoliday(orgId, id, dto);
+  }
+
+  @Patch(':id/holidays/:holidayId')
+  @RequirePermissions(PERMISSIONS.SHIFT_MANAGE)
+  @Audit('holiday.update')
+  @ApiOperation({ summary: 'Sửa kỳ nghỉ lễ (tên / khoảng ngày)' })
+  @ApiOkResponse({ description: 'HolidayResponse' })
+  updateHoliday(
+    @CurrentOrg() orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('holidayId', ParseUUIDPipe) holidayId: string,
+    @Body() dto: UpdateHolidayDto,
+  ) {
+    return this.calendars.updateHoliday(orgId, id, holidayId, dto);
   }
 
   @Delete(':id/holidays/:holidayId')

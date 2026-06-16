@@ -149,8 +149,11 @@ describe('CalendarsService.isWorkingDay', () => {
     unitWorkDays?: Record<string, number[] | null>;
     orgCalendarId?: string | null;
     orgWorkDays?: number[] | null;
-    /** `${calendarId}:${date}` → holiday */
-    holidays?: Record<string, { name: string; isHalfDay: boolean }>;
+    /** Kỳ nghỉ: calendarId → danh sách khoảng [start, end, name] (YYYY-MM-DD). */
+    holidays?: Record<
+      string,
+      { start: string; end: string; name: string }[]
+    >;
   }) {
     const prisma = {
       orgUnit: {

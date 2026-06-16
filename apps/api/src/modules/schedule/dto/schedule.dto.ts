@@ -2,6 +2,7 @@ import {
   assignShiftSchema,
   createHolidayCalendarSchema,
   createHolidaySchema,
+  updateHolidaySchema,
   createWorkShiftSchema,
   updateScheduleDefaultsSchema,
   updateWorkShiftSchema,
@@ -15,6 +16,7 @@ export class CreateHolidayCalendarDto extends createZodDto(
   createHolidayCalendarSchema,
 ) {}
 export class CreateHolidayDto extends createZodDto(createHolidaySchema) {}
+export class UpdateHolidayDto extends createZodDto(updateHolidaySchema) {}
 export class UpdateScheduleDefaultsDto extends createZodDto(
   updateScheduleDefaultsSchema,
 ) {}

@@ -480,14 +480,16 @@ model HolidayCalendar {
 model Holiday {
   id         String   @id @default(uuid()) @db.Uuid
   calendarId String   @db.Uuid
-  date       DateTime @db.Date
+  /// Khoảng nghỉ [startDate, endDate] — nghỉ 1 ngày thì 2 giá trị bằng nhau
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
   name       String
-  isHalfDay  Boolean  @default(false)
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   calendar HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
 
-  @@unique([calendarId, date])
+  @@index([calendarId, startDate, endDate])
 }
 
 // ============================================================
