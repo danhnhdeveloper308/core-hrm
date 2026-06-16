@@ -1,15 +1,28 @@
 'use client';
 
 import {
+  PERMISSIONS,
   type OrgUnitResponse,
   type TimesheetDayResponse,
   type TimesheetGridRow,
   type TimesheetStatus,
 } from '@repo/shared';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  Pencil,
+  RotateCcw,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { CountUp, FadeIn } from '@/components/motion/primitives';
+import { PermissionGate } from '@/components/permission-gate';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -18,6 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -26,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +81,15 @@ function timeStr(iso: string | null): string {
   return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** ISO → "HH:mm" (giờ trình duyệt) để prefill input time. */
+function toHHmm(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function AttendancePage() {
   const now = new Date();
   const [month, setMonth] = useState(
@@ -73,9 +97,15 @@ export default function AttendancePage() {
   );
   const [orgUnitId, setOrgUnitId] = useState(ALL);
   const [detail, setDetail] = useState<{
+    employeeId: string;
     name: string;
     date: string;
     day: TimesheetDayResponse;
+  } | null>(null);
+  const [editForm, setEditForm] = useState<{
+    firstIn: string;
+    lastOut: string;
+    note: string;
   } | null>(null);
 
   const [year, monthNum] = month.split('-').map(Number) as [number, number];
@@ -89,6 +119,7 @@ export default function AttendancePage() {
     queryFn: () => api.get<OrgUnitResponse[]>('/org-units'),
   });
 
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['attendance', 'grid', { from, to, orgUnitId }],
     queryFn: () => {
@@ -96,6 +127,50 @@ export default function AttendancePage() {
       if (orgUnitId !== ALL) qs.set('orgUnitId', orgUnitId);
       return api.get<TimesheetGridRow[]>(`/attendance/grid?${qs.toString()}`);
     },
+  });
+
+  const invalidateGrid = () =>
+    queryClient.invalidateQueries({ queryKey: ['attendance', 'grid'] });
+
+  // Sau khi sửa/tính lại/reset: cập nhật dialog + làm mới lưới
+  const onTimesheetChanged = (day: TimesheetDayResponse | null) => {
+    setDetail((d) =>
+      d && day ? { ...d, day } : day === null ? null : d,
+    );
+    void invalidateGrid();
+  };
+
+  const recalcMut = useMutation({
+    mutationFn: (v: { employeeId: string; date: string }) =>
+      api.post<TimesheetDayResponse | null>('/attendance/timesheet/recalc', v),
+    onSuccess: (day) => {
+      toast.success('Đã tính lại công');
+      onTimesheetChanged(day);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Lỗi'),
+  });
+  const resetMut = useMutation({
+    mutationFn: (v: { employeeId: string; date: string }) =>
+      api.post<TimesheetDayResponse | null>('/attendance/timesheet/reset', v),
+    onSuccess: (day) => {
+      toast.success('Đã reset (xóa) công ngày');
+      onTimesheetChanged(day);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Lỗi'),
+  });
+  const editMut = useMutation({
+    mutationFn: (v: {
+      employeeId: string;
+      date: string;
+      firstIn: string;
+      lastOut: string | null;
+      note: string | null;
+    }) => api.patch<TimesheetDayResponse>('/attendance/timesheet', v),
+    onSuccess: (day) => {
+      toast.success('Đã sửa & khóa công ngày');
+      onTimesheetChanged(day);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Lỗi'),
   });
 
   const rows = useMemo(() => data ?? [], [data]);
@@ -295,7 +370,12 @@ export default function AttendancePage() {
                             <button
                               type="button"
                               onClick={() =>
-                                setDetail({ name: row.employeeName, date, day })
+                                setDetail({
+                                  employeeId: row.employeeId,
+                                  name: row.employeeName,
+                                  date,
+                                  day,
+                                })
                               }
                               title={`${meta.full}${day.lateMinutes ? ` · trễ ${day.lateMinutes}p` : ''}${day.earlyMinutes ? ` · sớm ${day.earlyMinutes}p` : ''}`}
                               className={cn(
@@ -335,50 +415,186 @@ export default function AttendancePage() {
       )}
 
       {/* Dialog chi tiết 1 ngày */}
-      <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
+      <Dialog
+        open={detail !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDetail(null);
+            setEditForm(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{detail?.name}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {detail?.name}
+              {detail?.day.locked && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Lock className="size-3" /> Đã khóa
+                </Badge>
+              )}
+            </DialogTitle>
             <DialogDescription>
               {detail?.date} ·{' '}
               {detail ? STATUS_META[detail.day.status].full : ''}
             </DialogDescription>
           </DialogHeader>
           {detail && (
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Giờ vào</span>
-                <span className="font-medium tabular-nums">
-                  {timeStr(detail.day.firstIn)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Giờ ra</span>
-                <span className="font-medium tabular-nums">
-                  {timeStr(detail.day.lastOut)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Đi trễ</span>
-                <span className="font-medium">{detail.day.lateMinutes} phút</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Về sớm</span>
-                <span className="font-medium">{detail.day.earlyMinutes} phút</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Giờ công</span>
-                <span className="font-medium">
-                  {Math.floor(detail.day.workMinutes / 60)}h{' '}
-                  {detail.day.workMinutes % 60}p
-                </span>
-              </div>
-              {detail.day.otMinutes > 0 && (
+            <div className="space-y-3">
+              <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tăng ca</span>
-                  <span className="font-medium">{detail.day.otMinutes} phút</span>
+                  <span className="text-muted-foreground">Giờ vào</span>
+                  <span className="font-medium tabular-nums">
+                    {timeStr(detail.day.firstIn)}
+                  </span>
                 </div>
-              )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Giờ ra</span>
+                  <span className="font-medium tabular-nums">
+                    {timeStr(detail.day.lastOut)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Đi trễ</span>
+                  <span className="font-medium">{detail.day.lateMinutes} phút</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Về sớm</span>
+                  <span className="font-medium">{detail.day.earlyMinutes} phút</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Giờ công</span>
+                  <span className="font-medium">
+                    {Math.floor(detail.day.workMinutes / 60)}h{' '}
+                    {detail.day.workMinutes % 60}p
+                  </span>
+                </div>
+                {detail.day.otMinutes > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tăng ca</span>
+                    <span className="font-medium">{detail.day.otMinutes} phút</span>
+                  </div>
+                )}
+                {detail.day.note && (
+                  <p className="rounded bg-muted/50 p-2 text-xs text-muted-foreground">
+                    Ghi chú: {detail.day.note}
+                  </p>
+                )}
+              </div>
+
+              {/* Hành động HR (ORG_ADMIN / HR_MANAGER) */}
+              <PermissionGate permission={PERMISSIONS.ATTENDANCE_CORRECT}>
+                {editForm ? (
+                  <div className="space-y-2 rounded-md border p-3">
+                    <p className="text-xs font-medium">Sửa giờ công (sẽ khóa ngày)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Giờ vào</Label>
+                        <Input
+                          type="time"
+                          value={editForm.firstIn}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, firstIn: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Giờ ra</Label>
+                        <Input
+                          type="time"
+                          value={editForm.lastOut}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, lastOut: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Ghi chú</Label>
+                      <Input
+                        value={editForm.note}
+                        placeholder="Lý do sửa"
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, note: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        disabled={!editForm.firstIn || editMut.isPending}
+                        onClick={() =>
+                          editMut.mutate({
+                            employeeId: detail.employeeId,
+                            date: detail.date,
+                            firstIn: editForm.firstIn,
+                            lastOut: editForm.lastOut || null,
+                            note: editForm.note || null,
+                          })
+                        }
+                      >
+                        Lưu & khóa
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditForm(null)}
+                      >
+                        Huỷ
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={recalcMut.isPending}
+                      onClick={() =>
+                        recalcMut.mutate({
+                          employeeId: detail.employeeId,
+                          date: detail.date,
+                        })
+                      }
+                    >
+                      <RotateCcw className="size-3.5" /> Tính lại
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setEditForm({
+                          firstIn: toHHmm(detail.day.firstIn) || '08:00',
+                          lastOut: toHHmm(detail.day.lastOut),
+                          note: detail.day.note ?? '',
+                        })
+                      }
+                    >
+                      <Pencil className="size-3.5" /> Sửa giờ
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      disabled={resetMut.isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Xóa toàn bộ chấm công ngày ${detail.date} của ${detail.name}?`,
+                          )
+                        )
+                          resetMut.mutate({
+                            employeeId: detail.employeeId,
+                            date: detail.date,
+                          });
+                      }}
+                    >
+                      <Trash2 className="size-3.5" /> Xóa công
+                    </Button>
+                  </div>
+                )}
+              </PermissionGate>
             </div>
           )}
         </DialogContent>

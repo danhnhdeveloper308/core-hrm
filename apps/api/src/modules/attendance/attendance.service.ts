@@ -368,6 +368,84 @@ export class AttendanceService {
     }));
   }
 
+  /** HR tính lại 1 ngày từ log gốc (gỡ kẹt dữ liệu cũ). */
+  async recalcDay(
+    orgId: string,
+    actor: AccessTokenPayload,
+    employeeId: string,
+    date: string,
+  ): Promise<TimesheetDayResponse | null> {
+    await this.assertInScope(orgId, actor, employeeId);
+    await this.timesheet.recalc(orgId, employeeId, date);
+    addAuditMetadata({ after: { employeeId, date, action: 'recalc' } });
+    return this.findTimesheet(orgId, employeeId, date);
+  }
+
+  /** HR reset (xóa) công 1 ngày: xóa log + timesheet, tính lại từ 0. */
+  async resetDay(
+    orgId: string,
+    actor: AccessTokenPayload,
+    employeeId: string,
+    date: string,
+  ): Promise<TimesheetDayResponse | null> {
+    await this.assertInScope(orgId, actor, employeeId);
+    await this.timesheet.resetDay(orgId, employeeId, date);
+    addAuditMetadata({ after: { employeeId, date, action: 'reset' } });
+    return this.findTimesheet(orgId, employeeId, date);
+  }
+
+  /** HR sửa giờ công thủ công + khóa ngày (recalc tự động không ghi đè). */
+  async editTimesheet(
+    orgId: string,
+    actor: AccessTokenPayload,
+    input: {
+      employeeId: string;
+      date: string;
+      firstIn: string;
+      lastOut?: string | null;
+      note?: string | null;
+    },
+  ): Promise<TimesheetDayResponse> {
+    await this.assertInScope(orgId, actor, input.employeeId);
+    await this.timesheet.applyEdit(
+      orgId,
+      input.employeeId,
+      input.date,
+      input.firstIn,
+      input.lastOut ?? null,
+      input.note ?? null,
+    );
+    addAuditMetadata({
+      after: {
+        employeeId: input.employeeId,
+        date: input.date,
+        firstIn: input.firstIn,
+        lastOut: input.lastOut,
+        action: 'manual_edit',
+      },
+    });
+    const result = await this.findTimesheet(orgId, input.employeeId, input.date);
+    if (!result) {
+      throw new AppException(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'Không tìm thấy bảng công sau khi sửa',
+        ERROR_CODES.INTERNAL_ERROR,
+      );
+    }
+    return result;
+  }
+
+  private async findTimesheet(
+    orgId: string,
+    employeeId: string,
+    date: string,
+  ): Promise<TimesheetDayResponse | null> {
+    const row = await this.prisma.timesheetDay.findFirst({
+      where: { orgId, employeeId, date: new Date(date) },
+    });
+    return row ? toTimesheetResponse(row) : null;
+  }
+
   /**
    * Sửa công thủ công — Phase 4 áp dụng trực tiếp (tạo log MANUAL + recalc).
    * Phase 8 sẽ đưa qua Approval engine.

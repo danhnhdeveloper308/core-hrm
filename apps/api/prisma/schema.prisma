@@ -569,6 +569,10 @@ model TimesheetDay {
   earlyMinutes Int             @default(0)
   workMinutes  Int             @default(0)
   otMinutes    Int             @default(0)
+  /// HR sửa tay → khóa, recalc tự động KHÔNG ghi đè cho tới khi reset
+  locked       Boolean         @default(false)
+  /// Ghi chú khi HR sửa/khóa công
+  note         String?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 

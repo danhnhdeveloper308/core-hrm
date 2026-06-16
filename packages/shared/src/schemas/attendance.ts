@@ -69,8 +69,30 @@ export const timesheetDaySchema = z.object({
   earlyMinutes: z.number().int(),
   workMinutes: z.number().int(),
   otMinutes: z.number().int(),
+  /** HR đã sửa tay & khóa — recalc tự động không ghi đè. */
+  locked: z.boolean().default(false),
+  note: z.string().nullable().default(null),
 });
 export type TimesheetDayResponse = z.infer<typeof timesheetDaySchema>;
+
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ HH:mm');
+
+/** HR sửa giờ công thủ công (attendance:correct) — khóa ngày sau khi sửa. */
+export const editTimesheetSchema = z.object({
+  employeeId: z.uuid(),
+  date: dateOnlySchema,
+  firstIn: hhmm,
+  lastOut: hhmm.nullish(),
+  note: z.string().trim().max(500).nullish(),
+});
+export type EditTimesheetInput = z.infer<typeof editTimesheetSchema>;
+
+/** Reset (xóa) công 1 ngày của nhân viên. */
+export const resetDaySchema = z.object({
+  employeeId: z.uuid(),
+  date: dateOnlySchema,
+});
+export type ResetDayInput = z.infer<typeof resetDaySchema>;
 
 export const attendanceRangeQuerySchema = z.object({
   from: dateOnlySchema,

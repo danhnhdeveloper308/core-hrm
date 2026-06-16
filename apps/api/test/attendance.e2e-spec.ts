@@ -245,4 +245,79 @@ describe('Attendance + Timesheet (e2e)', () => {
     const codes = (res.body as { employeeCode: string }[]).map((r) => r.employeeCode);
     expect(codes).toContain('NV-1');
   });
+
+  it('HR sửa giờ công thủ công → khóa ngày; recalc tự động KHÔNG ghi đè', async () => {
+    const editDay = '2026-03-20'; // Thứ 6
+    const res = await request(app.getHttpServer())
+      .patch(`${PREFIX}/attendance/timesheet`)
+      .set('Cookie', hrCookie)
+      .send({
+        employeeId,
+        date: editDay,
+        firstIn: '08:00',
+        lastOut: '17:00',
+        note: 'Chốt công tay',
+      })
+      .expect(200);
+    expect(res.body.locked).toBe(true);
+    expect(res.body.status).toBe('PRESENT');
+
+    // Recalc sau đó không được ghi đè (vẫn PRESENT/locked dù không có log thật)
+    await timesheet.recalc(orgId, employeeId, editDay);
+    const after = await prisma.timesheetDay.findUniqueOrThrow({
+      where: { employeeId_date: { employeeId, date: new Date(editDay) } },
+    });
+    expect(after.locked).toBe(true);
+    expect(after.status).toBe('PRESENT');
+  });
+
+  it('HR reset (xóa) công ngày → xóa log + bảng công, gỡ khóa', async () => {
+    // Ngày "vào trễ" (day) đang có log + timesheet LATE
+    const before = await prisma.attendanceLog.count({
+      where: {
+        employeeId,
+        recordedAt: {
+          gte: new Date('2026-03-15T17:00:00Z'),
+          lt: new Date('2026-03-16T17:00:00Z'),
+        },
+      },
+    });
+    expect(before).toBeGreaterThan(0);
+
+    await request(app.getHttpServer())
+      .post(`${PREFIX}/attendance/timesheet/reset`)
+      .set('Cookie', hrCookie)
+      .send({ employeeId, date: day })
+      .expect(201);
+
+    const logsAfter = await prisma.attendanceLog.count({
+      where: {
+        employeeId,
+        recordedAt: {
+          gte: new Date('2026-03-15T17:00:00Z'),
+          lt: new Date('2026-03-16T17:00:00Z'),
+        },
+      },
+    });
+    expect(logsAfter).toBe(0);
+    // ngày làm việc quá khứ, không còn log → ABSENT
+    const ts = await prisma.timesheetDay.findUniqueOrThrow({
+      where: { employeeId_date: { employeeId, date: new Date(day) } },
+    });
+    expect(ts.status).toBe('ABSENT');
+    expect(ts.locked).toBe(false);
+  });
+
+  it('EMPLOYEE thường không được reset/sửa giờ công → 403', async () => {
+    await request(app.getHttpServer())
+      .post(`${PREFIX}/attendance/timesheet/reset`)
+      .set('Cookie', empCookie)
+      .send({ employeeId, date: day })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${PREFIX}/attendance/timesheet`)
+      .set('Cookie', empCookie)
+      .send({ employeeId, date: day, firstIn: '08:00' })
+      .expect(403);
+  });
 });

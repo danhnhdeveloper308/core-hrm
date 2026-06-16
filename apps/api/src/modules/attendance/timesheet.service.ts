@@ -24,6 +24,8 @@ export function toTimesheetResponse(t: TimesheetDay): TimesheetDayResponse {
     earlyMinutes: t.earlyMinutes,
     workMinutes: t.workMinutes,
     otMinutes: t.otMinutes,
+    locked: t.locked,
+    note: t.note,
   };
 }
 
@@ -42,6 +44,13 @@ export class TimesheetService {
    * Gọi bởi worker `timesheet-recalc`. date = "YYYY-MM-DD" (giờ địa phương org).
    */
   async recalc(orgId: string, employeeId: string, date: string): Promise<void> {
+    // Ngày đã bị HR khóa (sửa tay) → KHÔNG ghi đè bằng tính toán tự động
+    const existing = await this.prisma.timesheetDay.findUnique({
+      where: { employeeId_date: { employeeId, date: new Date(date) } },
+      select: { locked: true },
+    });
+    if (existing?.locked) return;
+
     const employee = await this.prisma.employee.findFirst({
       where: { id: employeeId, orgId },
       select: { orgUnitId: true, org: { select: { timezone: true } } },
@@ -110,6 +119,113 @@ export class TimesheetService {
         earlyMinutes: result.earlyMinutes,
         workMinutes: result.workMinutes,
         otMinutes: result.otMinutes,
+      },
+    });
+  }
+
+  /**
+   * Reset công 1 ngày: xóa toàn bộ AttendanceLog trong ngày + TimesheetDay,
+   * rồi tính lại từ con số 0 (→ ABSENT/NOT_SCHEDULED). Gỡ khóa luôn.
+   */
+  async resetDay(orgId: string, employeeId: string, date: string): Promise<void> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, orgId },
+      select: { org: { select: { timezone: true } } },
+    });
+    if (!employee) return;
+    const { start, end } = localDayRangeUtc(date, employee.org.timezone);
+    await this.prisma.$transaction([
+      this.prisma.attendanceLog.deleteMany({
+        where: { orgId, employeeId, recordedAt: { gte: start, lt: end } },
+      }),
+      this.prisma.timesheetDay.deleteMany({
+        where: { employeeId, date: new Date(date) },
+      }),
+    ]);
+    await this.recalc(orgId, employeeId, date);
+  }
+
+  /**
+   * HR sửa giờ công thủ công: tính lại từ giờ vào/ra HR nhập (qua engine để
+   * số liệu nhất quán) rồi KHÓA (locked) — recalc tự động sẽ không ghi đè.
+   */
+  async applyEdit(
+    orgId: string,
+    employeeId: string,
+    date: string,
+    firstIn: string,
+    lastOut: string | null,
+    note: string | null,
+  ): Promise<void> {
+    const employee = await this.prisma.employee.findFirstOrThrow({
+      where: { id: employeeId, orgId },
+      select: { orgUnitId: true, org: { select: { timezone: true } } },
+    });
+    const timezone = employee.org.timezone;
+    const shift = await this.shifts.resolveShift(employeeId, date);
+    const dayInfo = await this.calendars.isWorkingDay(
+      orgId,
+      employee.orgUnitId,
+      date,
+      shift?.workDays,
+    );
+    const { start } = localDayRangeUtc(date, timezone);
+    const toUtc = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return new Date(start.getTime() + ((h ?? 0) * 60 + (m ?? 0)) * 60_000);
+    };
+    const logs: { at: Date; type: 'IN' | 'OUT' }[] = [
+      { at: toUtc(firstIn), type: 'IN' },
+    ];
+    if (lastOut) logs.push({ at: toUtc(lastOut), type: 'OUT' });
+
+    const result = computeTimesheet({
+      shift: shift
+        ? {
+            startTime: shift.startTime,
+            endTime: shift.endTime,
+            breakStart: shift.breakStart,
+            breakEnd: shift.breakEnd,
+            breakMinutes: shift.breakMinutes,
+            lateGraceMinutes: shift.lateGraceMinutes,
+            otEnabled: shift.otEnabled,
+          }
+        : null,
+      day: dayInfo as DayClassification,
+      logs,
+      leave: null,
+      timezone,
+      isPast: true,
+    });
+
+    await this.prisma.timesheetDay.upsert({
+      where: { employeeId_date: { employeeId, date: new Date(date) } },
+      create: {
+        orgId,
+        employeeId,
+        date: new Date(date),
+        shiftId: shift?.id ?? null,
+        firstIn: result.firstIn,
+        lastOut: result.lastOut,
+        status: result.status,
+        lateMinutes: result.lateMinutes,
+        earlyMinutes: result.earlyMinutes,
+        workMinutes: result.workMinutes,
+        otMinutes: result.otMinutes,
+        locked: true,
+        note,
+      },
+      update: {
+        shiftId: shift?.id ?? null,
+        firstIn: result.firstIn,
+        lastOut: result.lastOut,
+        status: result.status,
+        lateMinutes: result.lateMinutes,
+        earlyMinutes: result.earlyMinutes,
+        workMinutes: result.workMinutes,
+        otMinutes: result.otMinutes,
+        locked: true,
+        note,
       },
     });
   }

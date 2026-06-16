@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -28,7 +29,9 @@ import {
   AttendanceRangeQueryDto,
   CheckInDto,
   CreateCorrectionDto,
+  EditTimesheetDto,
   OrgAttendanceQueryDto,
+  ResetDayDto,
 } from './dto/attendance.dto';
 
 @ApiTags('attendance')
@@ -115,5 +118,46 @@ export class AttendanceController {
     @Body() dto: CreateCorrectionDto,
   ) {
     return this.attendance.createCorrection(orgId, actor, dto);
+  }
+
+  @Post('timesheet/recalc')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_CORRECT)
+  @Audit('attendance.recalc')
+  @ApiOperation({ summary: 'Tính lại bảng công 1 ngày từ log gốc' })
+  @ApiOkResponse({ description: 'TimesheetDayResponse | null' })
+  recalc(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Body() dto: ResetDayDto,
+  ) {
+    return this.attendance.recalcDay(orgId, actor, dto.employeeId, dto.date);
+  }
+
+  @Post('timesheet/reset')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_CORRECT)
+  @Audit('attendance.reset')
+  @ApiOperation({ summary: 'Reset (xóa) công 1 ngày: xóa log + bảng công' })
+  @ApiOkResponse({ description: 'TimesheetDayResponse | null' })
+  reset(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Body() dto: ResetDayDto,
+  ) {
+    return this.attendance.resetDay(orgId, actor, dto.employeeId, dto.date);
+  }
+
+  @Patch('timesheet')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_CORRECT)
+  @Audit('attendance.edit_timesheet')
+  @ApiOperation({
+    summary: 'Sửa giờ công thủ công + khóa ngày (chỉ ORG_ADMIN/HR)',
+  })
+  @ApiOkResponse({ description: 'TimesheetDayResponse' })
+  editTimesheet(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Body() dto: EditTimesheetDto,
+  ) {
+    return this.attendance.editTimesheet(orgId, actor, dto);
   }
 }
