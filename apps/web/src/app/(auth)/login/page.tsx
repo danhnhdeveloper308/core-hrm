@@ -46,7 +46,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hydrate = useAuthStore((s) => s.hydrate);
-  const next = searchParams.get('next') ?? '/dashboard';
+  // null = không có đích cụ thể (login chủ động) → tự chọn theo vai trò
+  const explicitNext = searchParams.get('next');
 
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState('');
@@ -68,7 +69,18 @@ function LoginForm() {
 
   async function finishLogin() {
     await hydrate();
-    router.replace(next.startsWith('/') ? next : '/dashboard');
+    // Có đích tường minh (proxy chặn rồi quay lại) → tôn trọng
+    if (explicitNext?.startsWith('/')) {
+      router.replace(explicitNext);
+      return;
+    }
+    // Login chủ động: nhân viên hiện trường (không có quyền quản lý) → thẳng /checkin
+    const user = useAuthStore.getState().user;
+    const isFieldEmployee =
+      user?.orgId != null &&
+      !user.permissions.includes('employee:read') &&
+      !user.permissions.includes('attendance:read_all');
+    router.replace(isFieldEmployee ? '/checkin' : '/dashboard');
   }
 
   async function onSubmit(values: LoginInput) {

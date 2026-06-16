@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   createEmployeeSchema,
   type CreateEmployeeInput,
+  type CursorPaginated,
   type EmployeeResponse,
   type OrgUnitResponse,
   type PositionResponse,
@@ -83,6 +84,13 @@ export function EmployeeFormDialog({
     queryFn: () => api.get<WorksiteResponse[]>('/worksites'),
     enabled: open,
   });
+  // Danh sách nhân viên để chọn quản lý trực tiếp (loại chính mình khi sửa)
+  const { data: managerOptions } = useQuery({
+    queryKey: queryKeys.employees.list({ limit: 100, as: 'managers' }),
+    queryFn: () =>
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
+    enabled: open,
+  });
 
   const form = useForm<
     z.input<typeof createEmployeeSchema>,
@@ -105,6 +113,7 @@ export function EmployeeFormDialog({
           phone: employee?.phone ?? null,
           orgUnitId: employee?.orgUnitId ?? null,
           positionId: employee?.positionId ?? null,
+          managerId: employee?.managerId ?? null,
           worksiteId: employee?.worksiteId ?? null,
           joinDate: employee?.joinDate ?? new Date().toISOString().slice(0, 10),
           status: employee?.status ?? 'ACTIVE',
@@ -330,6 +339,36 @@ export function EmployeeFormDialog({
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="managerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quản lý trực tiếp</FormLabel>
+                  <Select
+                    value={field.value ?? NONE}
+                    onValueChange={(v) => field.onChange(v === NONE ? null : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="— Không có —" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NONE}>— Không có —</SelectItem>
+                      {(managerOptions?.items ?? [])
+                        .filter((e) => e.id !== employee?.id)
+                        .map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.fullName} ({e.code})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

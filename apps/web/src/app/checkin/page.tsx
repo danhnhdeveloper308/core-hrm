@@ -2,7 +2,8 @@
 
 import type { AttendanceLogResponse } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, LogIn, LogOut, MapPin } from 'lucide-react';
+import { Clock, LayoutDashboard, LogIn, LogOut, MapPin } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CameraCapture } from '@/components/checkin/camera-capture';
@@ -114,7 +115,18 @@ export default function CheckinPage() {
   const inRange = dist != null && req?.radiusM != null ? dist <= req.radiusM : true;
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-5 bg-background p-4">
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-background p-4">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="absolute right-4 top-4 text-muted-foreground"
+      >
+        <Link href="/dashboard">
+          <LayoutDashboard className="size-4" /> Tra cứu thông tin
+        </Link>
+      </Button>
+
       <div className="text-center">
         <Clock className="mx-auto mb-2 size-8 text-muted-foreground" />
         <p className="text-5xl font-bold tabular-nums">{clock}</p>

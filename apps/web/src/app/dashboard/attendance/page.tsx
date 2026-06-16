@@ -24,6 +24,7 @@ import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 
 const ALL = '__all__';
+const WEEKDAY_VN = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 /** Mã trạng thái ngắn + màu cell (HSL nền nhạt) cho lưới công. */
 const STATUS_META: Record<TimesheetStatus, { label: string; bg: string; fg: string }> = {
@@ -82,34 +83,45 @@ export default function AttendancePage() {
         field: 'employeeName',
         headerName: 'Nhân viên',
         pinned: 'left',
-        width: 200,
-        valueGetter: (p) =>
-          p.data ? `${p.data.employeeCode} · ${p.data.employeeName}` : '',
+        width: 190,
+        cellRenderer: (p: ICellRendererParams<TimesheetGridRow>) =>
+          p.data ? (
+            <div className="leading-tight">
+              <div className="font-medium">{p.data.employeeName}</div>
+              <div className="text-xs text-muted-foreground">
+                {p.data.employeeCode}
+                {p.data.orgUnitName ? ` · ${p.data.orgUnitName}` : ''}
+              </div>
+            </div>
+          ) : null,
       },
     ];
     for (const date of days) {
       const dayNum = Number(date.slice(8, 10));
       const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+      const isWeekend = weekday === 0 || weekday === 6;
       cols.push({
         colId: date,
-        headerName: String(dayNum),
-        width: 46,
+        headerName: `${dayNum}`,
+        headerTooltip: `Ngày ${dayNum} (${WEEKDAY_VN[weekday]})`,
+        width: 44,
         sortable: false,
-        headerClass: weekday === 0 || weekday === 6 ? 'text-muted-foreground' : '',
+        headerClass: isWeekend ? 'ag-weekend-header' : '',
         valueGetter: (p) => p.data?.days[date]?.status ?? '',
+        cellStyle: isWeekend ? { backgroundColor: 'rgba(148,163,184,0.06)' } : undefined,
         cellRenderer: (p: ICellRendererParams<TimesheetGridRow>) => {
           const day = p.data?.days[date];
           if (!day) return '';
           const meta = STATUS_META[day.status];
+          const tip =
+            day.lateMinutes || day.earlyMinutes
+              ? `${meta.label}: trễ ${day.lateMinutes}p, sớm ${day.earlyMinutes}p`
+              : meta.label;
           return (
             <div
-              className="flex h-full items-center justify-center text-xs font-semibold"
+              className="m-0.5 flex h-[calc(100%-4px)] items-center justify-center rounded text-xs font-semibold"
               style={{ backgroundColor: meta.bg, color: meta.fg }}
-              title={
-                day.lateMinutes || day.earlyMinutes
-                  ? `Trễ ${day.lateMinutes}p, sớm ${day.earlyMinutes}p`
-                  : day.status
-              }
+              title={tip}
             >
               {meta.label}
             </div>
@@ -117,15 +129,58 @@ export default function AttendancePage() {
         },
       });
     }
+    // Cột tổng cuối: công / trễ / vắng
+    cols.push(
+      {
+        colId: 'totalPresent',
+        headerName: 'Công',
+        width: 64,
+        pinned: 'right',
+        cellClass: 'text-center font-semibold text-green-600',
+        valueGetter: (p) =>
+          Object.values(p.data?.days ?? {}).filter((d) =>
+            ['PRESENT', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY'].includes(d.status),
+          ).length,
+      },
+      {
+        colId: 'totalLate',
+        headerName: 'Trễ',
+        width: 56,
+        pinned: 'right',
+        cellClass: 'text-center text-amber-600',
+        valueGetter: (p) =>
+          Object.values(p.data?.days ?? {}).filter((d) => d.lateMinutes > 0).length,
+      },
+      {
+        colId: 'totalAbsent',
+        headerName: 'Vắng',
+        width: 60,
+        pinned: 'right',
+        cellClass: 'text-center text-destructive',
+        valueGetter: (p) =>
+          Object.values(p.data?.days ?? {}).filter((d) => d.status === 'ABSENT')
+            .length,
+      },
+    );
     return cols;
   }, [days]);
+
+  const legend: { status: TimesheetStatus; text: string }[] = [
+    { status: 'PRESENT', text: 'Đủ công' },
+    { status: 'LATE', text: 'Đi trễ' },
+    { status: 'EARLY_LEAVE', text: 'Về sớm' },
+    { status: 'ABSENT', text: 'Vắng' },
+    { status: 'ON_LEAVE', text: 'Nghỉ phép' },
+    { status: 'HOLIDAY', text: 'Nghỉ lễ' },
+    { status: 'WEEKEND', text: 'Cuối tuần' },
+  ];
 
   return (
     <FadeIn className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Bảng công tháng</h1>
         <p className="text-muted-foreground">
-          P=Đủ công · L=Trễ · E=Về sớm · V=Vắng · N=Nghỉ phép · LE=Lễ
+          Mỗi ô = trạng thái 1 ngày. Di chuột để xem chi tiết trễ/sớm.
         </p>
       </div>
 
@@ -157,16 +212,39 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      {/* Chú giải màu */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        {legend.map((l) => {
+          const meta = STATUS_META[l.status];
+          return (
+            <span key={l.status} className="flex items-center gap-1.5">
+              <span
+                className="inline-flex size-5 items-center justify-center rounded text-[10px] font-semibold"
+                style={{ backgroundColor: meta.bg, color: meta.fg }}
+              >
+                {meta.label}
+              </span>
+              {l.text}
+            </span>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <Skeleton className="h-[560px] w-full" />
+      ) : (data ?? []).length === 0 ? (
+        <div className="rounded-md border py-16 text-center text-muted-foreground">
+          Không có nhân viên nào trong phạm vi xem
+        </div>
       ) : (
         <DataGrid<TimesheetGridRow>
           containerClassName="h-[600px]"
           rowData={data ?? []}
           columnDefs={columnDefs}
           defaultColDef={{ resizable: false, suppressMovable: true }}
-          headerHeight={32}
-          rowHeight={36}
+          headerHeight={34}
+          rowHeight={40}
+          tooltipShowDelay={300}
         />
       )}
     </FadeIn>

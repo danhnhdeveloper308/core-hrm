@@ -8,12 +8,11 @@ import {
   type WorkShiftResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, FileText, Upload } from 'lucide-react';
+import { Clock, FileText, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/permission-gate';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -196,43 +195,12 @@ export function EmployeeDetailSheet({
               </div>
 
               <Separator />
-              <div>
-                <h3 className="mb-2 text-sm font-semibold">
-                  Hợp đồng ({data.contracts.length})
-                </h3>
-                {data.contracts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Chưa có hợp đồng</p>
-                ) : (
-                  <div className="space-y-2">
-                    {data.contracts.map((contract) => (
-                      <div
-                        key={contract.id}
-                        className="flex items-center justify-between rounded-md border p-2 text-sm"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {CONTRACT_LABELS[contract.type]}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {contract.startDate} → {contract.endDate ?? 'hiện tại'}
-                          </p>
-                        </div>
-                        {contract.hasFile ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => viewContractFile.mutate(contract.id)}
-                          >
-                            <FileText className="size-3.5" /> Xem
-                          </Button>
-                        ) : (
-                          <Badge variant="outline">Chưa có file</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ContractSection
+                employeeId={data.id}
+                contracts={data.contracts}
+                onView={(id) => viewContractFile.mutate(id)}
+                onChanged={invalidateDetail}
+              />
 
               <Separator />
               <ShiftAssignmentSection employeeId={data.id} />
@@ -241,6 +209,211 @@ export function EmployeeDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+const CONTRACT_TYPES: { value: string; label: string }[] = [
+  { value: 'PROBATION', label: 'Thử việc' },
+  { value: 'FIXED_TERM', label: 'Xác định thời hạn' },
+  { value: 'INDEFINITE', label: 'Không xác định thời hạn' },
+];
+
+/** Danh sách hợp đồng + thêm hợp đồng + upload/xoá file PDF (employee:update). */
+function ContractSection({
+  employeeId,
+  contracts,
+  onView,
+  onChanged,
+}: {
+  employeeId: string;
+  contracts: ContractResponse[];
+  onView: (contractId: string) => void;
+  onChanged: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [type, setType] = useState('PROBATION');
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState('');
+  const [note, setNote] = useState('');
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const createContract = useMutation({
+    mutationFn: () =>
+      api.post<ContractResponse>(`/employees/${employeeId}/contracts`, {
+        type,
+        startDate,
+        endDate: endDate || null,
+        note: note || null,
+      }),
+    onSuccess: () => {
+      toast.success('Đã thêm hợp đồng');
+      setAdding(false);
+      setEndDate('');
+      setNote('');
+      onChanged();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Thêm hợp đồng thất bại'),
+  });
+
+  const uploadFile = useMutation({
+    mutationFn: ({ contractId, file }: { contractId: string; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      return api.upload<ContractResponse>(
+        `/employees/${employeeId}/contracts/${contractId}/file`,
+        form,
+        { method: 'PUT' },
+      );
+    },
+    onSuccess: () => {
+      toast.success('Đã tải lên file hợp đồng');
+      onChanged();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Tải file thất bại'),
+  });
+
+  const deleteContract = useMutation({
+    mutationFn: (contractId: string) =>
+      api.delete<{ message: string }>(
+        `/employees/${employeeId}/contracts/${contractId}`,
+      ),
+    onSuccess: () => {
+      toast.success('Đã xoá hợp đồng');
+      onChanged();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Xoá thất bại'),
+  });
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Hợp đồng ({contracts.length})</h3>
+        <PermissionGate permission={PERMISSIONS.EMPLOYEE_UPDATE}>
+          <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}>
+            <Plus className="size-3.5" /> Thêm
+          </Button>
+        </PermissionGate>
+      </div>
+
+      {adding && (
+        <div className="mb-3 space-y-2 rounded-md border p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Loại hợp đồng</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Từ ngày</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Đến ngày (tuỳ chọn)</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Ghi chú</Label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={() => createContract.mutate()}
+            disabled={createContract.isPending}
+          >
+            {createContract.isPending ? 'Đang lưu…' : 'Lưu hợp đồng'}
+          </Button>
+        </div>
+      )}
+
+      {contracts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Chưa có hợp đồng</p>
+      ) : (
+        <div className="space-y-2">
+          {contracts.map((contract) => (
+            <div
+              key={contract.id}
+              className="flex items-center justify-between rounded-md border p-2 text-sm"
+            >
+              <div>
+                <p className="font-medium">{CONTRACT_LABELS[contract.type]}</p>
+                <p className="text-xs text-muted-foreground">
+                  {contract.startDate} → {contract.endDate ?? 'hiện tại'}
+                  {contract.note ? ` · ${contract.note}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                {contract.hasFile ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onView(contract.id)}
+                  >
+                    <FileText className="size-3.5" /> Xem PDF
+                  </Button>
+                ) : (
+                  <PermissionGate permission={PERMISSIONS.EMPLOYEE_UPDATE}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => fileInputRefs.current[contract.id]?.click()}
+                      disabled={uploadFile.isPending}
+                    >
+                      <Upload className="size-3.5" /> Tải PDF
+                    </Button>
+                  </PermissionGate>
+                )}
+                <input
+                  ref={(el) => {
+                    fileInputRefs.current[contract.id] = el;
+                  }}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadFile.mutate({ contractId: contract.id, file });
+                    e.target.value = '';
+                  }}
+                />
+                <PermissionGate permission={PERMISSIONS.EMPLOYEE_UPDATE}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7 text-destructive"
+                    onClick={() => deleteContract.mutate(contract.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </PermissionGate>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
