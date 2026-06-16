@@ -108,6 +108,13 @@ export class ApprovalController {
     return this.approval.inbox(orgId, actor.sub);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'Đơn tôi đã xử lý (duyệt/từ chối)' })
+  @ApiOkResponse({ description: 'ApprovalInstanceResponse[]' })
+  history(@CurrentOrg() orgId: string, @CurrentUser() actor: AccessTokenPayload) {
+    return this.approval.history(orgId, actor.sub);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Chi tiết một đơn duyệt (chain + ai đã duyệt)' })
   @ApiOkResponse({ description: 'ApprovalInstanceResponse' })

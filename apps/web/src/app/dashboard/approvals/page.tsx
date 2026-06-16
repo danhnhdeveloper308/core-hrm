@@ -62,10 +62,14 @@ export default function ApprovalsPage() {
       <Tabs defaultValue="inbox">
         <TabsList>
           <TabsTrigger value="inbox">Chờ tôi duyệt</TabsTrigger>
+          <TabsTrigger value="history">Đã xử lý</TabsTrigger>
           <TabsTrigger value="mine">Đơn của tôi</TabsTrigger>
         </TabsList>
         <TabsContent value="inbox">
           <InboxTab />
+        </TabsContent>
+        <TabsContent value="history">
+          <HistoryTab />
         </TabsContent>
         <TabsContent value="mine">
           <MyRequestsTab />
@@ -257,6 +261,55 @@ function DecideDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ===== Tab: Đã xử lý =====
+
+function HistoryTab() {
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.approval.history,
+    queryFn: () => api.get<ApprovalInstanceResponse[]>('/approvals/history'),
+  });
+
+  if (isLoading) return <Skeleton className="h-40 w-full" />;
+  if ((data ?? []).length === 0) {
+    return (
+      <div className="rounded-md border py-16 text-center text-muted-foreground">
+        Bạn chưa xử lý đơn nào.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {(data ?? []).map((inst) => (
+          <Card
+            key={inst.id}
+            className="cursor-pointer transition-colors hover:bg-accent/40"
+            onClick={() => setDetailId(inst.id)}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center justify-between text-base">
+                <span>{inst.requesterName}</span>
+                <Badge variant={APPROVAL_STATUS_BADGE[inst.status]}>
+                  {APPROVAL_STATUS_LABELS[inst.status]}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <Badge variant="outline" className="mb-2">
+                {TARGET_TYPE_LABELS[inst.targetType] ?? inst.targetType}
+              </Badge>
+              <div>Gửi lúc {fmtDateTime(inst.createdAt)}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <InstanceDetailDialog instanceId={detailId} onClose={() => setDetailId(null)} />
+    </>
   );
 }
 

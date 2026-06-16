@@ -74,6 +74,7 @@ export const queryKeys = {
   approval: {
     flows: (targetType?: string) => ['approval', 'flows', targetType ?? 'all'] as const,
     inbox: ['approval', 'inbox'] as const,
+    history: ['approval', 'history'] as const,
     instance: (id: string) => ['approval', 'instance', id] as const,
   },
 } as const;

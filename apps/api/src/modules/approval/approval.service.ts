@@ -240,6 +240,30 @@ export class ApprovalService {
     return Promise.all(mine.map((i) => this.toResponse(i)));
   }
 
+  /** Đơn mà actor ĐÃ xử lý (có ApprovalAction) — lịch sử duyệt của cấp quản lý. */
+  async history(orgId: string, actorUserId: string): Promise<ApprovalInstanceResponse[]> {
+    const actions = await this.prisma.approvalAction.findMany({
+      where: { actorId: actorUserId, instance: { orgId } },
+      orderBy: { decidedAt: 'desc' },
+      select: { instanceId: true },
+    });
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const a of actions) {
+      if (!seen.has(a.instanceId)) {
+        seen.add(a.instanceId);
+        ids.push(a.instanceId);
+      }
+    }
+    const instances = await this.prisma.approvalInstance.findMany({
+      where: { id: { in: ids }, orgId },
+    });
+    const byId = new Map(instances.map((i) => [i.id, i]));
+    // Giữ thứ tự đã xử lý gần nhất
+    const ordered = ids.map((id) => byId.get(id)).filter((i) => i !== undefined);
+    return Promise.all(ordered.map((i) => this.toResponse(i)));
+  }
+
   async getInstance(orgId: string, id: string): Promise<ApprovalInstanceResponse> {
     const instance = await this.prisma.approvalInstance.findFirstOrThrow({
       where: { id, orgId },
