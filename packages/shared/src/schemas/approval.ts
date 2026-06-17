@@ -12,6 +12,7 @@ export const approverTypeSchema = z.enum([
   'DIRECT_MANAGER',
   'MANAGEMENT_CHAIN',
   'UNIT_MANAGER_OF_TYPE',
+  'UNIT_MANAGER_OF_UNIT',
   'ROLE',
   'SPECIFIC_USER',
 ]);
@@ -36,6 +37,8 @@ export const approvalFlowStepSchema = z.object({
   approverType: approverTypeSchema,
   chainLevel: z.number().int().nullable(),
   unitTypeCode: z.string().nullable(),
+  orgUnitId: z.uuid().nullable(),
+  orgUnitName: z.string().nullable(),
   roleId: z.uuid().nullable(),
   roleName: z.string().nullable(),
   userId: z.uuid().nullable(),
@@ -62,6 +65,7 @@ export const createFlowStepSchema = z
     approverType: approverTypeSchema,
     chainLevel: z.number().int().min(1).max(20).nullish(),
     unitTypeCode: z.string().trim().max(50).nullish(),
+    orgUnitId: z.uuid().nullish(),
     roleId: z.uuid().nullish(),
     userId: z.uuid().nullish(),
     slaHours: z.number().int().min(1).max(720).nullish(),
@@ -76,6 +80,10 @@ export const createFlowStepSchema = z
   .refine(
     (v) => v.approverType !== 'UNIT_MANAGER_OF_TYPE' || !!v.unitTypeCode,
     { message: 'UNIT_MANAGER_OF_TYPE cần unitTypeCode', path: ['unitTypeCode'] },
+  )
+  .refine(
+    (v) => v.approverType !== 'UNIT_MANAGER_OF_UNIT' || !!v.orgUnitId,
+    { message: 'UNIT_MANAGER_OF_UNIT cần chọn đơn vị', path: ['orgUnitId'] },
   )
   .refine((v) => v.approverType !== 'ROLE' || !!v.roleId, {
     message: 'ROLE cần roleId',
@@ -117,6 +125,8 @@ export const approvalStepStateSchema = z.object({
   decision: approvalDecisionSchema.nullable(),
   note: z.string().nullable(),
   decidedAt: z.string().nullable(),
+  /** Thời hạn duyệt mong muốn (giờ) — null = không đặt. */
+  slaHours: z.number().int().nullable(),
 });
 export type ApprovalStepState = z.infer<typeof approvalStepStateSchema>;
 

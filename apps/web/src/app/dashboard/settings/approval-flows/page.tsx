@@ -7,6 +7,7 @@ import {
   type ApprovalFlowStepResponse,
   type ApproverType,
   type CreateApprovalFlowInput,
+  type OrgUnitResponse,
   type OrgUnitTypeResponse,
   type Paginated,
   type RoleResponse,
@@ -71,6 +72,7 @@ const APPROVER_TYPE_OPTIONS: { value: ApproverType; label: string }[] = [
   { value: 'DIRECT_MANAGER', label: 'Quản lý trực tiếp' },
   { value: 'MANAGEMENT_CHAIN', label: 'Cấp quản lý thứ N' },
   { value: 'UNIT_MANAGER_OF_TYPE', label: 'Quản lý đơn vị (theo loại)' },
+  { value: 'UNIT_MANAGER_OF_UNIT', label: 'Quản lý đơn vị (chọn cụ thể)' },
   { value: 'ROLE', label: 'Vai trò' },
   { value: 'SPECIFIC_USER', label: 'Người chỉ định' },
 ];
@@ -83,6 +85,8 @@ function stepSummary(step: ApprovalFlowStepResponse): string {
       return `Quản lý cấp ${step.chainLevel ?? '?'}`;
     case 'UNIT_MANAGER_OF_TYPE':
       return `Quản lý đơn vị: ${step.unitTypeCode ?? '?'}`;
+    case 'UNIT_MANAGER_OF_UNIT':
+      return `Quản lý: ${step.orgUnitName ?? '?'}`;
     case 'ROLE':
       return `Vai trò: ${step.roleName ?? '?'}`;
     case 'SPECIFIC_USER':
@@ -271,6 +275,11 @@ function FlowFormDialog({
     queryFn: () => api.get<OrgUnitTypeResponse[]>('/org-unit-types'),
     enabled: open,
   });
+  const { data: orgUnits } = useQuery({
+    queryKey: queryKeys.org.units,
+    queryFn: () => api.get<OrgUnitResponse[]>('/org-units'),
+    enabled: open,
+  });
 
   const form = useForm<
     z.input<typeof createApprovalFlowSchema>,
@@ -305,6 +314,7 @@ function FlowFormDialog({
             approverType: s.approverType,
             chainLevel: s.chainLevel ?? undefined,
             unitTypeCode: s.unitTypeCode ?? undefined,
+            orgUnitId: s.orgUnitId ?? undefined,
             roleId: s.roleId ?? undefined,
             userId: s.userId ?? undefined,
             slaHours: s.slaHours ?? undefined,
@@ -461,6 +471,7 @@ function FlowFormDialog({
                   roles={roles?.items ?? []}
                   users={users?.items ?? []}
                   unitTypes={unitTypes ?? []}
+                  orgUnits={orgUnits ?? []}
                   onRemove={() => remove(index)}
                   onUp={() => move(index, index - 1)}
                   onDown={() => move(index, index + 1)}
@@ -499,6 +510,7 @@ function StepRow({
   roles,
   users,
   unitTypes,
+  orgUnits,
   onRemove,
   onUp,
   onDown,
@@ -509,6 +521,7 @@ function StepRow({
   roles: RoleResponse[];
   users: UserResponse[];
   unitTypes: OrgUnitTypeResponse[];
+  orgUnits: OrgUnitResponse[];
   onRemove: () => void;
   onUp: () => void;
   onDown: () => void;
@@ -616,6 +629,32 @@ function StepRow({
                     {unitTypes.map((t) => (
                       <SelectItem key={t.id} value={t.code}>
                         {t.name} ({t.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        {approverType === 'UNIT_MANAGER_OF_UNIT' && (
+          <FormField
+            control={form.control}
+            name={`steps.${index}.orgUnitId`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Đơn vị cụ thể</FormLabel>
+                <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Chọn đơn vị" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {orgUnits.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name} ({u.typeName})
                       </SelectItem>
                     ))}
                   </SelectContent>

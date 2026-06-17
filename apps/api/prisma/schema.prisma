@@ -812,6 +812,7 @@ enum ApproverType {
   DIRECT_MANAGER
   MANAGEMENT_CHAIN
   UNIT_MANAGER_OF_TYPE
+  UNIT_MANAGER_OF_UNIT
   ROLE
   SPECIFIC_USER
 }
@@ -856,6 +857,8 @@ model ApprovalFlowStep {
   chainLevel   Int?
   /// UNIT_MANAGER_OF_TYPE: code loại đơn vị (vd NHA_MAY)
   unitTypeCode String?
+  /// UNIT_MANAGER_OF_UNIT: chọn đúng 1 đơn vị cụ thể → quản lý đơn vị đó duyệt
+  orgUnitId    String?      @db.Uuid
   roleId       String?      @db.Uuid
   userId       String?      @db.Uuid
   slaHours     Int?

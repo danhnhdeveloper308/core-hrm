@@ -276,6 +276,7 @@ function BatchDetailDialog({
             {instance && (
               <SignatureRow instance={instance} tongHop={batch.uploadedByName} />
             )}
+            <BatchStats lines={batch.lines ?? []} />
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -304,6 +305,28 @@ function BatchDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Thống kê nhanh theo loại ca + theo đơn vị (LĐ đăng ký). */
+function BatchStats({
+  lines,
+}: {
+  lines: { variant: keyof typeof SHIFT_VARIANT_LABELS }[];
+}) {
+  const counts = lines.reduce<Record<string, number>>((acc, l) => {
+    acc[l.variant] = (acc[l.variant] ?? 0) + 1;
+    return acc;
+  }, {});
+  return (
+    <div className="flex flex-wrap gap-2 text-sm">
+      <Badge variant="secondary">Tổng: {lines.length} NV</Badge>
+      {(['XUONG_CA', 'GIAN_CA', 'TANG_CA'] as const).map((v) => (
+        <Badge key={v} variant="outline">
+          {SHIFT_VARIANT_LABELS[v]}: {counts[v] ?? 0}
+        </Badge>
+      ))}
+    </div>
   );
 }
 

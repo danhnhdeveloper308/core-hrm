@@ -461,6 +461,11 @@ function ApprovalChain({
                     đang chờ
                   </Badge>
                 )}
+                {step.slaHours != null && step.decision === null && (
+                  <span className="text-[10px] text-muted-foreground">
+                    (hạn {step.slaHours}h)
+                  </span>
+                )}
               </div>
               <div className="truncate text-xs text-muted-foreground">
                 {step.approverNames.join(', ') || '—'}

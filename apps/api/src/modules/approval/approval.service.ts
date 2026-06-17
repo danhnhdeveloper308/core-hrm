@@ -27,6 +27,7 @@ const APPROVER_TYPE_LABEL: Record<ApproverType, string> = {
   DIRECT_MANAGER: 'Quản lý trực tiếp',
   MANAGEMENT_CHAIN: 'Cấp quản lý',
   UNIT_MANAGER_OF_TYPE: 'Quản lý đơn vị',
+  UNIT_MANAGER_OF_UNIT: 'Quản lý đơn vị',
   ROLE: 'Vai trò',
   SPECIFIC_USER: 'Người chỉ định',
 };
@@ -102,6 +103,7 @@ export class ApprovalService {
         decision: null,
         note: null,
         decidedAt: null,
+        slaHours: step.slaHours ?? null,
       });
     }
 

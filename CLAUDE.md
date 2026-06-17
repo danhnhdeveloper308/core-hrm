@@ -36,6 +36,7 @@ docker/         Dockerfile.api, Dockerfile.web
 - Permission format `resource:action` (vd `user:read`). Check qua `@RequirePermissions()` + `PermissionsGuard`.
 
 ## Khi cần context
+- **Tiến độ & bàn giao: `PROGRESS.md` (đọc ĐẦU TIÊN — biết đã làm gì, còn gì)**
 - Schema DB: `apps/api/prisma/schema.prisma`
 - Danh sách permission/role mặc định: `packages/shared/src/constants/permissions.ts`
 - Spec đầy đủ của template: `PROMPT.md` (chỉ đọc khi cần, file dài)

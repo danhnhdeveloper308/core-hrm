@@ -11,6 +11,7 @@ export interface FlowStepLike {
   approverType: ApproverType;
   chainLevel: number | null;
   unitTypeCode: string | null;
+  orgUnitId: string | null;
   roleId: string | null;
   userId: string | null;
 }
@@ -41,6 +42,8 @@ export class ApprovalResolverService {
         return this.byManagerChain(requester.employeeId, step.chainLevel ?? 1);
       case 'UNIT_MANAGER_OF_TYPE':
         return this.byUnitManagerOfType(requester, step.unitTypeCode);
+      case 'UNIT_MANAGER_OF_UNIT':
+        return this.byUnitManagerOfUnit(requester.orgId, step.orgUnitId);
       case 'ROLE':
         return this.byRole(requester.orgId, step.roleId);
       case 'SPECIFIC_USER':
@@ -103,6 +106,19 @@ export class ApprovalResolverService {
       }
     }
     return { userIds: [], names: [] };
+  }
+
+  /** Quản lý của ĐÚNG 1 đơn vị được chọn (không leo cây). */
+  private async byUnitManagerOfUnit(
+    orgId: string,
+    orgUnitId: string | null,
+  ): Promise<ResolvedApprover> {
+    if (!orgUnitId) return { userIds: [], names: [] };
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: orgUnitId, orgId },
+      select: { manager: { select: { userId: true, fullName: true } } },
+    });
+    return this.toResult(unit?.manager ?? null);
   }
 
   /** Mọi user ACTIVE trong org có role đó. */

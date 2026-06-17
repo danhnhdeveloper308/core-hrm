@@ -50,6 +50,7 @@ export class ApprovalFlowService {
             approverType: s.approverType,
             chainLevel: s.chainLevel ?? null,
             unitTypeCode: s.unitTypeCode ?? null,
+            orgUnitId: s.orgUnitId ?? null,
             roleId: s.roleId ?? null,
             userId: s.userId ?? null,
             slaHours: s.slaHours ?? null,
@@ -93,6 +94,7 @@ export class ApprovalFlowService {
             approverType: s.approverType,
             chainLevel: s.chainLevel ?? null,
             unitTypeCode: s.unitTypeCode ?? null,
+            orgUnitId: s.orgUnitId ?? null,
             roleId: s.roleId ?? null,
             userId: s.userId ?? null,
             slaHours: s.slaHours ?? null,
@@ -123,6 +125,19 @@ export class ApprovalFlowService {
   ): Promise<void> {
     const roleIds = steps.map((s) => s.roleId).filter((v): v is string => !!v);
     const userIds = steps.map((s) => s.userId).filter((v): v is string => !!v);
+    const unitIds = steps.map((s) => s.orgUnitId).filter((v): v is string => !!v);
+    if (unitIds.length) {
+      const found = await this.prisma.orgUnit.count({
+        where: { id: { in: unitIds }, orgId },
+      });
+      if (found !== new Set(unitIds).size) {
+        throw new AppException(
+          HttpStatus.BAD_REQUEST,
+          'Đơn vị trong bước duyệt không thuộc tổ chức',
+          ERROR_CODES.NOT_FOUND,
+        );
+      }
+    }
     if (roleIds.length) {
       const found = await this.prisma.role.count({
         where: { id: { in: roleIds }, orgId },
@@ -164,7 +179,8 @@ export class ApprovalFlowService {
   private async toResponse(flow: FlowWithSteps): Promise<ApprovalFlowResponse> {
     const roleIds = flow.steps.map((s) => s.roleId).filter((v): v is string => !!v);
     const userIds = flow.steps.map((s) => s.userId).filter((v): v is string => !!v);
-    const [roles, users] = await Promise.all([
+    const unitIds = flow.steps.map((s) => s.orgUnitId).filter((v): v is string => !!v);
+    const [roles, users, units] = await Promise.all([
       roleIds.length
         ? this.prisma.role.findMany({
             where: { id: { in: roleIds } },
@@ -177,9 +193,16 @@ export class ApprovalFlowService {
             select: { id: true, name: true },
           })
         : Promise.resolve([]),
+      unitIds.length
+        ? this.prisma.orgUnit.findMany({
+            where: { id: { in: unitIds } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
     ]);
     const roleName = new Map(roles.map((r) => [r.id, r.name]));
     const userName = new Map(users.map((u) => [u.id, u.name]));
+    const unitName = new Map(units.map((u) => [u.id, u.name]));
     return {
       id: flow.id,
       targetType: flow.targetType,
@@ -193,6 +216,8 @@ export class ApprovalFlowService {
         approverType: s.approverType,
         chainLevel: s.chainLevel,
         unitTypeCode: s.unitTypeCode,
+        orgUnitId: s.orgUnitId,
+        orgUnitName: s.orgUnitId ? (unitName.get(s.orgUnitId) ?? null) : null,
         roleId: s.roleId,
         roleName: s.roleId ? (roleName.get(s.roleId) ?? null) : null,
         userId: s.userId,
