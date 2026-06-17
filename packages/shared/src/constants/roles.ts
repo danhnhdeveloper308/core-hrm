@@ -44,6 +44,7 @@ export const ORG_ROLES = {
   HR_MANAGER: 'HR_MANAGER',
   UNIT_MANAGER: 'UNIT_MANAGER',
   EMPLOYEE: 'EMPLOYEE',
+  WORKER: 'WORKER',
 } as const;
 
 export type OrgRoleName = (typeof ORG_ROLES)[keyof typeof ORG_ROLES];
@@ -57,7 +58,8 @@ export const ORG_ROLE_DESCRIPTIONS: Record<OrgRoleName, string> = {
   ORG_ADMIN: 'Quản trị toàn bộ tổ chức: cơ cấu, nhân sự, cấu hình, phân quyền',
   HR_MANAGER: 'Quản lý nhân sự: hồ sơ, chấm công, nghỉ phép, báo cáo toàn org',
   UNIT_MANAGER: 'Quản lý đơn vị: xem dữ liệu + duyệt đơn trong subtree mình quản lý',
-  EMPLOYEE: 'Nhân viên: tự chấm công, xem công, tạo đơn nghỉ phép',
+  EMPLOYEE: 'Nhân viên văn phòng: tự chấm công, nghỉ phép + đăng ký/xem phiếu tăng giãn ca',
+  WORKER: 'Công nhân: tự chấm công, xem công, tạo đơn nghỉ phép (không xem phiếu tăng giãn ca)',
 };
 
 /** Map role org-level → permissions mặc định khi tạo org. */
@@ -85,6 +87,7 @@ export const DEFAULT_ORG_ROLE_PERMISSIONS: Record<OrgRoleName, Permission[]> = {
     PERMISSIONS.LEAVE_APPROVE,
     PERMISSIONS.LEAVE_MANAGE_POLICY,
     PERMISSIONS.APPROVAL_MANAGE_FLOW,
+    PERMISSIONS.SHIFT_REGISTRATION_MANAGE,
     PERMISSIONS.DEVICE_MANAGE,
     PERMISSIONS.WORKSITE_MANAGE,
     PERMISSIONS.REPORT_READ,
@@ -108,6 +111,7 @@ export const DEFAULT_ORG_ROLE_PERMISSIONS: Record<OrgRoleName, Permission[]> = {
     PERMISSIONS.LEAVE_REQUEST,
     PERMISSIONS.LEAVE_APPROVE,
     PERMISSIONS.LEAVE_MANAGE_POLICY,
+    PERMISSIONS.SHIFT_REGISTRATION_MANAGE,
     PERMISSIONS.REPORT_READ,
     PERMISSIONS.FACE_ENROLL,
     PERMISSIONS.FACE_MANAGE,
@@ -120,10 +124,22 @@ export const DEFAULT_ORG_ROLE_PERMISSIONS: Record<OrgRoleName, Permission[]> = {
     PERMISSIONS.ATTENDANCE_READ_ALL,
     PERMISSIONS.LEAVE_READ,
     PERMISSIONS.LEAVE_REQUEST,
+    PERMISSIONS.SHIFT_REGISTRATION_MANAGE,
     PERMISSIONS.REPORT_READ,
     PERMISSIONS.FACE_ENROLL,
   ],
+  // Nhân viên văn phòng: như công nhân + được đăng ký/xem phiếu tăng giãn ca
   EMPLOYEE: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.ORG_READ,
+    PERMISSIONS.ATTENDANCE_READ,
+    PERMISSIONS.LEAVE_READ,
+    PERMISSIONS.LEAVE_REQUEST,
+    PERMISSIONS.SHIFT_REGISTRATION_MANAGE,
+    PERMISSIONS.FACE_ENROLL,
+  ],
+  // Công nhân: cấp thấp nhất — KHÔNG xem phiếu tăng giãn ca
+  WORKER: [
     PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.ORG_READ,
     PERMISSIONS.ATTENDANCE_READ,

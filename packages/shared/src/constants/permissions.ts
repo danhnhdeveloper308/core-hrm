@@ -49,6 +49,8 @@ export const PERMISSIONS = {
   LEAVE_MANAGE_POLICY: 'leave:manage_policy',
   // phê duyệt
   APPROVAL_MANAGE_FLOW: 'approval:manage_flow',
+  // phiếu tăng/giãn ca theo danh sách (upload + xem + thống kê) — nhân viên VP+
+  SHIFT_REGISTRATION_MANAGE: 'shift_registration:manage',
   // máy chấm công
   DEVICE_MANAGE: 'device:manage',
   // địa điểm làm việc
@@ -100,6 +102,7 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',
   'leave:manage_policy': 'Cấu hình loại phép và chính sách phép',
   'approval:manage_flow': 'Cấu hình luồng phê duyệt',
+  'shift_registration:manage': 'Đăng ký + xem phiếu tăng/giãn ca theo danh sách',
   'device:manage': 'Quản lý máy chấm công và mã nhân viên trên máy',
   'worksite:manage': 'Quản lý địa điểm làm việc (geofence)',
   'report:read': 'Xem và xuất báo cáo',

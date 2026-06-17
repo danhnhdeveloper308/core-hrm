@@ -49,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/my-attendance', label: 'Chấm công của tôi', icon: CalendarClock, permission: PERMISSIONS.ATTENDANCE_READ },
   { href: '/checkin', label: 'Chấm công ngay', icon: Fingerprint, permission: PERMISSIONS.ATTENDANCE_READ },
   { href: '/dashboard/leave', label: 'Nghỉ phép', icon: Palmtree, permission: PERMISSIONS.LEAVE_READ },
-  { href: '/dashboard/shift-registrations', label: 'Phiếu tăng/giãn ca', icon: FileSpreadsheet, permission: PERMISSIONS.ATTENDANCE_READ_ALL },
+  { href: '/dashboard/shift-registrations', label: 'Phiếu tăng/giãn ca', icon: FileSpreadsheet, permission: PERMISSIONS.SHIFT_REGISTRATION_MANAGE },
   { href: '/dashboard/approvals', label: 'Duyệt đơn', icon: ClipboardCheck, permission: null },
   { href: '/dashboard/users', label: 'Người dùng', icon: Users, permission: PERMISSIONS.USER_READ },
   { href: '/dashboard/roles', label: 'Vai trò', icon: Shield, permission: PERMISSIONS.ROLE_READ },

@@ -149,10 +149,17 @@ export class UsersService {
         ERROR_CODES.AUTH_EMAIL_TAKEN,
       );
     }
-    const defaultRole = await this.prisma.role.findFirst({
-      where: { name: ORG_ROLES.EMPLOYEE, orgId },
-      select: { id: true },
-    });
+    // NV tạo không email = công nhân → role WORKER; fallback EMPLOYEE nếu org
+    // chưa seed WORKER.
+    const defaultRole =
+      (await this.prisma.role.findFirst({
+        where: { name: ORG_ROLES.WORKER, orgId },
+        select: { id: true },
+      })) ??
+      (await this.prisma.role.findFirst({
+        where: { name: ORG_ROLES.EMPLOYEE, orgId },
+        select: { id: true },
+      }));
     const user = await this.prisma.user.create({
       data: {
         username,

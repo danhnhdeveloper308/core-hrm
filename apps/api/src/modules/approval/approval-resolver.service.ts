@@ -41,9 +41,9 @@ export class ApprovalResolverService {
       case 'MANAGEMENT_CHAIN':
         return this.byManagerChain(requester.employeeId, step.chainLevel ?? 1);
       case 'UNIT_MANAGER_OF_TYPE':
-        return this.byUnitManagerOfType(requester, step.unitTypeCode);
+        return this.byUnitManagerOfType(requester, step.unitTypeCode, step.chainLevel ?? 1);
       case 'UNIT_MANAGER_OF_UNIT':
-        return this.byUnitManagerOfUnit(requester.orgId, step.orgUnitId);
+        return this.byUnitManagerOfUnit(requester.orgId, step.orgUnitId, step.chainLevel ?? 1);
       case 'ROLE':
         return this.byRole(requester.orgId, step.roleId);
       case 'SPECIFIC_USER':
@@ -80,6 +80,7 @@ export class ApprovalResolverService {
   private async byUnitManagerOfType(
     requester: RequesterCtx,
     unitTypeCode: string | null,
+    chainLevel: number,
   ): Promise<ResolvedApprover> {
     if (!unitTypeCode) return { userIds: [], names: [] };
     const employee = await this.prisma.employee.findUnique({
@@ -91,34 +92,55 @@ export class ApprovalResolverService {
     const ids = employee.orgUnit.path.split('/').filter(Boolean);
     const units = await this.prisma.orgUnit.findMany({
       where: { id: { in: ids } },
-      select: {
-        id: true,
-        type: { select: { code: true } },
-        manager: { select: { userId: true, fullName: true } },
-      },
+      select: { id: true, type: { select: { code: true } }, managerId: true },
     });
     const byId = new Map(units.map((u) => [u.id, u]));
     // Leo từ gần (cuối path) lên xa (gốc), lấy unit đầu tiên đúng loại
     for (let i = ids.length - 1; i >= 0; i--) {
       const unit = byId.get(ids[i]!);
       if (unit?.type.code === unitTypeCode) {
-        return this.toResult(unit.manager);
+        if (!unit.managerId) return { userIds: [], names: [] };
+        return this.toResult(await this.climbManager(unit.managerId, chainLevel - 1));
       }
     }
     return { userIds: [], names: [] };
   }
 
-  /** Quản lý của ĐÚNG 1 đơn vị được chọn (không leo cây). */
+  /**
+   * Quản lý của ĐÚNG 1 đơn vị được chọn (không leo cây tổ chức). chainLevel:
+   * 1 = chính quản lý đơn vị; 2 = quản lý cấp trên của họ; …
+   */
   private async byUnitManagerOfUnit(
     orgId: string,
     orgUnitId: string | null,
+    chainLevel: number,
   ): Promise<ResolvedApprover> {
     if (!orgUnitId) return { userIds: [], names: [] };
     const unit = await this.prisma.orgUnit.findFirst({
       where: { id: orgUnitId, orgId },
-      select: { manager: { select: { userId: true, fullName: true } } },
+      select: { managerId: true },
     });
-    return this.toResult(unit?.manager ?? null);
+    if (!unit?.managerId) return { userIds: [], names: [] };
+    return this.toResult(await this.climbManager(unit.managerId, chainLevel - 1));
+  }
+
+  /** Từ 1 nhân viên, leo thêm `extra` cấp quản lý (0 = chính nhân viên đó). */
+  private async climbManager(
+    employeeId: string,
+    extra: number,
+  ): Promise<{ userId: string | null; fullName: string } | null> {
+    let current: { userId: string | null; fullName: string; managerId: string | null } | null =
+      await this.prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { userId: true, fullName: true, managerId: true },
+      });
+    for (let i = 0; i < extra && current?.managerId; i++) {
+      current = await this.prisma.employee.findUnique({
+        where: { id: current.managerId },
+        select: { userId: true, fullName: true, managerId: true },
+      });
+    }
+    return current ? { userId: current.userId, fullName: current.fullName } : null;
   }
 
   /** Mọi user ACTIVE trong org có role đó. */

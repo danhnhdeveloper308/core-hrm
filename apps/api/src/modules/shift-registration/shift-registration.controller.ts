@@ -40,7 +40,7 @@ export class ShiftRegistrationController {
   constructor(private readonly service: ShiftRegistrationService) {}
 
   @Get('template')
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ_ALL)
+  @RequirePermissions(PERMISSIONS.SHIFT_REGISTRATION_MANAGE)
   @ApiOperation({ summary: 'Tải file Excel mẫu đăng ký tăng/giãn ca' })
   async template(@Res() res: Response): Promise<void> {
     const buf = await this.service.generateTemplate();
@@ -53,7 +53,7 @@ export class ShiftRegistrationController {
   }
 
   @Post('upload')
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ_ALL)
+  @RequirePermissions(PERMISSIONS.SHIFT_REGISTRATION_MANAGE)
   @Audit('shift_registration.upload')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -74,7 +74,7 @@ export class ShiftRegistrationController {
   }
 
   @Get()
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ_ALL)
+  @RequirePermissions(PERMISSIONS.SHIFT_REGISTRATION_MANAGE)
   @ApiOperation({ summary: 'Danh sách phiếu đăng ký tăng/giãn ca' })
   @ApiOkResponse({ description: 'ShiftRegistrationBatchResponse[]' })
   list(@CurrentOrg() orgId: string) {
@@ -82,7 +82,7 @@ export class ShiftRegistrationController {
   }
 
   @Get(':id')
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ_ALL)
+  @RequirePermissions(PERMISSIONS.SHIFT_REGISTRATION_MANAGE)
   @ApiOperation({ summary: 'Chi tiết phiếu (danh sách dòng + chữ ký)' })
   @ApiOkResponse({ description: 'ShiftRegistrationBatchResponse' })
   get(@CurrentOrg() orgId: string, @Param('id', ParseUUIDPipe) id: string) {

@@ -612,6 +612,33 @@ function StepRow({
             )}
           />
         )}
+        {(approverType === 'UNIT_MANAGER_OF_TYPE' ||
+          approverType === 'UNIT_MANAGER_OF_UNIT') && (
+          <FormField
+            control={form.control}
+            name={`steps.${index}.chainLevel`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">
+                  Cấp quản lý từ đơn vị (1 = quản lý ĐV, 2 = cấp trên…)
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="1"
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(e.target.value ? e.target.valueAsNumber : undefined)
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         {approverType === 'UNIT_MANAGER_OF_TYPE' && (
           <FormField
             control={form.control}

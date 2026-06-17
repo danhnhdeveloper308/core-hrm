@@ -16,8 +16,13 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **Phiếu tăng/giãn ca theo DANH SÁCH (nhà máy)**: `apps/api/src/modules/shift-registration/`. Upload Excel (exceljs, danh sách phẳng MSNV+ngày+loại+lý do) → `ShiftRegistrationBatch`+lines → luồng duyệt `SHIFT_BATCH` (chữ ký N cấp, nhãn cấu hình, cao nhất sát trái / Tổng hợp=người upload sát phải) → cấp cao nhất duyệt → `TimesheetService.applyShiftVariant` áp cho TẤT CẢ theo `OtCalcMode`. WorkShift có `gianCaEnd`/`tangCaEnd` + `otCalcMode` (override org). FE `/dashboard/shift-registrations` (tải mẫu, upload, danh sách, chi tiết + thống kê + chữ ký). Xem memory `hrm-timekeeping-flexibility`.
 - **Tính công 2 chế độ** (`OtCalcMode`, org default + ca override): `CLAMP_TO_REGISTERED` (sản xuất — nới khung [giờ ca, mốc đăng ký], clamp); `SEPARATE_OT` (phần mềm — cộng otMinutes riêng).
 
-### Visibility hiện tại
-- `/dashboard/shift-registrations`: gate `ATTENDANCE_READ_ALL` → UNIT_MANAGER/HR_MANAGER/ORG_ADMIN xem được danh sách + thống kê + chi tiết (kể cả không phải người duyệt); EMPLOYEE (công nhân) không thấy. KHÔNG có role "WORKER" riêng — EMPLOYEE là cấp thấp nhất.
+### Roles (5) & visibility
+- ORG_ROLES: ORG_ADMIN, HR_MANAGER, UNIT_MANAGER, **EMPLOYEE** (nhân viên văn phòng), **WORKER** (công nhân — cấp thấp nhất). Tạo employee KHÔNG email → mặc định role **WORKER** (`users.createEmployeeAccount`, fallback EMPLOYEE nếu org chưa seed WORKER); mời qua email → EMPLOYEE.
+- Permission `SHIFT_REGISTRATION_MANAGE` (`shift_registration:manage`): có ở ORG_ADMIN/HR/UNIT_MANAGER/**EMPLOYEE**, KHÔNG có ở WORKER. Gate trang + endpoint `/shift-registrations` + nav. → EMPLOYEE trở lên xem/đăng ký phiếu + thống kê; WORKER không thấy.
+- Thêm permission/role mới ⇒ phải `sg docker -c "pnpm db:seed"` (upsert Permission) + org mới tự seed qua `organizations.service` (ALL_ORG_ROLES). Org CŨ cần backfill role/permission.
+
+### Approver "Quản lý đơn vị" + chainLevel
+- UNIT_MANAGER_OF_TYPE (leo cây theo loại đv) và UNIT_MANAGER_OF_UNIT (chọn đúng 1 đv) đều nhận `chainLevel` tuỳ chọn: 1 = chính quản lý đơn vị, 2 = quản lý cấp trên của họ… (resolver `climbManager`). VD giám đốc TS1 = UNIT_MANAGER_OF_UNIT(TS1) chainLevel 1.
 
 ## CHƯA LÀM (roadmap còn lại)
 
