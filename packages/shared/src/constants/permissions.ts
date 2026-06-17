@@ -69,6 +69,15 @@ export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as [
   ...Permission[],
 ];
 
+/**
+ * Quyền CHỈ dành cho platform admin (SUPER_ADMIN). ORG_ADMIN không được gán
+ * các quyền này cho role trong org (chống leo thang khi org tự quản lý role).
+ */
+export const PLATFORM_ONLY_PERMISSIONS: Permission[] = [
+  PERMISSIONS.ORG_CREATE,
+  PERMISSIONS.ORG_DELETE,
+];
+
 export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'user:read': 'Xem danh sách và chi tiết người dùng',
   'user:create': 'Tạo người dùng mới',

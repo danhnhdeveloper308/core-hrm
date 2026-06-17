@@ -2,6 +2,7 @@
 
 import {
   PERMISSION_DESCRIPTIONS,
+  PLATFORM_ONLY_PERMISSIONS,
   ROLES,
   type Permission,
   type RoleResponse,
@@ -9,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -71,8 +73,13 @@ export function PermissionMatrixDialog({
 
   const locked = role?.name === ROLES.SUPER_ADMIN;
 
+  // Org admin (user thuộc org) không được gán quyền cấp hệ thống → ẩn khỏi matrix
+  const isOrgScoped = useAuthStore.getState().user?.orgId != null;
+  const platformOnly = new Set<string>(PLATFORM_ONLY_PERMISSIONS);
+
   const byResource = new Map<string, PermissionRow[]>();
   for (const perm of permissions ?? []) {
+    if (isOrgScoped && platformOnly.has(perm.name)) continue;
     const resource = perm.name.split(':')[0] ?? perm.name;
     const group = byResource.get(resource) ?? [];
     group.push(perm);

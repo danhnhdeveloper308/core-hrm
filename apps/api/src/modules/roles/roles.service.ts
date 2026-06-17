@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   ERROR_CODES,
+  PLATFORM_ONLY_PERMISSIONS,
   ROLES,
   parseSort,
   type CreateRoleInput,
@@ -21,12 +22,14 @@ type RoleWithRelations = Prisma.RoleGetPayload<{
   include: {
     permissions: { include: { permission: true } };
     _count: { select: { users: true } };
+    org: { select: { name: true } };
   };
 }>;
 
 const ROLE_INCLUDE = {
   permissions: { include: { permission: true } },
   _count: { select: { users: true } },
+  org: { select: { name: true } },
 } as const;
 
 function toRoleResponse(role: RoleWithRelations): RoleResponse {
@@ -35,6 +38,8 @@ function toRoleResponse(role: RoleWithRelations): RoleResponse {
     name: role.name,
     description: role.description,
     isSystem: role.isSystem,
+    orgId: role.orgId,
+    orgName: role.org?.name ?? null,
     permissions: role.permissions
       .map((rp) => rp.permission.name as Permission)
       .sort(),
@@ -57,8 +62,9 @@ export class RolesService {
   ): Promise<Paginated<RoleResponse>> {
     const sort = parseSort(query.sort, ['name', 'createdAt', 'updatedAt']);
     const where: Prisma.RoleWhereInput = {
-      // Tenant scope: org user thấy role org mình; platform thấy role platform
-      orgId: actorOrgId,
+      // Platform admin (orgId=null) thấy MỌI role (platform + tất cả org);
+      // org admin chỉ thấy role org mình.
+      ...(actorOrgId != null ? { orgId: actorOrgId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -200,6 +206,19 @@ export class RolesService {
     }
 
     const wanted = [...new Set(input.permissions)];
+    // Org admin (actorOrgId set) KHÔNG được gán quyền platform-only → chống leo thang
+    if (actorOrgId != null) {
+      const illegal = wanted.filter((p) =>
+        (PLATFORM_ONLY_PERMISSIONS as string[]).includes(p),
+      );
+      if (illegal.length > 0) {
+        throw new AppException(
+          HttpStatus.FORBIDDEN,
+          `Không thể gán quyền cấp hệ thống: ${illegal.join(', ')}`,
+          ERROR_CODES.FORBIDDEN,
+        );
+      }
+    }
     const permissionRows = await this.prisma.permission.findMany({
       where: { name: { in: wanted } },
       select: { id: true, name: true },
@@ -232,8 +251,9 @@ export class RolesService {
       where: { id },
       include: ROLE_INCLUDE,
     });
-    // 404 khi role khác org — không tiết lộ resource tồn tại
-    if (!role || (actorOrgId !== undefined && role.orgId !== actorOrgId)) {
+    // Platform admin (actorOrgId null/undefined) thao tác mọi role; org admin
+    // chỉ role org mình. 404 khi khác org — không tiết lộ resource tồn tại.
+    if (!role || (actorOrgId != null && role.orgId !== actorOrgId)) {
       throw new AppException(
         HttpStatus.NOT_FOUND,
         'Không tìm thấy role',

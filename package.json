@@ -17,6 +17,7 @@
     "db:down": "bash scripts/db/local-down.sh",
     "db:migrate": "bash scripts/db/migrate.sh",
     "db:seed": "bash scripts/db/seed.sh",
+    "db:sync-roles": "bash scripts/db/sync-roles.sh",
     "db:reset": "bash scripts/db/reset.sh",
     "db:backup": "bash scripts/db/backup.sh",
     "db:restore": "bash scripts/db/restore.sh",

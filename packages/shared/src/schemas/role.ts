@@ -7,6 +7,9 @@ export const roleResponseSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   isSystem: z.boolean(),
+  /** Null = role hệ thống (platform); có giá trị = role nội bộ 1 org. */
+  orgId: z.uuid().nullable(),
+  orgName: z.string().nullable(),
   permissions: z.array(permissionSchema),
   userCount: z.number().int().nonnegative(),
   createdAt: z.string(),

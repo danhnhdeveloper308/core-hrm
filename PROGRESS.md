@@ -19,7 +19,12 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 ### Roles (5) & visibility
 - ORG_ROLES: ORG_ADMIN, HR_MANAGER, UNIT_MANAGER, **EMPLOYEE** (nhân viên văn phòng), **WORKER** (công nhân — cấp thấp nhất). Tạo employee KHÔNG email → mặc định role **WORKER** (`users.createEmployeeAccount`, fallback EMPLOYEE nếu org chưa seed WORKER); mời qua email → EMPLOYEE.
 - Permission `SHIFT_REGISTRATION_MANAGE` (`shift_registration:manage`): có ở ORG_ADMIN/HR/UNIT_MANAGER/**EMPLOYEE**, KHÔNG có ở WORKER. Gate trang + endpoint `/shift-registrations` + nav. → EMPLOYEE trở lên xem/đăng ký phiếu + thống kê; WORKER không thấy.
-- Thêm permission/role mới ⇒ phải `sg docker -c "pnpm db:seed"` (upsert Permission) + org mới tự seed qua `organizations.service` (ALL_ORG_ROLES). Org CŨ cần backfill role/permission.
+- Thêm permission/role mới ⇒ `sg docker -c "pnpm db:seed"` (upsert Permission) + org mới tự seed qua `organizations.service`. **Org CŨ backfill bằng `pnpm db:sync-roles`** (tạo role thiếu vd WORKER + thêm permission mặc định còn thiếu, idempotent, KHÔNG xoá custom). Sau backfill user đang đăng nhập phải **đăng nhập lại** (cache permission).
+
+### Quản lý role (roles.service)
+- Platform admin (orgId=null, vd SUPER_ADMIN) thấy & sửa **MỌI role** (platform + tất cả org). Org admin chỉ role org mình. `RoleResponse` có `orgId`+`orgName` (FE hiện nhãn "Hệ thống" / tên org).
+- ORG_ADMIN có ROLE_CREATE/UPDATE/DELETE → sửa permission role org mình (PUT `/roles/:id/permissions`, gate ROLE_UPDATE, không chặn isSystem trừ SUPER_ADMIN).
+- Org admin KHÔNG được gán `PLATFORM_ONLY_PERMISSIONS` (org:create/delete) — chặn ở setPermissions + ẩn trong matrix FE.
 
 ### Approver "Quản lý đơn vị" + chainLevel
 - UNIT_MANAGER_OF_TYPE (leo cây theo loại đv) và UNIT_MANAGER_OF_UNIT (chọn đúng 1 đv) đều nhận `chainLevel` tuỳ chọn: 1 = chính quản lý đơn vị, 2 = quản lý cấp trên của họ… (resolver `climbManager`). VD giám đốc TS1 = UNIT_MANAGER_OF_UNIT(TS1) chainLevel 1.

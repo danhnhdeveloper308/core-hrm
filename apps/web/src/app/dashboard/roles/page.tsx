@@ -109,10 +109,13 @@ export default function RolesPage() {
               : data?.items.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell>
-                      <div className="flex items-center gap-2 font-medium">
+                      <div className="flex flex-wrap items-center gap-2 font-medium">
                         {role.name}
+                        <Badge variant={role.orgId ? 'secondary' : 'default'}>
+                          {role.orgName ?? 'Hệ thống'}
+                        </Badge>
                         {role.isSystem ? (
-                          <Badge variant="outline">hệ thống</Badge>
+                          <Badge variant="outline">mặc định</Badge>
                         ) : null}
                       </div>
                       {role.description ? (
