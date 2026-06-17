@@ -5,6 +5,9 @@ const timeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Định dạng giờ HH:mm');
 
+export const otCalcModeSchema = z.enum(['CLAMP_TO_REGISTERED', 'SEPARATE_OT']);
+export type OtCalcMode = z.infer<typeof otCalcModeSchema>;
+
 export const workShiftSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -15,6 +18,11 @@ export const workShiftSchema = z.object({
   breakMinutes: z.number().int(),
   lateGraceMinutes: z.number().int(),
   otEnabled: z.boolean(),
+  /** Mốc kết thúc khi giãn/tăng ca ("HH:mm"); null = không hỗ trợ loại đó. */
+  gianCaEnd: z.string().nullable(),
+  tangCaEnd: z.string().nullable(),
+  /** Override cách tính công cho ca này; null = kế thừa org. */
+  otCalcMode: otCalcModeSchema.nullable(),
   workDays: z.array(z.number().int()),
 });
 export type WorkShiftResponse = z.infer<typeof workShiftSchema>;
@@ -29,6 +37,10 @@ const workShiftBaseSchema = z.object({
   breakMinutes: z.number().int().min(0).max(480).default(60),
   lateGraceMinutes: z.number().int().min(0).max(120).default(5),
   otEnabled: z.boolean().default(false),
+  /** Mốc kết thúc giãn ca / tăng ca (HH:mm). */
+  gianCaEnd: timeSchema.nullish(),
+  tangCaEnd: timeSchema.nullish(),
+  otCalcMode: otCalcModeSchema.nullish(),
   /** 1=Thứ 2 ... 7=Chủ nhật. */
   workDays: z
     .array(z.number().int().min(1).max(7))
@@ -135,6 +147,8 @@ export type UpdateHolidayInput = z.infer<typeof updateHolidaySchema>;
 export const updateScheduleDefaultsSchema = z.object({
   defaultShiftId: z.uuid().nullable().optional(),
   defaultCalendarId: z.uuid().nullable().optional(),
+  /** Cách tính công mặc định toàn org khi áp phiếu tăng/giãn ca. */
+  otCalcMode: otCalcModeSchema.optional(),
 });
 export type UpdateScheduleDefaultsInput = z.infer<
   typeof updateScheduleDefaultsSchema

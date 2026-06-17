@@ -54,6 +54,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   LEAVE: 'Nghỉ phép',
   ATTENDANCE_CORRECTION: 'Điều chỉnh công',
   OT: 'Tăng ca',
+  SHIFT_BATCH: 'Phiếu tăng/giãn ca',
 };
 
 /** "2" / "1.5" → bỏ số 0 thừa. */

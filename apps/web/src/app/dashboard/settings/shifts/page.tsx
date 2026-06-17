@@ -101,9 +101,15 @@ export default function ShiftsPage() {
   });
 
   const orgDefaults = useMutation({
-    mutationFn: (body: { defaultShiftId?: string | null; defaultCalendarId?: string | null }) =>
-      api.patch<{ message: string }>('/schedule/org-defaults', body),
-    onSuccess: (res) => toast.success(res.message),
+    mutationFn: (body: {
+      defaultShiftId?: string | null;
+      defaultCalendarId?: string | null;
+      otCalcMode?: 'CLAMP_TO_REGISTERED' | 'SEPARATE_OT';
+    }) => api.patch<{ message: string }>('/schedule/org-defaults', body),
+    onSuccess: (res) => {
+      toast.success(res.message);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.org.info });
+    },
     onError: (error) =>
       toast.error(error instanceof ApiError ? error.message : 'Cập nhật thất bại'),
   });
@@ -262,6 +268,25 @@ export default function ShiftsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Tính công phiếu tăng/giãn ca</Label>
+              <Select
+                value={org?.otCalcMode}
+                onValueChange={(v) =>
+                  orgDefaults.mutate({ otCalcMode: v as 'CLAMP_TO_REGISTERED' | 'SEPARATE_OT' })
+                }
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Chọn cách tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CLAMP_TO_REGISTERED">
+                    Clamp theo khung đăng ký (sản xuất)
+                  </SelectItem>
+                  <SelectItem value="SEPARATE_OT">OT cộng riêng (phần mềm)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
       </PermissionGate>
@@ -309,6 +334,9 @@ function ShiftFormDialog({
       breakMinutes: 60,
       lateGraceMinutes: 5,
       otEnabled: false,
+      gianCaEnd: '',
+      tangCaEnd: '',
+      otCalcMode: null,
       workDays: [1, 2, 3, 4, 5],
     },
     values: open
@@ -321,6 +349,9 @@ function ShiftFormDialog({
           breakMinutes: target?.breakMinutes ?? 60,
           lateGraceMinutes: target?.lateGraceMinutes ?? 5,
           otEnabled: target?.otEnabled ?? false,
+          gianCaEnd: target?.gianCaEnd ?? '',
+          tangCaEnd: target?.tangCaEnd ?? '',
+          otCalcMode: target?.otCalcMode ?? null,
           workDays: target?.workDays ?? [1, 2, 3, 4, 5],
         }
       : undefined,
@@ -470,6 +501,69 @@ function ShiftFormDialog({
                 )}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="gianCaEnd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mốc kết thúc GIÃN CA</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tangCaEnd"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mốc kết thúc TĂNG CA</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="otCalcMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cách tính công khi áp phiếu (override org)</FormLabel>
+                  <Select
+                    value={field.value ?? '__inherit__'}
+                    onValueChange={(v) => field.onChange(v === '__inherit__' ? null : v)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__inherit__">Theo cấu hình tổ chức</SelectItem>
+                      <SelectItem value="CLAMP_TO_REGISTERED">
+                        Clamp theo khung đăng ký (sản xuất)
+                      </SelectItem>
+                      <SelectItem value="SEPARATE_OT">OT cộng riêng (phần mềm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="workDays"

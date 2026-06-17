@@ -1,4 +1,4 @@
-import type { AuditLog, SessionRevokeReason } from '@repo/shared';
+import type { ApprovalTargetType, AuditLog, SessionRevokeReason } from '@repo/shared';
 
 /**
  * Tên event nội bộ (EventEmitter2) — cầu nối giữa các module:
@@ -23,7 +23,7 @@ export const APP_EVENTS = {
 
 export interface ApprovalDecidedEvent {
   orgId: string;
-  targetType: 'LEAVE' | 'ATTENDANCE_CORRECTION' | 'OT';
+  targetType: ApprovalTargetType;
   targetId: string;
   status: 'APPROVED' | 'REJECTED';
 }

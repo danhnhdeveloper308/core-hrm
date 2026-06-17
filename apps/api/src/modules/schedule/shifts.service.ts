@@ -23,6 +23,9 @@ export function toShiftResponse(s: WorkShift): WorkShiftResponse {
     breakMinutes: s.breakMinutes,
     lateGraceMinutes: s.lateGraceMinutes,
     otEnabled: s.otEnabled,
+    gianCaEnd: s.gianCaEnd,
+    tangCaEnd: s.tangCaEnd,
+    otCalcMode: s.otCalcMode,
     workDays: s.workDays,
   };
 }

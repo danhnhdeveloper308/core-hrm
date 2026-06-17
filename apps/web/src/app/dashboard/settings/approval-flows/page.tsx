@@ -308,6 +308,7 @@ function FlowFormDialog({
             roleId: s.roleId ?? undefined,
             userId: s.userId ?? undefined,
             slaHours: s.slaHours ?? undefined,
+            label: s.label ?? undefined,
           })) ?? [{ approverType: 'DIRECT_MANAGER' }],
       });
     }
@@ -676,6 +677,24 @@ function StepRow({
             )}
           />
         )}
+        <FormField
+          control={form.control}
+          name={`steps.${index}.label`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Nhãn chữ ký (vd DUYỆT, GĐNM)</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value || undefined)}
+                  placeholder="(theo loại duyệt)"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name={`steps.${index}.slaHours`}

@@ -56,6 +56,7 @@ export class OrgStructureService {
       slug: org.slug,
       status: org.status,
       timezone: org.timezone,
+      otCalcMode: org.otCalcMode,
       createdAt: org.createdAt.toISOString(),
       updatedAt: org.updatedAt.toISOString(),
     };

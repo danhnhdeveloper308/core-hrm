@@ -176,6 +176,7 @@ export class CalendarsService {
         ...(input.defaultCalendarId !== undefined
           ? { defaultCalendarId: input.defaultCalendarId }
           : {}),
+        ...(input.otCalcMode !== undefined ? { otCalcMode: input.otCalcMode } : {}),
       },
     });
     addAuditMetadata({ after: input });

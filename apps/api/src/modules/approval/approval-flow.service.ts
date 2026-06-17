@@ -53,6 +53,7 @@ export class ApprovalFlowService {
             roleId: s.roleId ?? null,
             userId: s.userId ?? null,
             slaHours: s.slaHours ?? null,
+            label: s.label ?? null,
           })),
         },
       },
@@ -95,6 +96,7 @@ export class ApprovalFlowService {
             roleId: s.roleId ?? null,
             userId: s.userId ?? null,
             slaHours: s.slaHours ?? null,
+            label: s.label ?? null,
           })),
         });
       }
@@ -196,6 +198,7 @@ export class ApprovalFlowService {
         userId: s.userId,
         userName: s.userId ? (userName.get(s.userId) ?? null) : null,
         slaHours: s.slaHours,
+        label: s.label,
       })),
     };
   }

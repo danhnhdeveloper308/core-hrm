@@ -15,6 +15,8 @@ export const organizationSchema = z.object({
   slug: z.string(),
   status: orgStatusSchema,
   timezone: z.string(),
+  /** Cách tính công mặc định khi áp phiếu tăng/giãn ca. */
+  otCalcMode: z.enum(['CLAMP_TO_REGISTERED', 'SEPARATE_OT']),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

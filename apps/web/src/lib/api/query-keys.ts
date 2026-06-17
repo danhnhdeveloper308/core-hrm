@@ -77,4 +77,9 @@ export const queryKeys = {
     history: ['approval', 'history'] as const,
     instance: (id: string) => ['approval', 'instance', id] as const,
   },
+
+  shiftRegistrations: {
+    all: ['shift-registrations'] as const,
+    detail: (id: string) => ['shift-registrations', id] as const,
+  },
 } as const;

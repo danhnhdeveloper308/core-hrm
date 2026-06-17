@@ -93,7 +93,8 @@ export class ApprovalService {
       snapshot.push({
         order: i + 1,
         approverType: step.approverType,
-        label: stepLabel(step),
+        // Nhãn cấu hình (DUYỆT, GĐNM…) ưu tiên; fallback theo loại approver
+        label: step.label ?? stepLabel(step),
         approverIds,
         approverNames: names,
         skipped: approverIds.length === 0,

@@ -219,6 +219,8 @@ model Organization {
   slug      String    @unique
   status    OrgStatus @default(ACTIVE)
   timezone  String    @default("Asia/Ho_Chi_Minh")
+  /// Cách tính công mặc định khi áp phiếu tăng/giãn ca (ca có thể override)
+  otCalcMode OtCalcMode @default(CLAMP_TO_REGISTERED)
   settings  Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -253,6 +255,8 @@ model Organization {
   approvalInstances     ApprovalInstance[]
   attachments           Attachment[]
   otRequests            OtRequest[]
+  shiftRegistrationBatches ShiftRegistrationBatch[]
+  shiftRegistrationLines   ShiftRegistrationLine[]
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -404,6 +408,7 @@ model Employee {
   leaveBalanceEntries   LeaveBalanceEntry[]
   leaveRequests         LeaveRequest[]
   otRequests            OtRequest[]
+  shiftRegistrationLines ShiftRegistrationLine[]
 
   @@unique([orgId, code])
   @@index([orgId, orgUnitId])
@@ -448,6 +453,11 @@ model WorkShift {
   breakMinutes     Int      @default(60)
   lateGraceMinutes Int      @default(5)
   otEnabled        Boolean  @default(false)
+  /// Mốc kết thúc khi GIÃN CA / TĂNG CA ("HH:mm"). Null = không hỗ trợ loại đó.
+  gianCaEnd        String?
+  tangCaEnd        String?
+  /// Override cách tính công cho ca này; null = kế thừa cấu hình org.
+  otCalcMode       OtCalcMode?
   /// Các thứ làm việc trong tuần: 1=Thứ 2 ... 7=Chủ nhật
   workDays         Int[]    @default([1, 2, 3, 4, 5])
   createdAt        DateTime @default(now())
@@ -780,6 +790,22 @@ enum ApprovalTargetType {
   LEAVE
   ATTENDANCE_CORRECTION
   OT
+  SHIFT_BATCH
+}
+
+/// Cách tính công khi áp giờ đăng ký tăng/giãn ca.
+/// CLAMP_TO_REGISTERED: lương = trong [giờ ca, giờ kết thúc đăng ký] (sản xuất).
+/// SEPARATE_OT: giờ hành chính giữ nguyên, phần dôi cộng thành OT riêng (phần mềm).
+enum OtCalcMode {
+  CLAMP_TO_REGISTERED
+  SEPARATE_OT
+}
+
+/// Loại ca đăng ký trong phiếu tăng/giãn ca.
+enum ShiftVariant {
+  XUONG_CA
+  GIAN_CA
+  TANG_CA
 }
 
 enum ApproverType {
@@ -833,6 +859,8 @@ model ApprovalFlowStep {
   roleId       String?      @db.Uuid
   userId       String?      @db.Uuid
   slaHours     Int?
+  /// Nhãn hiển thị trên chữ ký (vd DUYỆT, GĐNM/TRƯỞNG ĐV). Null = theo loại approver.
+  label        String?
 
   flow ApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
 
@@ -911,6 +939,41 @@ model OtRequest {
 
   @@index([orgId, employeeId, date])
   @@index([orgId, status])
+}
+
+/// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều
+/// dòng (NV + ngày + loại ca). Duyệt N cấp; cấp cao nhất duyệt → áp công toàn bộ.
+model ShiftRegistrationBatch {
+  id           String           @id @default(uuid()) @db.Uuid
+  orgId        String           @db.Uuid
+  /// Tiêu đề phiếu (vd "Tuần 25 - NMTS 1")
+  title        String
+  status       CorrectionStatus @default(PENDING)
+  uploadedById String?          @db.Uuid
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  org   Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lines ShiftRegistrationLine[]
+
+  @@index([orgId, status])
+}
+
+model ShiftRegistrationLine {
+  id         String       @id @default(uuid()) @db.Uuid
+  orgId      String       @db.Uuid
+  batchId    String       @db.Uuid
+  employeeId String       @db.Uuid
+  date       DateTime     @db.Date
+  variant    ShiftVariant
+  reason     String?
+
+  org      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  batch    ShiftRegistrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employee Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([orgId, employeeId, date])
 }
 
 /// File đính kèm chung (ảnh/PDF) cho đơn từ — giấy tờ bệnh, minh chứng công…

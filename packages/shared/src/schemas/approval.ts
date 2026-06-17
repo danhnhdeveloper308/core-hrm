@@ -4,6 +4,7 @@ export const approvalTargetTypeSchema = z.enum([
   'LEAVE',
   'ATTENDANCE_CORRECTION',
   'OT',
+  'SHIFT_BATCH',
 ]);
 export type ApprovalTargetType = z.infer<typeof approvalTargetTypeSchema>;
 
@@ -40,6 +41,8 @@ export const approvalFlowStepSchema = z.object({
   userId: z.uuid().nullable(),
   userName: z.string().nullable(),
   slaHours: z.number().int().nullable(),
+  /** Nhãn hiển thị trên chữ ký (DUYỆT, GĐNM/TRƯỞNG ĐV…). */
+  label: z.string().nullable(),
 });
 export type ApprovalFlowStepResponse = z.infer<typeof approvalFlowStepSchema>;
 
@@ -62,6 +65,8 @@ export const createFlowStepSchema = z
     roleId: z.uuid().nullish(),
     userId: z.uuid().nullish(),
     slaHours: z.number().int().min(1).max(720).nullish(),
+    /** Nhãn hiển thị trên chữ ký phê duyệt. */
+    label: z.string().trim().max(100).nullish(),
   })
   .refine(
     (v) =>

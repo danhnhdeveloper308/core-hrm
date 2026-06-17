@@ -21,6 +21,7 @@ export * from './schemas/attendance';
 export * from './schemas/leave';
 export * from './schemas/approval';
 export * from './schemas/attachment';
+export * from './schemas/shift-registration';
 
 export * from './types/api';
 export * from './types/socket';

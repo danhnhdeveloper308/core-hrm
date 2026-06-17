@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { TimesheetDayResponse } from '@repo/shared';
+import type { ShiftVariant, TimesheetDayResponse } from '@repo/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { TimesheetDay } from '../../prisma/prisma.types';
 import { CalendarsService } from '../schedule/calendars.service';
@@ -10,6 +10,13 @@ import {
   localDayRangeUtc,
   type DayClassification,
 } from './timesheet.engine';
+
+/** Chênh lệch phút giữa 2 mốc "HH:mm" (b - a). */
+function hhmmDiffMinutes(a: string, b: string): number {
+  const [ah, am] = a.split(':').map(Number);
+  const [bh, bm] = b.split(':').map(Number);
+  return (bh ?? 0) * 60 + (bm ?? 0) - ((ah ?? 0) * 60 + (am ?? 0));
+}
 
 export function toTimesheetResponse(t: TimesheetDay): TimesheetDayResponse {
   return {
@@ -334,6 +341,43 @@ export class TimesheetService {
         note,
       },
     });
+  }
+
+  /**
+   * Áp 1 dòng phiếu tăng/giãn ca theo cấu hình ca + otCalcMode (org/ca):
+   * - XUONG_CA / ca không cấu hình mốc → tính công bình thường
+   * - CLAMP_TO_REGISTERED → khung công = [giờ ca, mốc đăng ký], clamp log thực tế
+   * - SEPARATE_OT → giữ ca, cộng phần dôi (mốc - giờ tan ca) thành OT riêng
+   */
+  async applyShiftVariant(
+    orgId: string,
+    employeeId: string,
+    date: string,
+    variant: ShiftVariant,
+  ): Promise<void> {
+    const shift = await this.shifts.resolveShift(employeeId, date);
+    const variantEnd =
+      variant === 'GIAN_CA'
+        ? (shift?.gianCaEnd ?? null)
+        : variant === 'TANG_CA'
+          ? (shift?.tangCaEnd ?? null)
+          : null;
+    if (!shift || variant === 'XUONG_CA' || !variantEnd) {
+      await this.recalc(orgId, employeeId, date);
+      return;
+    }
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: { otCalcMode: true },
+    });
+    const mode = shift.otCalcMode ?? org.otCalcMode;
+    const label = `${variant === 'GIAN_CA' ? 'Giãn ca' : 'Tăng ca'} đến ${variantEnd}`;
+    if (mode === 'CLAMP_TO_REGISTERED') {
+      await this.applyShiftAdjustment(orgId, employeeId, date, shift.startTime, variantEnd, label);
+    } else {
+      const minutes = Math.max(0, hhmmDiffMinutes(shift.endTime, variantEnd));
+      await this.applyApprovedOt(orgId, employeeId, date, minutes, label);
+    }
   }
 
   /**

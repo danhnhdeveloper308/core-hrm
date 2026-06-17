@@ -11,6 +11,8 @@ import type {
   AttachmentModel,
   AttendanceCorrectionModel,
   OtRequestModel,
+  ShiftRegistrationBatchModel,
+  ShiftRegistrationLineModel,
   AttendanceLogModel,
   AuditLogModel,
   DeviceModel,
@@ -78,6 +80,8 @@ export type ApprovalInstance = ApprovalInstanceModel;
 export type ApprovalAction = ApprovalActionModel;
 export type Attachment = AttachmentModel;
 export type OtRequest = OtRequestModel;
+export type ShiftRegistrationBatch = ShiftRegistrationBatchModel;
+export type ShiftRegistrationLine = ShiftRegistrationLineModel;
 
 export {
   UserStatus,
