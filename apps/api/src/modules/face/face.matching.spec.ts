@@ -47,4 +47,16 @@ describe('haversineMeters', () => {
     const d = haversineMeters(10.776, 106.7, 10.779, 106.7);
     expect(d).toBeGreaterThan(100);
   });
+
+  it('quyết định geofence: trong bán kính PASS, ngoài bán kính FAIL', () => {
+    const wsLat = 10.776;
+    const wsLng = 106.7;
+    const radiusM = 100;
+    // ~55m (0.0005°) → trong bán kính
+    const near = haversineMeters(wsLat + 0.0005, wsLng, wsLat, wsLng);
+    // ~333m (0.003°) → ngoài bán kính
+    const far = haversineMeters(wsLat + 0.003, wsLng, wsLat, wsLng);
+    expect(near <= radiusM).toBe(true);
+    expect(far <= radiusM).toBe(false);
+  });
 });

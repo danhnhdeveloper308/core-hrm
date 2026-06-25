@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -9,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { ApiConsumes } from '@nestjs/swagger';
 import {
   ApiCookieAuth,
@@ -16,13 +20,15 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { PERMISSIONS } from '@repo/shared';
+import { ERROR_CODES, PERMISSIONS } from '@repo/shared';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { AppException } from '../../common/exceptions/app.exception';
 import { CurrentOrg } from '../../common/decorators/current-org.decorator';
 import {
   CurrentUser,
   type AccessTokenPayload,
 } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AttendanceService } from './attendance.service';
 import {
@@ -31,6 +37,7 @@ import {
   CreateCorrectionDto,
   CreateOtRequestDto,
   EditTimesheetDto,
+  KioskCheckDto,
   OrgAttendanceQueryDto,
   RequestCorrectionDto,
   ResetDayDto,
@@ -58,6 +65,39 @@ export class AttendanceController {
     @UploadedFile() photo?: Express.Multer.File,
   ) {
     return this.attendance.check(orgId, actor, dto, photo?.buffer);
+  }
+
+  // ===== Kiosk public (không đăng nhập, nhận diện 1:N) =====
+
+  @Public()
+  @Get('kiosk/:worksiteId')
+  @ApiOperation({ summary: 'Thông tin địa điểm cho trang kiosk public' })
+  @ApiOkResponse({ description: 'KioskWorksite' })
+  kioskInfo(@Param('worksiteId', ParseUUIDPipe) worksiteId: string) {
+    return this.attendance.getKioskWorksite(worksiteId);
+  }
+
+  @Public()
+  @Post('kiosk/:worksiteId/check')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Audit('attendance.kiosk_check')
+  @UseInterceptors(FileInterceptor('photo'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Chấm công kiosk — nhận diện khuôn mặt 1:N, không cần đăng nhập' })
+  @ApiOkResponse({ description: 'KioskCheckResult' })
+  kioskCheck(
+    @Param('worksiteId', ParseUUIDPipe) worksiteId: string,
+    @Body() dto: KioskCheckDto,
+    @UploadedFile() photo?: Express.Multer.File,
+  ) {
+    if (!photo) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Cần ảnh khuôn mặt để chấm công',
+        ERROR_CODES.FACE_REQUIRED,
+      );
+    }
+    return this.attendance.kioskCheck(worksiteId, dto, photo.buffer);
   }
 
   @Get('me')

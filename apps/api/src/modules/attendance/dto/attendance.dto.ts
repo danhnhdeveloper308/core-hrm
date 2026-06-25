@@ -4,6 +4,7 @@ import {
   createCorrectionSchema,
   createOtRequestSchema,
   editTimesheetSchema,
+  kioskCheckSchema,
   orgAttendanceQuerySchema,
   requestCorrectionSchema,
   resetDaySchema,
@@ -11,6 +12,7 @@ import {
 import { createZodDto } from 'nestjs-zod';
 
 export class CheckInDto extends createZodDto(checkInSchema) {}
+export class KioskCheckDto extends createZodDto(kioskCheckSchema) {}
 export class AttendanceRangeQueryDto extends createZodDto(attendanceRangeQuerySchema) {}
 export class OrgAttendanceQueryDto extends createZodDto(orgAttendanceQuerySchema) {}
 export class CreateCorrectionDto extends createZodDto(createCorrectionSchema) {}

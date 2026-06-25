@@ -9,6 +9,9 @@ import {
   type CorrectionRequestResponse,
   type CreateCorrectionInput,
   type CreateOtRequestInput,
+  type KioskCheckInput,
+  type KioskCheckResult,
+  type KioskWorksite,
   type OrgAttendanceQuery,
   type OtRequestResponse,
   type RequestCorrectionInput,
@@ -30,6 +33,7 @@ import { ApprovalService } from '../approval/approval.service';
 import { FaceService } from '../face/face.service';
 import { EmployeesService } from '../employees/employees.service';
 import { CalendarsService } from '../schedule/calendars.service';
+import { ShiftsService } from '../schedule/shifts.service';
 import { haversineMeters } from '../face/face.matching';
 import { localDayRangeUtc } from './timesheet.engine';
 import { TimesheetService, toTimesheetResponse } from './timesheet.service';
@@ -79,7 +83,39 @@ export class AttendanceService {
     private readonly face: FaceService,
     private readonly approval: ApprovalService,
     private readonly calendars: CalendarsService,
+    private readonly shifts: ShiftsService,
   ) {}
+
+  /**
+   * Chặn chấm RA sau giờ tan làm (ca ngày): qua endTime của ca → không cho
+   * checkout, ngày giữ trạng thái "quên chấm ra" (IN không OUT) để HR chấm bù.
+   * Ca qua đêm (endTime ≤ startTime) hoặc không có ca → bỏ qua (cho phép).
+   */
+  private async assertCheckoutAllowed(
+    employeeId: string,
+    type: AttendanceType,
+    now: Date,
+    timezone: string,
+  ): Promise<void> {
+    if (type !== 'OUT') return;
+    const date = this.localDate(now, timezone);
+    const shift = await this.shifts.resolveShift(employeeId, date);
+    if (!shift?.endTime) return;
+    const [sh, sm] = shift.startTime.split(':').map(Number);
+    const [eh, em] = shift.endTime.split(':').map(Number);
+    const startMin = (sh ?? 0) * 60 + (sm ?? 0);
+    const endMin = (eh ?? 0) * 60 + (em ?? 0);
+    if (endMin <= startMin) return; // ca qua đêm — ngoài phạm vi
+    const shiftEnd = this.localTimeToUtc(date, shift.endTime, timezone);
+    if (now.getTime() > shiftEnd.getTime()) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        `Đã qua giờ tan làm (${shift.endTime}). Hệ thống ghi nhận quên chấm ra — vui lòng liên hệ HR chấm bù.`,
+        ERROR_CODES.ATTENDANCE_AFTER_SHIFT_END,
+        { shiftEnd: shift.endTime },
+      );
+    }
+  }
 
   /**
    * Tạo AttendanceLog (idempotent theo unique employeeId+recordedAt+source)
@@ -150,6 +186,8 @@ export class AttendanceService {
       select: { timezone: true },
     });
     const type = input.type ?? (await this.inferType(employee.id, now, org.timezone));
+    // Qua giờ tan làm → không cho chấm RA (ghi nhận quên chấm ra, HR chấm bù)
+    await this.assertCheckoutAllowed(employee.id, type, now, org.timezone);
     const worksite = employee.worksite;
 
     // ===== Geofence =====
@@ -211,6 +249,118 @@ export class AttendanceService {
     });
     addAuditMetadata({ after: { type, source, locationSuspect } });
     return toLogResponse(log);
+  }
+
+  // ===== Kiosk public (không đăng nhập, nhận diện 1:N) =====
+
+  /** Thông tin worksite cho trang kiosk public (chỉ field an toàn). */
+  async getKioskWorksite(worksiteId: string): Promise<KioskWorksite> {
+    const ws = await this.prisma.worksite.findUnique({
+      where: { id: worksiteId },
+      include: { org: { select: { name: true, status: true } } },
+    });
+    if (!ws || ws.org.status !== 'ACTIVE') {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy địa điểm chấm công',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+    return {
+      id: ws.id,
+      name: ws.name,
+      orgName: ws.org.name,
+      requireLocation: ws.requireLocation,
+    };
+  }
+
+  /**
+   * Chấm công KIOSK: nhận diện 1:N theo khuôn mặt (bắt buộc) trong org của
+   * worksite, áp geofence + chặn checkout sau giờ tan như luồng cá nhân.
+   * KHÔNG cần đăng nhập — thiết bị đặt tại worksite.
+   */
+  async kioskCheck(
+    worksiteId: string,
+    input: KioskCheckInput,
+    photo: Buffer,
+  ): Promise<KioskCheckResult> {
+    const worksite = await this.prisma.worksite.findUnique({
+      where: { id: worksiteId },
+      include: { org: { select: { id: true, name: true, status: true, timezone: true } } },
+    });
+    if (!worksite || worksite.org.status !== 'ACTIVE') {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy địa điểm chấm công',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+    const orgId = worksite.org.id;
+    const timezone = worksite.org.timezone;
+
+    // Geofence (nếu worksite yêu cầu) — kiểm trước khi nhận diện để báo sớm
+    let locationSuspect = false;
+    if (worksite.requireLocation) {
+      if (input.lat === undefined || input.lng === undefined) {
+        throw new AppException(
+          HttpStatus.BAD_REQUEST,
+          'Cần bật định vị để chấm công tại địa điểm này',
+          ERROR_CODES.LOCATION_REQUIRED,
+        );
+      }
+      const dist = haversineMeters(input.lat, input.lng, worksite.lat, worksite.lng);
+      if (dist > worksite.radiusM) {
+        throw new AppException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          `Đang cách địa điểm ${Math.round(dist)}m (giới hạn ${worksite.radiusM}m)`,
+          ERROR_CODES.OUT_OF_WORKSITE,
+          { distance: Math.round(dist), radiusM: worksite.radiusM },
+        );
+      }
+      if (input.accuracy !== undefined && input.accuracy > 200) locationSuspect = true;
+    }
+
+    // Nhận diện 1:N
+    const id = await this.face.identify(orgId, photo);
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: id.employeeId, orgId, deletedAt: null, status: { not: 'TERMINATED' } },
+      select: { id: true, code: true, fullName: true },
+    });
+    if (!employee) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Nhân viên không còn hoạt động',
+        ERROR_CODES.FACE_NO_MATCH,
+      );
+    }
+
+    const now = new Date();
+    const type = input.type ?? (await this.inferType(employee.id, now, timezone));
+    await this.assertCheckoutAllowed(employee.id, type, now, timezone);
+
+    const log = await this.createLog({
+      orgId,
+      employeeId: employee.id,
+      recordedAt: now,
+      type,
+      source: 'FACE',
+      worksiteId: worksite.id,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
+      accuracy: input.accuracy ?? null,
+      locationSuspect,
+      faceScore: id.score,
+      photoKey: id.photoKey,
+      note: null,
+      createdById: null,
+    });
+    return {
+      employeeName: employee.fullName,
+      employeeCode: employee.code,
+      type: log.type === 'OUT' ? 'OUT' : 'IN',
+      recordedAt: log.recordedAt.toISOString(),
+      worksiteName: worksite.name,
+    };
   }
 
   /** Log + timesheet của chính mình trong khoảng ngày. */

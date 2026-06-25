@@ -193,6 +193,64 @@ export class FaceService implements OnModuleInit {
     return { matched, score, liveness: detection.liveness, photoKey };
   }
 
+  /**
+   * Nhận diện 1:N (kiosk public): so embedding ảnh với TẤT CẢ hồ sơ khuôn mặt
+   * trong org, chọn người có điểm cao nhất ≥ ngưỡng. Antispoof gate trước.
+   */
+  async identify(
+    orgId: string,
+    image: Buffer,
+  ): Promise<{ employeeId: string; score: number; liveness: number; photoKey: string }> {
+    await this.assertReady();
+    const detection = await this.engine.detect(image);
+    if (!detection) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Không phát hiện khuôn mặt',
+        ERROR_CODES.FACE_NO_FACE,
+      );
+    }
+    if (detection.liveness < this.config.face.antispoofThreshold) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Nghi ngờ ảnh giả mạo (không phải người thật trước camera)',
+        ERROR_CODES.FACE_SPOOF_SUSPECTED,
+      );
+    }
+
+    // Lưu ảnh trước (HR đối soát kể cả khi không khớp)
+    const photoKey = `${orgId}/kiosk/${new Date().toISOString().slice(0, 10)}/${Date.now()}.jpg`;
+    await this.storage.put({ key: photoKey, body: image, contentType: 'image/jpeg' });
+
+    const profiles = await this.prisma.faceProfile.findMany({
+      where: { orgId },
+      select: { employeeId: true, embeddings: true },
+    });
+    let bestId: string | null = null;
+    let bestScore = 0;
+    for (const p of profiles) {
+      const enrolled = p.embeddings as number[][];
+      const score = enrolled.reduce(
+        (best, e) => Math.max(best, this.engine.similarity(detection.embedding, e)),
+        0,
+      );
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = p.employeeId;
+      }
+    }
+
+    if (!bestId || bestScore < this.config.face.matchThreshold) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Không nhận diện được khuôn mặt — thử lại hoặc liên hệ HR đăng ký khuôn mặt',
+        ERROR_CODES.FACE_NO_MATCH,
+        { score: bestScore, photoKey },
+      );
+    }
+    return { employeeId: bestId, score: bestScore, liveness: detection.liveness, photoKey };
+  }
+
   async getStatus(
     orgId: string,
     employeeId: string,

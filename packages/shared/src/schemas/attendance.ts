@@ -39,6 +39,37 @@ export const checkInSchema = z.object({
 });
 export type CheckInInput = z.infer<typeof checkInSchema>;
 
+/**
+ * Chấm công KIOSK public (không đăng nhập) — hệ thống nhận diện 1:N theo khuôn mặt.
+ * lat/lng tuỳ chọn (thiết bị kiosk gửi nếu có); ảnh khuôn mặt gửi multipart.
+ */
+export const kioskCheckSchema = z.object({
+  type: z.enum(['IN', 'OUT']).optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  accuracy: z.coerce.number().min(0).optional(),
+});
+export type KioskCheckInput = z.infer<typeof kioskCheckSchema>;
+
+/** Kết quả chấm công kiosk — hiển thị cho người vừa chấm. */
+export const kioskCheckResultSchema = z.object({
+  employeeName: z.string(),
+  employeeCode: z.string(),
+  type: z.enum(['IN', 'OUT']),
+  recordedAt: z.string(),
+  worksiteName: z.string().nullable(),
+});
+export type KioskCheckResult = z.infer<typeof kioskCheckResultSchema>;
+
+/** Thông tin worksite tối thiểu cho trang kiosk public (không lộ dữ liệu nhạy cảm). */
+export const kioskWorksiteSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  orgName: z.string(),
+  requireLocation: z.boolean(),
+});
+export type KioskWorksite = z.infer<typeof kioskWorksiteSchema>;
+
 export const attendanceLogSchema = z.object({
   id: z.uuid(),
   employeeId: z.uuid(),
