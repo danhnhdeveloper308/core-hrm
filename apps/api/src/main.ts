@@ -117,9 +117,11 @@ async function bootstrap(): Promise<void> {
     cleanupOpenApiDoc(document),
   );
 
-  await app.listen(config.port);
+  // Nền tảng cloud (Railway/Render/Fly...) tự inject PORT — ưu tiên dùng nó.
+  const port = process.env.PORT ? Number(process.env.PORT) : config.port;
+  await app.listen(port);
   logger.log(
-    `API chạy tại http://localhost:${config.port}/${config.globalPrefix} (docs: /${config.globalPrefix}/docs)`,
+    `API chạy tại http://localhost:${port}/${config.globalPrefix} (docs: /${config.globalPrefix}/docs)`,
   );
 }
 

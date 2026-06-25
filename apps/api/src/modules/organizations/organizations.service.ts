@@ -51,8 +51,8 @@ export class OrganizationsService {
     actor: AccessTokenPayload,
     input: CreateOrganizationInput,
   ): Promise<OrganizationResponse> {
-    const slugTaken = await this.prisma.organization.findUnique({
-      where: { slug: input.slug },
+    const slugTaken = await this.prisma.organization.findFirst({
+      where: { slug: input.slug, deletedAt: null },
     });
     if (slugTaken) {
       throw new AppException(
@@ -150,6 +150,7 @@ export class OrganizationsService {
   ): Promise<Paginated<OrganizationResponse>> {
     const sort = parseSort(query.sort, ['name', 'slug', 'createdAt', 'status']);
     const where: Prisma.OrganizationWhereInput = {
+      deletedAt: null,
       ...(query.status ? { status: query.status } : {}),
       ...(query.search
         ? {
@@ -206,11 +207,17 @@ export class OrganizationsService {
     return toOrganizationResponse(updated);
   }
 
-  /** Xoá cứng — cascade toàn bộ dữ liệu tenant (users, units, roles...). */
+  /**
+   * Soft-delete tổ chức: giữ toàn bộ dữ liệu tenant (lưu trữ pháp lý), ẩn khỏi
+   * danh sách + chặn truy cập. Set SUSPENDED để chặn các luồng còn tham chiếu.
+   */
   async remove(id: string): Promise<{ message: string }> {
     const org = await this.requireOrg(id);
     const userCount = await this.prisma.user.count({ where: { orgId: id } });
-    await this.prisma.organization.delete({ where: { id } });
+    await this.prisma.organization.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'SUSPENDED' },
+    });
     addAuditMetadata({
       before: { name: org.name, slug: org.slug, userCount },
     });
@@ -218,7 +225,9 @@ export class OrganizationsService {
   }
 
   private async requireOrg(id: string): Promise<Organization> {
-    const org = await this.prisma.organization.findUnique({ where: { id } });
+    const org = await this.prisma.organization.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!org) {
       throw new AppException(
         HttpStatus.NOT_FOUND,

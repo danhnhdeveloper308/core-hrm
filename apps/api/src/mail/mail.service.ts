@@ -94,4 +94,36 @@ export class MailService {
       </div>`;
     await this.provider.send({ to, subject, text, html });
   }
+
+  /** Thông báo (kênh email của Notification center) — link tương đối → tuyệt đối. */
+  async sendNotification(info: {
+    to: string;
+    title: string;
+    body: string;
+    link: string | null;
+  }): Promise<void> {
+    const url = info.link
+      ? info.link.startsWith('http')
+        ? info.link
+        : `${this.config.appUrl}${info.link}`
+      : null;
+    const text = [
+      info.title,
+      '',
+      info.body,
+      ...(url ? ['', `Xem chi tiết: ${url}`] : []),
+    ].join('\n');
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2>${info.title}</h2>
+        <p>${info.body}</p>
+        ${
+          url
+            ? `<p><a href="${url}" style="display:inline-block;background:#111;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Xem chi tiết</a></p>`
+            : ''
+        }
+        <p style="color:#888">Email tự động từ hệ thống HRM. Vui lòng không trả lời.</p>
+      </div>`;
+    await this.provider.send({ to: info.to, subject: info.title, text, html });
+  }
 }

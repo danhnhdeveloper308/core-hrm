@@ -4,6 +4,7 @@ import {
   PERMISSIONS,
   type OrgUnitResponse,
   type TimesheetDayResponse,
+  type TimesheetGridResponse,
   type TimesheetGridRow,
   type TimesheetStatus,
 } from '@repo/shared';
@@ -11,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Lock,
   Pencil,
   RotateCcw,
@@ -49,6 +51,7 @@ import { cn } from '@/lib/utils';
 
 const ALL = '__all__';
 const WEEKDAY_VN = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001/api';
 
 /** Mã ngắn + class màu (nền + chữ) cho từng trạng thái — tông hiện đại, dark-mode ok. */
 const STATUS_META: Record<
@@ -127,7 +130,7 @@ export default function AttendancePage() {
     queryFn: () => {
       const qs = new URLSearchParams({ from, to });
       if (orgUnitId !== ALL) qs.set('orgUnitId', orgUnitId);
-      return api.get<TimesheetGridRow[]>(`/attendance/grid?${qs.toString()}`);
+      return api.get<TimesheetGridResponse>(`/attendance/grid?${qs.toString()}`);
     },
   });
 
@@ -175,7 +178,9 @@ export default function AttendancePage() {
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Lỗi'),
   });
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const rows = useMemo(() => data?.rows ?? [], [data]);
+  // Ngày nghỉ THEO CẤU HÌNH ca (0=CN..6=T7) — không hardcode T7/CN nữa.
+  const restWeekdays = useMemo(() => new Set(data?.restWeekdays ?? []), [data]);
 
   // Tổng hợp toàn bảng cho cards trên cùng
   const totals = useMemo(() => {
@@ -209,6 +214,26 @@ export default function AttendancePage() {
     setMonth(
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
     );
+  }
+
+  async function exportXlsx() {
+    const qs = new URLSearchParams({ from, to });
+    if (orgUnitId !== ALL) qs.set('orgUnitId', orgUnitId);
+    try {
+      const res = await fetch(`${BASE_URL}/reports/attendance.xlsx?${qs.toString()}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bang-cong-${from}_${to}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Không xuất được file Excel');
+    }
   }
 
   const legend: TimesheetStatus[] = [
@@ -261,6 +286,11 @@ export default function AttendancePage() {
               ))}
             </SelectContent>
           </Select>
+          <PermissionGate permission={PERMISSIONS.REPORT_READ}>
+            <Button variant="outline" onClick={() => void exportXlsx()}>
+              <Download className="size-4" /> Xuất Excel
+            </Button>
+          </PermissionGate>
         </div>
       </div>
 
@@ -317,14 +347,14 @@ export default function AttendancePage() {
                 </th>
                 {days.map((date) => {
                   const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-                  const isWeekend = wd === 0 || wd === 6;
+                  const isRest = restWeekdays.has(wd);
                   const isToday = date === todayStr;
                   return (
                     <th
                       key={date}
                       className={cn(
                         'border-b border-l px-0 py-1 text-center text-xs font-medium',
-                        isWeekend && 'bg-muted/40',
+                        isRest && 'bg-muted/40',
                         isToday && 'bg-primary/10',
                       )}
                       style={{ minWidth: 34 }}
@@ -358,14 +388,16 @@ export default function AttendancePage() {
                     {days.map((date) => {
                       const day = row.days[date];
                       const wd = new Date(`${date}T00:00:00Z`).getUTCDay();
-                      const isWeekend = wd === 0 || wd === 6;
+                      // Ô trống (chưa có bản ghi) trên cột nghỉ → tô xám nhẹ; còn
+                      // lại để trạng thái (WEEKEND/HOLIDAY...) tự quyết định màu.
+                      const isRest = restWeekdays.has(wd);
                       const meta = day ? STATUS_META[day.status] : null;
                       return (
                         <td
                           key={date}
                           className={cn(
                             'border-b border-l p-0.5 text-center',
-                            isWeekend && 'bg-muted/20',
+                            isRest && !day && 'bg-muted/20',
                           )}
                         >
                           {day && meta ? (

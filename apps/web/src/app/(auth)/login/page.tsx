@@ -40,7 +40,7 @@ import { Separator } from '@/components/ui/separator';
 import { api, ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001/api';
 
 function LoginForm() {
   const router = useRouter();
@@ -49,7 +49,11 @@ function LoginForm() {
   // null = không có đích cụ thể (login chủ động) → tự chọn theo vai trò
   const explicitNext = searchParams.get('next');
 
-  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  // OAuth Google với tài khoản đã bật 2FA → BE redirect kèm ?pending2fa=<token>.
+  // Khởi tạo ngay từ URL (lazy init) → vào thẳng bước nhập mã 2FA.
+  const [pendingToken, setPendingToken] = useState<string | null>(() =>
+    searchParams.get('pending2fa'),
+  );
   const [otpCode, setOtpCode] = useState('');
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -59,6 +63,9 @@ function LoginForm() {
   useEffect(() => {
     if (searchParams.get('error') === 'oauth') {
       toast.error('Đăng nhập Google thất bại, vui lòng thử lại');
+    }
+    if (searchParams.get('pending2fa')) {
+      toast.info('Tài khoản đã bật 2FA — nhập mã xác thực để hoàn tất');
     }
   }, [searchParams]);
 

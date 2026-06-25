@@ -1,7 +1,7 @@
 import type { ApiErrorBody, ApiResponse } from '@repo/shared';
 import type { ZodType } from 'zod';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001/api';
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** Lỗi chuẩn từ API — FE bắt theo errorCode thay vì so sánh message. */

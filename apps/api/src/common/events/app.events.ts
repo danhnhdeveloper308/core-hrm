@@ -1,4 +1,9 @@
-import type { ApprovalTargetType, AuditLog, SessionRevokeReason } from '@repo/shared';
+import type {
+  ApprovalTargetType,
+  AuditLog,
+  Notification,
+  SessionRevokeReason,
+} from '@repo/shared';
 
 /**
  * Tên event nội bộ (EventEmitter2) — cầu nối giữa các module:
@@ -19,6 +24,8 @@ export const APP_EVENTS = {
   APPROVAL_DECIDED: 'approval.decided',
   /** Cần gửi thông báo tới user (Phase 8 Notification center). */
   NOTIFY: 'notify.dispatch',
+  /** Phiếu duyệt đổi trạng thái → gateway emit `approval:changed` cho các user liên quan. */
+  APPROVAL_CHANGED: 'approval.changed.realtime',
 } as const;
 
 export interface ApprovalDecidedEvent {
@@ -29,6 +36,20 @@ export interface ApprovalDecidedEvent {
 }
 
 export type AuditCreatedEvent = AuditLog;
+
+/** Thông báo mới cần đẩy realtime tới 1 user (gateway emit `notification:new`). */
+export interface NotifyEvent {
+  userId: string;
+  notification: Notification;
+}
+
+/** Phiếu duyệt đổi trạng thái → invalidate dữ liệu cho các user liên quan. */
+export interface ApprovalChangedEvent {
+  userIds: string[];
+  targetType: ApprovalTargetType;
+  targetId: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+}
 
 export interface ForceLogoutEvent {
   userId: string;
@@ -47,6 +68,8 @@ export interface UserUpdatedEvent {
 }
 
 export interface AuditRecordEvent {
+  /** Tenant của hành động — null = cấp platform. */
+  orgId?: string | null;
   actorId?: string | null;
   actorEmail?: string | null;
   /** Dạng `resource.action`, vd `auth.login`. */

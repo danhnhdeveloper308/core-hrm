@@ -25,9 +25,11 @@ import { ShiftRegistrationModule } from './modules/shift-registration/shift-regi
 import { EmployeesModule } from './modules/employees/employees.module';
 import { FaceModule } from './modules/face/face.module';
 import { LeaveModule } from './modules/leave/leave.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { WorkScheduleModule } from './modules/schedule/schedule.module';
@@ -37,6 +39,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuditQueueModule } from './queues/audit.queue';
 import { TimesheetQueueModule } from './queues/timesheet.queue';
 import { EmailQueueModule } from './queues/email.queue';
+import { NotificationQueueModule } from './queues/notification.queue';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -60,6 +63,7 @@ import { StorageModule } from './storage/storage.module';
     EmailQueueModule,
     AuditQueueModule,
     TimesheetQueueModule,
+    NotificationQueueModule,
     RbacModule,
     SessionsModule,
     AuthModule,
@@ -77,6 +81,8 @@ import { StorageModule } from './storage/storage.module';
     AttachmentModule,
     ShiftRegistrationModule,
     LeaveModule,
+    NotificationModule,
+    ReportsModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

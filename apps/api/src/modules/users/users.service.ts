@@ -26,6 +26,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailQueueService } from '../../queues/email.queue';
+import { StorageService } from '../../storage/storage.service';
 import { OtpService } from '../auth/otp.service';
 import { PermissionsCacheService } from '../rbac/permissions-cache.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -39,7 +40,22 @@ export class UsersService {
     private readonly config: AppConfigService,
     private readonly emailQueue: EmailQueueService,
     private readonly otp: OtpService,
+    private readonly storage: StorageService,
   ) {}
+
+  /** Tự upload avatar: lưu storage → User.avatarKey; /auth/me ký signed URL tươi. */
+  async updateMyAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ avatarUrl: string }> {
+    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+    const key = `user/avatar/${userId}/avatar.${ext}`;
+    await this.storage.put({ key, body: file.buffer, contentType: file.mimetype });
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarKey: key } });
+    await this.permsCache.invalidateUser(userId, 'profile');
+    addAuditMetadata({ after: { avatarKey: key } });
+    return { avatarUrl: await this.storage.getSignedUrl(key, 86_400) };
+  }
 
   /**
    * Mời user qua email: tạo user chưa có mật khẩu + gán roles + gửi link

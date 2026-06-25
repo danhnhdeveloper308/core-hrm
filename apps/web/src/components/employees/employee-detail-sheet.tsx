@@ -3,7 +3,9 @@
 import {
   PERMISSIONS,
   type ContractResponse,
+  type EmployeeDetailResponse,
   type EmployeeResponse,
+  type MaritalStatus,
   type ShiftAssignmentResponse,
   type WorkShiftResponse,
 } from '@repo/shared';
@@ -36,7 +38,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { initials } from '@/lib/format';
 
-type EmployeeDetail = EmployeeResponse & { contracts: ContractResponse[] };
+type EmployeeDetail = EmployeeDetailResponse;
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Chính thức',
@@ -44,6 +46,36 @@ const STATUS_LABELS: Record<string, string> = {
   INACTIVE: 'Tạm nghỉ',
   TERMINATED: 'Đã nghỉ việc',
 };
+
+const MARITAL_LABELS: Record<MaritalStatus, string> = {
+  SINGLE: 'Độc thân',
+  MARRIED: 'Đã kết hôn',
+  DIVORCED: 'Ly hôn',
+  WIDOWED: 'Goá',
+  OTHER: 'Khác',
+};
+
+/** Section hồ sơ chỉ hiện nếu có ít nhất 1 giá trị. */
+function InfoSection({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; value: string | null }[];
+}) {
+  if (rows.every((r) => !r.value)) return null;
+  return (
+    <>
+      <Separator />
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">{title}</h3>
+        {rows.map((r) => (
+          <InfoRow key={r.label} label={r.label} value={r.value} />
+        ))}
+      </div>
+    </>
+  );
+}
 
 const CONTRACT_LABELS: Record<string, string> = {
   PROBATION: 'Thử việc',
@@ -198,7 +230,84 @@ export function EmployeeDetailSheet({
                 <InfoRow label="Địa điểm" value={data.worksiteName} />
                 <InfoRow label="Ngày vào làm" value={data.joinDate} />
                 <InfoRow label="Ngày nghỉ việc" value={data.leaveDate} />
+                <InfoRow label="Email cá nhân" value={data.personalEmail} />
+                <InfoRow
+                  label="Tình trạng hôn nhân"
+                  value={data.maritalStatus ? MARITAL_LABELS[data.maritalStatus] : null}
+                />
               </div>
+
+              <InfoSection
+                title="Giấy tờ & bảo hiểm"
+                rows={[
+                  { label: 'Số CCCD/CMND', value: data.idNumber },
+                  { label: 'Ngày cấp', value: data.idIssuedDate },
+                  { label: 'Nơi cấp', value: data.idIssuedPlace },
+                  { label: 'Mã số thuế', value: data.taxCode },
+                  { label: 'Số sổ BHXH', value: data.socialInsuranceNo },
+                  { label: 'Số thẻ BHYT', value: data.healthInsuranceNo },
+                ]}
+              />
+              <InfoSection
+                title="Tài khoản ngân hàng"
+                rows={[
+                  { label: 'Số tài khoản', value: data.bankAccountNo },
+                  { label: 'Ngân hàng', value: data.bankName },
+                  { label: 'Chi nhánh', value: data.bankBranch },
+                ]}
+              />
+              <InfoSection
+                title="Địa chỉ"
+                rows={[
+                  { label: 'Thường trú', value: data.permanentAddress },
+                  { label: 'Tạm trú / hiện tại', value: data.currentAddress },
+                ]}
+              />
+              <InfoSection
+                title="Liên hệ khẩn cấp"
+                rows={[
+                  { label: 'Họ tên', value: data.emergencyContactName },
+                  { label: 'Điện thoại', value: data.emergencyContactPhone },
+                  { label: 'Quan hệ', value: data.emergencyContactRelation },
+                ]}
+              />
+              <InfoSection
+                title="Thông tin khác"
+                rows={[
+                  { label: 'Quốc tịch', value: data.nationality },
+                  { label: 'Dân tộc', value: data.ethnicity },
+                  { label: 'Tôn giáo', value: data.religion },
+                  { label: 'Trình độ', value: data.educationLevel },
+                  { label: 'Chuyên ngành', value: data.major },
+                ]}
+              />
+
+              {data.dependents.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="mb-1 text-sm font-semibold">
+                      Người phụ thuộc ({data.dependents.length})
+                    </h3>
+                    <div className="space-y-1.5">
+                      {data.dependents.map((d) => (
+                        <div
+                          key={d.id}
+                          className="rounded-md border p-2 text-sm"
+                        >
+                          <p className="font-medium">
+                            {d.fullName} · {d.relationship}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {d.dob ? `Sinh ${d.dob}` : ''}
+                            {d.taxCode ? ` · MST ${d.taxCode}` : ''}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
               <ContractSection

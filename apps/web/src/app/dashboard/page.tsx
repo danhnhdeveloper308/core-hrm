@@ -3,16 +3,22 @@
 import {
   PERMISSIONS,
   type AttendanceLogResponse,
+  type DashboardStats,
   type Paginated,
   type SessionResponse,
   type UserResponse,
 } from '@repo/shared';
 import { useQuery } from '@tanstack/react-query';
 import {
+  CalendarCheck,
+  ClipboardCheck,
+  Clock,
   LogIn,
   LogOut,
   MonitorSmartphone,
+  Palmtree,
   ShieldCheck,
+  UserX,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -139,6 +145,35 @@ function TotalUsersCard() {
   );
 }
 
+/** Số liệu tổng quan org — chỉ HR/quản lý (REPORT_READ). */
+function HrmStatsSection() {
+  const { data } = useQuery({
+    queryKey: queryKeys.reports.dashboard,
+    queryFn: () => api.get<DashboardStats>('/reports/dashboard'),
+  });
+  const v = (n: number | undefined) => n ?? '—';
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard title="Nhân viên đang làm" value={v(data?.employeesActive)} icon={Users} />
+      <StatCard title="Có mặt hôm nay" value={v(data?.presentToday)} icon={CalendarCheck} />
+      <StatCard title="Đi trễ hôm nay" value={v(data?.lateToday)} icon={Clock} />
+      <StatCard title="Vắng hôm nay" value={v(data?.absentToday)} icon={UserX} />
+      <StatCard title="Nghỉ phép hôm nay" value={v(data?.onLeaveToday)} icon={Palmtree} />
+      <StatCard
+        title="Đơn chờ duyệt"
+        value={v(data?.pendingApprovals)}
+        icon={ClipboardCheck}
+        description="Tất cả loại đơn"
+      />
+      <StatCard
+        title="Đơn nghỉ chờ duyệt"
+        value={v(data?.pendingLeave)}
+        icon={Palmtree}
+      />
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
 
@@ -159,6 +194,10 @@ export default function DashboardPage() {
       </div>
 
       <TodayCheckinCard />
+
+      <PermissionGate permission={PERMISSIONS.REPORT_READ}>
+        <HrmStatsSection />
+      </PermissionGate>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

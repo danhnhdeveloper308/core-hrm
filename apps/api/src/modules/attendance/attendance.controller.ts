@@ -98,7 +98,7 @@ export class AttendanceController {
   @Get('grid')
   @RequirePermissions(PERMISSIONS.ATTENDANCE_READ_ALL)
   @ApiOperation({ summary: 'Lưới công tháng (employee × ngày) cho AG Grid' })
-  @ApiOkResponse({ description: 'TimesheetGridRow[]' })
+  @ApiOkResponse({ description: 'TimesheetGridResponse ({ restWeekdays, rows })' })
   grid(
     @CurrentOrg() orgId: string,
     @CurrentUser() actor: AccessTokenPayload,

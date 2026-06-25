@@ -29,10 +29,10 @@ pnpm install
 pnpm db:up                    # Postgres 17 + Redis 7 (docker compose)
 pnpm db:migrate init          # tạo + apply migration
 pnpm db:seed                  # permissions, 3 system roles, SUPER_ADMIN từ SEED_ADMIN_*
-pnpm dev                      # api: http://localhost:3001/api · web: http://localhost:3000
+pnpm dev                      # api: http://localhost:8001/api · web: http://localhost:3000
 ```
 
-Swagger: `http://localhost:3001/api/docs`. Đăng nhập bằng `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
+Swagger: `http://localhost:8001/api/docs`. Đăng nhập bằng `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
 
 ### Lệnh thường dùng
 
@@ -53,7 +53,7 @@ Swagger: `http://localhost:3001/api/docs`. Đăng nhập bằng `SEED_ADMIN_EMAI
 |---|---|---|
 | `DATABASE_URL` | — | PostgreSQL connection string (**bắt buộc**) |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | `localhost` / `6379` / rỗng | Cache, queue, socket adapter |
-| `API_PORT` / `API_GLOBAL_PREFIX` | `3001` / `api` | |
+| `API_PORT` / `API_GLOBAL_PREFIX` | `8001` / `api` | |
 | `CORS_ORIGINS` | `http://localhost:3000` | Danh sách origin, phân tách dấu phẩy |
 | `COOKIE_DOMAIN` | rỗng | Đặt khi web/api khác subdomain |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | — | **Bắt buộc**, ≥ 32 ký tự |
@@ -135,7 +135,7 @@ Kiến trúc network:
 
 ```
 Internet ──443──> Caddy (TLS, duy nhất mở port)
-                   ├─ /api/*, /socket.io/*, /health ──> api:3001 (nội bộ)
+                   ├─ /api/*, /socket.io/*, /health ──> api:8001 (nội bộ)
                    └─ còn lại ───────────────────────> web:3000 (nội bộ)
 ```
 

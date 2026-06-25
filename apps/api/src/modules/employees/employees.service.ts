@@ -4,11 +4,15 @@ import {
   ORG_ROLES,
   type ContractResponse,
   type CreateContractInput,
+  type CreateDependentInput,
   type CreateEmployeeInput,
   type CursorPaginated,
+  type DependentResponse,
+  type EmployeeDetailResponse,
   type EmployeeResponse,
   type ListEmployeesQuery,
   type OrgChartNode,
+  type UpdateDependentInput,
   type UpdateEmployeeInput,
 } from '@repo/shared';
 import { addAuditMetadata } from '../../common/audit/audit-context';
@@ -16,7 +20,7 @@ import type { AccessTokenPayload } from '../../common/decorators/current-user.de
 import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { EmploymentContract } from '../../prisma/prisma.types';
+import type { Dependent, EmploymentContract } from '../../prisma/prisma.types';
 import { StorageService } from '../../storage/storage.service';
 import { OrgUnitsService } from '../org-structure/org-units.service';
 import { PermissionsCacheService } from '../rbac/permissions-cache.service';
@@ -49,6 +53,17 @@ function toContractResponse(c: EmploymentContract): ContractResponse {
     hasFile: c.fileKey !== null,
     note: c.note,
     createdAt: c.createdAt.toISOString(),
+  };
+}
+
+function toDependentResponse(d: Dependent): DependentResponse {
+  return {
+    id: d.id,
+    fullName: d.fullName,
+    relationship: d.relationship,
+    dob: dateOnly(d.dob),
+    taxCode: d.taxCode,
+    note: d.note,
   };
 }
 
@@ -91,9 +106,65 @@ export class EmployeesService {
         opts?.signAvatar && e.avatarKey
           ? await this.storage.getSignedUrl(e.avatarKey, 3600)
           : null,
+      personalEmail: e.personalEmail,
+      idNumber: e.idNumber,
+      idIssuedDate: dateOnly(e.idIssuedDate),
+      idIssuedPlace: e.idIssuedPlace,
+      taxCode: e.taxCode,
+      socialInsuranceNo: e.socialInsuranceNo,
+      healthInsuranceNo: e.healthInsuranceNo,
+      bankAccountNo: e.bankAccountNo,
+      bankName: e.bankName,
+      bankBranch: e.bankBranch,
+      permanentAddress: e.permanentAddress,
+      currentAddress: e.currentAddress,
+      emergencyContactName: e.emergencyContactName,
+      emergencyContactPhone: e.emergencyContactPhone,
+      emergencyContactRelation: e.emergencyContactRelation,
+      maritalStatus: e.maritalStatus,
+      ethnicity: e.ethnicity,
+      nationality: e.nationality,
+      religion: e.religion,
+      educationLevel: e.educationLevel,
+      major: e.major,
       createdAt: e.createdAt.toISOString(),
       updatedAt: e.updatedAt.toISOString(),
     };
+  }
+
+  /** Map field hồ sơ (VN) từ input → Prisma data (chỉ field được truyền). */
+  private profileData(
+    input: Partial<UpdateEmployeeInput>,
+  ): Record<string, string | Date | null> {
+    const d: Record<string, string | Date | null> = {};
+    const set = (k: keyof typeof input) => {
+      const v = input[k];
+      if (v !== undefined) d[k as string] = (v as string | null) ?? null;
+    };
+    if (input.idIssuedDate !== undefined) {
+      d.idIssuedDate = input.idIssuedDate ? new Date(input.idIssuedDate) : null;
+    }
+    set('personalEmail');
+    set('idNumber');
+    set('idIssuedPlace');
+    set('taxCode');
+    set('socialInsuranceNo');
+    set('healthInsuranceNo');
+    set('bankAccountNo');
+    set('bankName');
+    set('bankBranch');
+    set('permanentAddress');
+    set('currentAddress');
+    set('emergencyContactName');
+    set('emergencyContactPhone');
+    set('emergencyContactRelation');
+    set('maritalStatus');
+    set('ethnicity');
+    set('nationality');
+    set('religion');
+    set('educationLevel');
+    set('major');
+    return d;
   }
 
   /**
@@ -139,6 +210,7 @@ export class EmployeesService {
     const scopePaths = await this.resolveScopePaths(actor);
     const where: Prisma.EmployeeWhereInput = {
       orgId,
+      deletedAt: null,
       ...this.scopeWhere(scopePaths, actor.sub),
       ...(query.status ? { status: query.status } : {}),
       ...(query.positionId ? { positionId: query.positionId } : {}),
@@ -175,8 +247,8 @@ export class EmployeesService {
     actor: AccessTokenPayload,
     input: CreateEmployeeInput,
   ): Promise<EmployeeResponse> {
-    const codeTaken = await this.prisma.employee.findUnique({
-      where: { orgId_code: { orgId, code: input.code } },
+    const codeTaken = await this.prisma.employee.findFirst({
+      where: { orgId, code: input.code, deletedAt: null },
     });
     if (codeTaken) {
       throw new AppException(
@@ -201,6 +273,7 @@ export class EmployeesService {
         worksiteId: input.worksiteId ?? null,
         joinDate: new Date(input.joinDate),
         status: input.status,
+        ...this.profileData(input),
       },
       include: EMPLOYEE_INCLUDE,
     });
@@ -236,11 +309,15 @@ export class EmployeesService {
     orgId: string,
     actor: AccessTokenPayload,
     id: string,
-  ): Promise<EmployeeResponse & { contracts: ContractResponse[] }> {
+  ): Promise<EmployeeDetailResponse> {
     const scopePaths = await this.resolveScopePaths(actor);
     const employee = await this.prisma.employee.findFirst({
-      where: { id, orgId, ...this.scopeWhere(scopePaths, actor.sub) },
-      include: { ...EMPLOYEE_INCLUDE, contracts: { orderBy: { startDate: 'desc' } } },
+      where: { id, orgId, deletedAt: null, ...this.scopeWhere(scopePaths, actor.sub) },
+      include: {
+        ...EMPLOYEE_INCLUDE,
+        contracts: { orderBy: { startDate: 'desc' } },
+        dependents: { orderBy: { createdAt: 'asc' } },
+      },
     });
     if (!employee) {
       throw new AppException(
@@ -252,21 +329,25 @@ export class EmployeesService {
     return {
       ...(await this.toResponse(employee, { signAvatar: true })),
       contracts: employee.contracts.map(toContractResponse),
+      dependents: employee.dependents.map(toDependentResponse),
     };
   }
 
   /** Hồ sơ của chính user đang đăng nhập — không cần permission. */
-  async me(
-    userId: string,
-  ): Promise<(EmployeeResponse & { contracts: ContractResponse[] }) | null> {
+  async me(userId: string): Promise<EmployeeDetailResponse | null> {
     const employee = await this.prisma.employee.findUnique({
       where: { userId },
-      include: { ...EMPLOYEE_INCLUDE, contracts: { orderBy: { startDate: 'desc' } } },
+      include: {
+        ...EMPLOYEE_INCLUDE,
+        contracts: { orderBy: { startDate: 'desc' } },
+        dependents: { orderBy: { createdAt: 'asc' } },
+      },
     });
-    if (!employee) return null;
+    if (!employee || employee.deletedAt) return null;
     return {
       ...(await this.toResponse(employee, { signAvatar: true })),
       contracts: employee.contracts.map(toContractResponse),
+      dependents: employee.dependents.map(toDependentResponse),
     };
   }
 
@@ -277,8 +358,8 @@ export class EmployeesService {
   ): Promise<EmployeeResponse> {
     const employee = await this.requireEmployee(orgId, id);
     if (input.code && input.code !== employee.code) {
-      const taken = await this.prisma.employee.findUnique({
-        where: { orgId_code: { orgId, code: input.code } },
+      const taken = await this.prisma.employee.findFirst({
+        where: { orgId, code: input.code, deletedAt: null },
       });
       if (taken) {
         throw new AppException(
@@ -320,6 +401,7 @@ export class EmployeesService {
           ? { leaveDate: input.leaveDate ? new Date(input.leaveDate) : null }
           : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...this.profileData(input),
       },
       include: EMPLOYEE_INCLUDE,
     });
@@ -339,7 +421,12 @@ export class EmployeesService {
   async remove(orgId: string, id: string): Promise<{ message: string }> {
     const employee = await this.requireEmployee(orgId, id);
     await this.deactivateLinkedUser(employee.userId);
-    await this.prisma.employee.delete({ where: { id } });
+    // Soft-delete: giữ dữ liệu công/đơn (yêu cầu lưu trữ pháp lý), ẩn khỏi roster/ops.
+    // Set status=TERMINATED để tận dụng các filter `status != TERMINATED` sẵn có.
+    await this.prisma.employee.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'TERMINATED' },
+    });
     addAuditMetadata({
       before: { code: employee.code, fullName: employee.fullName },
     });
@@ -466,6 +553,87 @@ export class EmployeesService {
     return roots;
   }
 
+  // ===== Người phụ thuộc (giảm trừ gia cảnh) =====
+
+  async listDependents(orgId: string, employeeId: string): Promise<DependentResponse[]> {
+    await this.requireEmployee(orgId, employeeId);
+    const rows = await this.prisma.dependent.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(toDependentResponse);
+  }
+
+  async addDependent(
+    orgId: string,
+    employeeId: string,
+    input: CreateDependentInput,
+  ): Promise<DependentResponse> {
+    await this.requireEmployee(orgId, employeeId);
+    const dep = await this.prisma.dependent.create({
+      data: {
+        employeeId,
+        fullName: input.fullName,
+        relationship: input.relationship,
+        dob: input.dob ? new Date(input.dob) : null,
+        taxCode: input.taxCode ?? null,
+        note: input.note ?? null,
+      },
+    });
+    addAuditMetadata({ after: { dependent: dep.fullName } });
+    return toDependentResponse(dep);
+  }
+
+  async updateDependent(
+    orgId: string,
+    employeeId: string,
+    dependentId: string,
+    input: UpdateDependentInput,
+  ): Promise<DependentResponse> {
+    await this.requireEmployee(orgId, employeeId);
+    await this.requireDependent(employeeId, dependentId);
+    const dep = await this.prisma.dependent.update({
+      where: { id: dependentId },
+      data: {
+        ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
+        ...(input.relationship !== undefined
+          ? { relationship: input.relationship }
+          : {}),
+        ...(input.dob !== undefined
+          ? { dob: input.dob ? new Date(input.dob) : null }
+          : {}),
+        ...(input.taxCode !== undefined ? { taxCode: input.taxCode ?? null } : {}),
+        ...(input.note !== undefined ? { note: input.note ?? null } : {}),
+      },
+    });
+    addAuditMetadata({ after: { dependentId, fullName: dep.fullName } });
+    return toDependentResponse(dep);
+  }
+
+  async removeDependent(
+    orgId: string,
+    employeeId: string,
+    dependentId: string,
+  ): Promise<{ message: string }> {
+    await this.requireEmployee(orgId, employeeId);
+    const dep = await this.requireDependent(employeeId, dependentId);
+    await this.prisma.dependent.delete({ where: { id: dependentId } });
+    addAuditMetadata({ before: { dependent: dep.fullName } });
+    return { message: `Đã xoá người phụ thuộc ${dep.fullName}` };
+  }
+
+  private async requireDependent(employeeId: string, id: string): Promise<Dependent> {
+    const dep = await this.prisma.dependent.findFirst({ where: { id, employeeId } });
+    if (!dep) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy người phụ thuộc',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+    return dep;
+  }
+
   // ===== helpers =====
 
   private async deactivateLinkedUser(userId: string | null): Promise<void> {
@@ -482,7 +650,7 @@ export class EmployeesService {
 
   private async requireEmployee(orgId: string, id: string) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id, orgId },
+      where: { id, orgId, deletedAt: null },
     });
     if (!employee) {
       throw new AppException(

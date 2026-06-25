@@ -14,6 +14,15 @@ export type Gender = z.infer<typeof genderSchema>;
 export const contractTypeSchema = z.enum(['PROBATION', 'FIXED_TERM', 'INDEFINITE']);
 export type ContractType = z.infer<typeof contractTypeSchema>;
 
+export const maritalStatusSchema = z.enum([
+  'SINGLE',
+  'MARRIED',
+  'DIVORCED',
+  'WIDOWED',
+  'OTHER',
+]);
+export type MaritalStatus = z.infer<typeof maritalStatusSchema>;
+
 /** "YYYY-MM-DD" — ngày thuần không giờ, tránh lệch timezone. */
 export const dateOnlySchema = z
   .string()
@@ -47,10 +56,57 @@ export const employeeSchema = z.object({
   leaveDate: z.string().nullable(),
   status: employeeStatusSchema,
   avatarUrl: z.string().nullable(),
+  // Hồ sơ nhân sự (VN)
+  personalEmail: z.string().nullable(),
+  idNumber: z.string().nullable(),
+  idIssuedDate: z.string().nullable(),
+  idIssuedPlace: z.string().nullable(),
+  taxCode: z.string().nullable(),
+  socialInsuranceNo: z.string().nullable(),
+  healthInsuranceNo: z.string().nullable(),
+  bankAccountNo: z.string().nullable(),
+  bankName: z.string().nullable(),
+  bankBranch: z.string().nullable(),
+  permanentAddress: z.string().nullable(),
+  currentAddress: z.string().nullable(),
+  emergencyContactName: z.string().nullable(),
+  emergencyContactPhone: z.string().nullable(),
+  emergencyContactRelation: z.string().nullable(),
+  maritalStatus: maritalStatusSchema.nullable(),
+  ethnicity: z.string().nullable(),
+  nationality: z.string().nullable(),
+  religion: z.string().nullable(),
+  educationLevel: z.string().nullable(),
+  major: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 export type EmployeeResponse = z.infer<typeof employeeSchema>;
+
+/** Các trường hồ sơ nhân sự (VN) — input dùng chung create/update. */
+const employeeProfileInput = {
+  personalEmail: z.email().nullish(),
+  idNumber: z.string().trim().max(20).nullish(),
+  idIssuedDate: dateOnlySchema.nullish(),
+  idIssuedPlace: z.string().trim().max(200).nullish(),
+  taxCode: z.string().trim().max(20).nullish(),
+  socialInsuranceNo: z.string().trim().max(20).nullish(),
+  healthInsuranceNo: z.string().trim().max(30).nullish(),
+  bankAccountNo: z.string().trim().max(30).nullish(),
+  bankName: z.string().trim().max(120).nullish(),
+  bankBranch: z.string().trim().max(120).nullish(),
+  permanentAddress: z.string().trim().max(300).nullish(),
+  currentAddress: z.string().trim().max(300).nullish(),
+  emergencyContactName: z.string().trim().max(120).nullish(),
+  emergencyContactPhone: z.string().trim().max(20).nullish(),
+  emergencyContactRelation: z.string().trim().max(60).nullish(),
+  maritalStatus: maritalStatusSchema.nullish(),
+  ethnicity: z.string().trim().max(60).nullish(),
+  nationality: z.string().trim().max(60).nullish(),
+  religion: z.string().trim().max(60).nullish(),
+  educationLevel: z.string().trim().max(120).nullish(),
+  major: z.string().trim().max(120).nullish(),
+} as const;
 
 export const createEmployeeSchema = z.object({
   code: employeeCodeSchema,
@@ -65,6 +121,7 @@ export const createEmployeeSchema = z.object({
   worksiteId: z.uuid().nullish(),
   joinDate: dateOnlySchema,
   status: employeeStatusSchema.default('ACTIVE'),
+  ...employeeProfileInput,
   /** Có giá trị = mời tài khoản qua email này (role EMPLOYEE mặc định). */
   inviteEmail: z
     .email()
@@ -86,6 +143,7 @@ export const updateEmployeeSchema = z.object({
   joinDate: dateOnlySchema.optional(),
   leaveDate: dateOnlySchema.nullish(),
   status: employeeStatusSchema.optional(),
+  ...employeeProfileInput,
 });
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 
@@ -120,6 +178,37 @@ export const createContractSchema = z.object({
   note: z.string().trim().max(1000).nullish(),
 });
 export type CreateContractInput = z.infer<typeof createContractSchema>;
+
+// ===== Người phụ thuộc (giảm trừ gia cảnh) =====
+
+export const dependentSchema = z.object({
+  id: z.uuid(),
+  fullName: z.string(),
+  relationship: z.string(),
+  dob: z.string().nullable(),
+  taxCode: z.string().nullable(),
+  note: z.string().nullable(),
+});
+export type DependentResponse = z.infer<typeof dependentSchema>;
+
+export const createDependentSchema = z.object({
+  fullName: z.string().trim().min(1).max(200),
+  relationship: z.string().trim().min(1).max(60),
+  dob: dateOnlySchema.nullish(),
+  taxCode: z.string().trim().max(20).nullish(),
+  note: z.string().trim().max(500).nullish(),
+});
+export type CreateDependentInput = z.infer<typeof createDependentSchema>;
+
+export const updateDependentSchema = createDependentSchema.partial();
+export type UpdateDependentInput = z.infer<typeof updateDependentSchema>;
+
+/** Chi tiết NV: hồ sơ + hợp đồng + người phụ thuộc. */
+export const employeeDetailSchema = employeeSchema.extend({
+  contracts: z.array(contractSchema),
+  dependents: z.array(dependentSchema),
+});
+export type EmployeeDetailResponse = z.infer<typeof employeeDetailSchema>;
 
 // ===== Org chart =====
 

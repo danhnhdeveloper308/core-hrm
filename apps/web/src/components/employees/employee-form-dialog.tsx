@@ -5,14 +5,16 @@ import {
   createEmployeeSchema,
   type CreateEmployeeInput,
   type CursorPaginated,
+  type DependentResponse,
   type EmployeeResponse,
   type OrgUnitResponse,
   type PositionResponse,
   type WorksiteResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useForm, type Control, type FieldPath } from 'react-hook-form';
 import { toast } from 'sonner';
 import type { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,44 @@ const STATUS_LABELS: Record<string, string> = {
   INACTIVE: 'Tạm nghỉ',
   TERMINATED: 'Đã nghỉ việc',
 };
+
+type EmpFormInput = z.input<typeof createEmployeeSchema>;
+
+/** Field text (string|null) gọn — dùng cho loạt trường hồ sơ. */
+function TextField({
+  control,
+  name,
+  label,
+  type = 'text',
+  placeholder,
+}: {
+  control: Control<EmpFormInput>;
+  name: FieldPath<EmpFormInput>;
+  label: string;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Input
+              type={type}
+              placeholder={placeholder}
+              value={(field.value as string | null | undefined) ?? ''}
+              onChange={(e) => field.onChange(e.target.value || null)}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
 
 interface EmployeeFormDialogProps {
   open: boolean;
@@ -122,6 +162,27 @@ export function EmployeeFormDialog({
           joinDate: employee?.joinDate ?? new Date().toISOString().slice(0, 10),
           status: employee?.status ?? 'ACTIVE',
           inviteEmail: null,
+          personalEmail: employee?.personalEmail ?? null,
+          idNumber: employee?.idNumber ?? null,
+          idIssuedDate: employee?.idIssuedDate ?? null,
+          idIssuedPlace: employee?.idIssuedPlace ?? null,
+          taxCode: employee?.taxCode ?? null,
+          socialInsuranceNo: employee?.socialInsuranceNo ?? null,
+          healthInsuranceNo: employee?.healthInsuranceNo ?? null,
+          bankAccountNo: employee?.bankAccountNo ?? null,
+          bankName: employee?.bankName ?? null,
+          bankBranch: employee?.bankBranch ?? null,
+          permanentAddress: employee?.permanentAddress ?? null,
+          currentAddress: employee?.currentAddress ?? null,
+          emergencyContactName: employee?.emergencyContactName ?? null,
+          emergencyContactPhone: employee?.emergencyContactPhone ?? null,
+          emergencyContactRelation: employee?.emergencyContactRelation ?? null,
+          maritalStatus: employee?.maritalStatus ?? null,
+          ethnicity: employee?.ethnicity ?? null,
+          nationality: employee?.nationality ?? null,
+          religion: employee?.religion ?? null,
+          educationLevel: employee?.educationLevel ?? null,
+          major: employee?.major ?? null,
         }
       : undefined,
   });
@@ -415,6 +476,152 @@ export function EmployeeFormDialog({
                 )}
               />
             </div>
+            {/* ===== Hồ sơ chi tiết (theo pháp luật VN) ===== */}
+            <div className="border-t pt-3">
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                Giấy tờ & bảo hiểm
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <TextField control={form.control} name="idNumber" label="Số CCCD/CMND" />
+                <TextField
+                  control={form.control}
+                  name="idIssuedDate"
+                  label="Ngày cấp"
+                  type="date"
+                />
+                <TextField
+                  control={form.control}
+                  name="idIssuedPlace"
+                  label="Nơi cấp"
+                />
+                <TextField control={form.control} name="taxCode" label="Mã số thuế" />
+                <TextField
+                  control={form.control}
+                  name="socialInsuranceNo"
+                  label="Số sổ BHXH"
+                />
+                <TextField
+                  control={form.control}
+                  name="healthInsuranceNo"
+                  label="Số thẻ BHYT"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                Tài khoản ngân hàng
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <TextField
+                  control={form.control}
+                  name="bankAccountNo"
+                  label="Số tài khoản"
+                />
+                <TextField control={form.control} name="bankName" label="Ngân hàng" />
+                <TextField control={form.control} name="bankBranch" label="Chi nhánh" />
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                Địa chỉ
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <TextField
+                  control={form.control}
+                  name="permanentAddress"
+                  label="Thường trú"
+                />
+                <TextField
+                  control={form.control}
+                  name="currentAddress"
+                  label="Tạm trú / hiện tại"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                Liên hệ khẩn cấp
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <TextField
+                  control={form.control}
+                  name="emergencyContactName"
+                  label="Họ tên"
+                />
+                <TextField
+                  control={form.control}
+                  name="emergencyContactPhone"
+                  label="Điện thoại"
+                />
+                <TextField
+                  control={form.control}
+                  name="emergencyContactRelation"
+                  label="Quan hệ"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                Thông tin khác
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="maritalStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hôn nhân</FormLabel>
+                      <Select
+                        value={field.value ?? NONE}
+                        onValueChange={(v) => field.onChange(v === NONE ? null : v)}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE}>—</SelectItem>
+                          <SelectItem value="SINGLE">Độc thân</SelectItem>
+                          <SelectItem value="MARRIED">Đã kết hôn</SelectItem>
+                          <SelectItem value="DIVORCED">Ly hôn</SelectItem>
+                          <SelectItem value="WIDOWED">Goá</SelectItem>
+                          <SelectItem value="OTHER">Khác</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <TextField
+                  control={form.control}
+                  name="nationality"
+                  label="Quốc tịch"
+                  placeholder="Việt Nam"
+                />
+                <TextField control={form.control} name="ethnicity" label="Dân tộc" />
+                <TextField control={form.control} name="religion" label="Tôn giáo" />
+                <TextField
+                  control={form.control}
+                  name="educationLevel"
+                  label="Trình độ"
+                />
+                <TextField control={form.control} name="major" label="Chuyên ngành" />
+                <TextField
+                  control={form.control}
+                  name="personalEmail"
+                  label="Email cá nhân"
+                  type="email"
+                />
+              </div>
+            </div>
+
+            {isEdit && <DependentsSection employeeId={employee.id} />}
+
             {!isEdit && (
               <FormField
                 control={form.control}
@@ -453,5 +660,107 @@ export function EmployeeFormDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const EMPTY_DEP = { fullName: '', relationship: '', dob: '', taxCode: '' };
+
+/** Người phụ thuộc (giảm trừ gia cảnh) — chỉ hiện khi sửa (NV đã tồn tại). */
+function DependentsSection({ employeeId }: { employeeId: string }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(EMPTY_DEP);
+  const { data: deps } = useQuery({
+    queryKey: queryKeys.employees.dependents(employeeId),
+    queryFn: () =>
+      api.get<DependentResponse[]>(`/employees/${employeeId}/dependents`),
+  });
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: queryKeys.employees.dependents(employeeId) });
+
+  const add = useMutation({
+    mutationFn: () =>
+      api.post(`/employees/${employeeId}/dependents`, {
+        fullName: draft.fullName,
+        relationship: draft.relationship,
+        dob: draft.dob || null,
+        taxCode: draft.taxCode || null,
+      }),
+    onSuccess: () => {
+      setDraft(EMPTY_DEP);
+      invalidate();
+      toast.success('Đã thêm người phụ thuộc');
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Lỗi'),
+  });
+  const del = useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/employees/${employeeId}/dependents/${id}`),
+    onSuccess: invalidate,
+  });
+
+  return (
+    <div className="border-t pt-3">
+      <p className="mb-2 text-sm font-semibold text-muted-foreground">
+        Người phụ thuộc (giảm trừ gia cảnh)
+      </p>
+      <div className="space-y-1.5">
+        {(deps ?? []).map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm"
+          >
+            <span className="flex-1">
+              <b>{d.fullName}</b> · {d.relationship}
+              {d.dob ? ` · ${d.dob}` : ''}
+              {d.taxCode ? ` · MST ${d.taxCode}` : ''}
+            </span>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="size-7 text-destructive"
+              onClick={() => del.mutate(d.id)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        ))}
+        {(deps ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground">Chưa có người phụ thuộc</p>
+        )}
+      </div>
+      <div className="mt-2 grid grid-cols-4 gap-2">
+        <Input
+          placeholder="Họ tên"
+          value={draft.fullName}
+          onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
+        />
+        <Input
+          placeholder="Quan hệ (con/vợ…)"
+          value={draft.relationship}
+          onChange={(e) => setDraft({ ...draft, relationship: e.target.value })}
+        />
+        <Input
+          type="date"
+          value={draft.dob}
+          onChange={(e) => setDraft({ ...draft, dob: e.target.value })}
+        />
+        <div className="flex gap-1">
+          <Input
+            placeholder="MST"
+            value={draft.taxCode}
+            onChange={(e) => setDraft({ ...draft, taxCode: e.target.value })}
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={!draft.fullName || !draft.relationship || add.isPending}
+            onClick={() => add.mutate()}
+          >
+            Thêm
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

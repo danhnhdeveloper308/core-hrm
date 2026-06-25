@@ -118,6 +118,17 @@ export const timesheetGridRowSchema = z.object({
 });
 export type TimesheetGridRow = z.infer<typeof timesheetGridRowSchema>;
 
+/**
+ * Lưới công + thông tin ngày nghỉ THEO CẤU HÌNH ca (không hardcode T7/CN).
+ * restWeekdays: thứ KHÔNG làm việc theo `Date.getUTCDay()` (0=CN..6=T7),
+ * resolve từ workDays của ca mặc định org/đơn vị đang xem → FE tô xám đúng.
+ */
+export const timesheetGridResponseSchema = z.object({
+  restWeekdays: z.array(z.number().int().min(0).max(6)),
+  rows: z.array(timesheetGridRowSchema),
+});
+export type TimesheetGridResponse = z.infer<typeof timesheetGridResponseSchema>;
+
 // ===== Correction (sửa công thủ công) =====
 
 export const correctionStatusSchema = z.enum([

@@ -11,7 +11,7 @@ export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
-  CANCELLED: 'Đã huỷ',
+  CANCELLED: 'Đã huỷ (người gửi)',
 };
 
 export const LEAVE_STATUS_BADGE: Record<LeaveRequestStatus, BadgeVariant> = {
@@ -25,7 +25,7 @@ export const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
-  CANCELLED: 'Đã huỷ',
+  CANCELLED: 'Đã huỷ (người gửi)',
 };
 
 export const APPROVAL_STATUS_BADGE: Record<ApprovalStatus, BadgeVariant> = {

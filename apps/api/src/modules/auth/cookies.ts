@@ -9,10 +9,12 @@ export const TRUSTED_DEVICE_COOKIE = 'trusted_device';
 const TRUSTED_DEVICE_TTL_MS = 30 * 86_400_000;
 
 function baseCookieOptions(config: AppConfigService): CookieOptions {
+  const sameSite = config.cookieSameSite;
   return {
     httpOnly: true,
-    secure: config.isProd,
-    sameSite: 'lax',
+    // SameSite=None BẮT BUỘC Secure (trình duyệt từ chối None mà không Secure).
+    secure: config.isProd || sameSite === 'none',
+    sameSite,
     ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),
   };
 }

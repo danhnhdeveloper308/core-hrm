@@ -8,10 +8,13 @@ import {
   type UpdateProfileInput,
   type UserResponse,
 } from '@repo/shared';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { TwoFactorCard } from '@/components/profile/two-factor-card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { initials } from '@/lib/format';
 import {
   Card,
   CardContent,
@@ -34,6 +37,7 @@ import { useAuthStore } from '@/stores/auth-store';
 function ProfileCard() {
   const user = useAuthStore((s) => s.user);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const [uploading, setUploading] = useState(false);
 
   const form = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
@@ -50,13 +54,54 @@ function ProfileCard() {
     }
   }
 
+  async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // cho phép chọn lại cùng file
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    setUploading(true);
+    try {
+      await api.upload<{ avatarUrl: string }>('/users/me/avatar', fd);
+      await hydrate();
+      toast.success('Đã cập nhật ảnh đại diện');
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Tải ảnh thất bại');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Thông tin cá nhân</CardTitle>
         <CardDescription>{user?.email}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="size-16">
+            {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+            <AvatarFallback className="text-lg">
+              {initials(user?.name ?? '?')}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <label htmlFor="avatar-upload">
+              <Button asChild variant="outline" size="sm" disabled={uploading}>
+                <span>{uploading ? 'Đang tải…' : 'Đổi ảnh đại diện'}</span>
+              </Button>
+            </label>
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => void onAvatarChange(e)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">JPG/PNG/WEBP ≤ 5MB</p>
+          </div>
+        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField

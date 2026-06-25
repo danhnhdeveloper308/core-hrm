@@ -1,0 +1,106 @@
+# Render Blueprint — BACKEND (apps/api) qua Docker, kèm Redis nội bộ.
+# Dùng: Render Dashboard → New → Blueprint → chọn repo (đọc file này).
+# DB: dùng Neon (điền DATABASE_URL bên dưới, sync:false → nhập ở dashboard).
+# FE (Next.js) deploy trên Vercel — KHÔNG khai báo ở đây.
+#
+# LƯU Ý: cookie SameSite=Lax → FE & BE phải cùng registrable domain
+# (app.example.com + api.example.com) và đặt COOKIE_DOMAIN=.example.com.
+services:
+  - type: web
+    name: hrm-api
+    runtime: docker
+    repo: https://github.com/your-org/your-repo # đổi thành repo của bạn
+    branch: main
+    dockerfilePath: ./docker/Dockerfile.api
+    dockerContext: . # build context = gốc monorepo (Dockerfile copy cả workspace)
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    # Render tự inject PORT → app đã lắng nghe theo PORT.
+    envVars:
+      # ----- giá trị cố định -----
+      - key: NODE_ENV
+        value: production
+      - key: API_GLOBAL_PREFIX
+        value: api
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL
+        value: 30d
+      - key: OTP_TTL_SECONDS
+        value: "300"
+      - key: TOTP_ISSUER
+        value: HRM
+      # ----- Redis nội bộ Render (no TLS) -----
+      - key: REDIS_HOST
+        fromService:
+          type: keyvalue
+          name: hrm-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: keyvalue
+          name: hrm-redis
+          property: port
+      - key: REDIS_TLS
+        value: "false"
+      - key: REDIS_PASSWORD
+        sync: false # copy từ Internal Connection của hrm-redis (nếu có), để trống nếu nội bộ
+      # ----- BẮT BUỘC nhập ở dashboard (secret) -----
+      - key: DATABASE_URL # Neon POOLED + ?sslmode=require
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true # Render tự sinh chuỗi ngẫu nhiên an toàn
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: TOTP_ENCRYPTION_KEY # PHẢI 64 hex — tự nhập (openssl rand -hex 32)
+        sync: false
+      - key: CORS_ORIGINS # https://app.example.com
+        sync: false
+      - key: COOKIE_DOMAIN # .example.com
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL # https://app.example.com
+        sync: false
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      # ----- Storage S3/R2 -----
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
+      # ----- Email (tuỳ chọn) -----
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: HRM System
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      # ----- Google OAuth / FCM (tuỳ chọn) -----
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+
+  # Redis nội bộ (BullMQ + Socket.IO adapter)
+  - type: keyvalue
+    name: hrm-redis
+    plan: starter
+    ipAllowList: [] # chỉ truy cập nội bộ trong Render

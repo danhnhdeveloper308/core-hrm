@@ -10,17 +10,17 @@
 
 	# API (REST + Swagger + Bull Board đều dưới /api/*)
 	handle /api/* {
-		reverse_proxy api:3001
+		reverse_proxy api:8001
 	}
 
 	# Socket.IO realtime
 	handle /socket.io/* {
-		reverse_proxy api:3001
+		reverse_proxy api:8001
 	}
 
 	# Healthcheck cho uptime monitor bên ngoài
 	handle /health {
-		reverse_proxy api:3001
+		reverse_proxy api:8001
 	}
 
 	# Signed URL MinIO — API presign với S3_PUBLIC_URL=https://DOMAIN/storage,

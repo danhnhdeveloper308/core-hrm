@@ -2,6 +2,7 @@
 
 import { PERMISSIONS, type Permission } from '@repo/shared';
 import {
+  Bell,
   Briefcase,
   Building2,
   CalendarCheck,
@@ -63,6 +64,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/settings/approval-flows', label: 'Luồng duyệt', icon: GitBranch, permission: PERMISSIONS.APPROVAL_MANAGE_FLOW },
   { href: '/dashboard/audit', label: 'Audit log', icon: ScrollText, permission: PERMISSIONS.AUDIT_READ },
   { href: '/dashboard/security', label: 'Bảo mật', icon: ShieldCheck, permission: null },
+  { href: '/dashboard/settings/notifications', label: 'Thông báo', icon: Bell, permission: null },
   { href: '/dashboard/face', label: 'Khuôn mặt', icon: ScanFace, permission: PERMISSIONS.FACE_ENROLL },
   { href: '/dashboard/profile', label: 'Hồ sơ', icon: User, permission: null },
 ];

@@ -109,7 +109,7 @@ services:
         condition: service_healthy
     # Chỉ nội bộ docker network — Caddy là cửa duy nhất ra ngoài
     expose:
-      - '3001'
+      - '8001'
     logging: *default-logging
 
   web:

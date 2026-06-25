@@ -41,7 +41,7 @@ import {
   fmtDateTime,
 } from '../leave/shared';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001/api';
 
 export default function ShiftRegistrationsPage() {
   const [uploadOpen, setUploadOpen] = useState(false);

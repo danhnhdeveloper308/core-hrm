@@ -290,8 +290,15 @@ export class AuthController {
       return;
     }
     try {
-      const tokens = await this.auth.googleCallback(code, state, this.ctx(req));
-      this.setCookies(res, tokens);
+      const result = await this.auth.googleCallback(code, state, this.ctx(req));
+      // User đã bật 2FA → chưa cấp session, chuyển sang bước xác thực TOTP ở FE
+      if ('requires2fa' in result) {
+        res.redirect(
+          `${this.config.appUrl}/login?pending2fa=${encodeURIComponent(result.pending2faToken)}`,
+        );
+        return;
+      }
+      this.setCookies(res, result);
       res.redirect(`${this.config.appUrl}/dashboard`);
     } catch {
       res.redirect(`${this.config.appUrl}/login?error=oauth`);

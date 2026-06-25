@@ -10,6 +10,8 @@ import type {
   ApprovalInstanceModel,
   AttachmentModel,
   AttendanceCorrectionModel,
+  NotificationModel,
+  DeviceTokenModel,
   OtRequestModel,
   ShiftRegistrationBatchModel,
   ShiftRegistrationLineModel,
@@ -21,6 +23,7 @@ import type {
   LeaveRequestModel,
   LeaveTypeModel,
   EmployeeModel,
+  DependentModel,
   EmploymentContractModel,
   FaceProfileModel,
   HolidayCalendarModel,
@@ -57,6 +60,7 @@ export type RecoveryCode = RecoveryCodeModel;
 export type AuditLog = AuditLogModel;
 export type Organization = OrganizationModel;
 export type Employee = EmployeeModel;
+export type Dependent = DependentModel;
 export type EmploymentContract = EmploymentContractModel;
 export type OrgUnitType = OrgUnitTypeModel;
 export type OrgUnit = OrgUnitModel;
@@ -82,6 +86,8 @@ export type Attachment = AttachmentModel;
 export type OtRequest = OtRequestModel;
 export type ShiftRegistrationBatch = ShiftRegistrationBatchModel;
 export type ShiftRegistrationLine = ShiftRegistrationLineModel;
+export type Notification = NotificationModel;
+export type DeviceToken = DeviceTokenModel;
 
 export {
   UserStatus,
@@ -91,6 +97,7 @@ export {
   EmployeeStatus,
   Gender,
   ContractType,
+  MaritalStatus,
   AttendanceType,
   AttendanceSource,
   TimesheetStatus,
@@ -103,4 +110,5 @@ export {
   ApproverType,
   ApprovalStatus,
   ApprovalDecision,
+  NotificationType,
 } from '../generated/prisma/enums';

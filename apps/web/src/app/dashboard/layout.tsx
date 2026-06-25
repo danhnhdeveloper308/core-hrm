@@ -2,6 +2,7 @@
 
 import { Menu } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
+import { NotificationBell } from '@/components/dashboard/notification-bell';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { UserMenu } from '@/components/dashboard/user-menu';
 import { RealtimeProvider } from '@/components/providers/realtime-provider';
@@ -55,6 +56,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Menu className="size-5" />
             </Button>
             <div className="flex-1" />
+            <NotificationBell />
             <UserMenu />
           </header>
           <main className="flex-1 p-4 md:p-6">{children}</main>

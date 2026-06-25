@@ -35,7 +35,10 @@ model User {
   /// Null với user chỉ đăng nhập qua OAuth
   passwordHash    String?
   name            String
+  /// Avatar ngoài (OAuth) — URL trực tiếp. Avatar tự upload dùng avatarKey (signed URL).
   avatarUrl       String?
+  /// Key avatar tự upload trên object storage — /auth/me ký signed URL tươi.
+  avatarKey       String?
   status          UserStatus @default(ACTIVE)
   emailVerifiedAt DateTime?
   /// TOTP secret đã mã hoá AES-256-GCM bằng TOTP_ENCRYPTION_KEY
@@ -43,6 +46,8 @@ model User {
   totpEnabled     Boolean    @default(false)
   /// Null = platform admin (không thuộc tenant nào)
   orgId           String?    @db.Uuid
+  /// Tuỳ chọn nhận thông báo theo (loại × kênh) — null = mặc định bật tất cả. Xem @repo/shared.
+  notificationPrefs Json?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -53,6 +58,8 @@ model User {
   oauthAccounts OAuthAccount[]
   recoveryCodes RecoveryCode[]
   employee      Employee?
+  notifications Notification[]
+  deviceTokens  DeviceToken[]
 
   @@index([orgId])
 }
@@ -187,6 +194,8 @@ model RecoveryCode {
 
 model AuditLog {
   id         String   @id @default(uuid()) @db.Uuid
+  /// Null = hành động cấp platform (không thuộc tenant nào) — để org admin lọc nhật ký org mình
+  orgId      String?  @db.Uuid
   actorId    String?  @db.Uuid
   actorEmail String?
   /// Dạng `resource.action`, vd `user.update`
@@ -201,6 +210,7 @@ model AuditLog {
 
   @@index([actorId, createdAt(sort: Desc)])
   @@index([resource, createdAt(sort: Desc)])
+  @@index([orgId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id])
 }
 
@@ -216,8 +226,11 @@ enum OrgStatus {
 model Organization {
   id        String    @id @default(uuid()) @db.Uuid
   name      String
-  slug      String    @unique
+  /// Unique theo PARTIAL INDEX (chỉ khi deletedAt IS NULL) — cho phép tái dùng slug sau soft-delete
+  slug      String
   status    OrgStatus @default(ACTIVE)
+  /// Soft-delete: != null = đã xoá (ẩn khỏi UI/ops, giữ dữ liệu). KHÔNG cascade xoá thật.
+  deletedAt DateTime?
   timezone  String    @default("Asia/Ho_Chi_Minh")
   /// Cách tính công mặc định khi áp phiếu tăng/giãn ca (ca có thể override)
   otCalcMode OtCalcMode @default(CLAMP_TO_REGISTERED)
@@ -257,6 +270,8 @@ model Organization {
   otRequests            OtRequest[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
+
+  @@index([slug])
 }
 
 /// Loại đơn vị trong cây tổ chức — mỗi org tự định nghĩa (TAP_DOAN, NHA_MAY...)
@@ -369,6 +384,14 @@ enum ContractType {
   INDEFINITE
 }
 
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  OTHER
+}
+
 model Employee {
   id         String         @id @default(uuid()) @db.Uuid
   orgId      String         @db.Uuid
@@ -379,6 +402,8 @@ model Employee {
   dob        DateTime?      @db.Date
   gender     Gender?
   phone      String?
+  /// Email cá nhân (khác email đăng nhập)
+  personalEmail String?
   orgUnitId  String?        @db.Uuid
   positionId String?        @db.Uuid
   managerId  String?        @db.Uuid
@@ -387,6 +412,38 @@ model Employee {
   leaveDate  DateTime?      @db.Date
   status     EmployeeStatus @default(ACTIVE)
   avatarKey  String?
+
+  // ----- Hồ sơ nhân sự theo pháp luật VN -----
+  /// CCCD/CMND
+  idNumber        String?
+  idIssuedDate    DateTime? @db.Date
+  idIssuedPlace   String?
+  /// Mã số thuế cá nhân
+  taxCode         String?
+  /// Số sổ BHXH
+  socialInsuranceNo String?
+  /// Số thẻ BHYT
+  healthInsuranceNo String?
+  bankAccountNo   String?
+  bankName        String?
+  bankBranch      String?
+  /// Địa chỉ thường trú / tạm trú (hiện tại)
+  permanentAddress String?
+  currentAddress   String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  maritalStatus   MaritalStatus?
+  /// Dân tộc / quốc tịch / tôn giáo
+  ethnicity       String?
+  nationality     String?
+  religion        String?
+  /// Trình độ học vấn + chuyên ngành
+  educationLevel  String?
+  major           String?
+
+  /// Soft-delete: != null = đã xoá hồ sơ (ẩn khỏi roster/ops, giữ dữ liệu công/đơn). Khi xoá set luôn status=TERMINATED.
+  deletedAt  DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
@@ -409,11 +466,32 @@ model Employee {
   leaveRequests         LeaveRequest[]
   otRequests            OtRequest[]
   shiftRegistrationLines ShiftRegistrationLine[]
+  dependents            Dependent[]
 
-  @@unique([orgId, code])
+  // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
+  @@index([orgId, code])
   @@index([orgId, orgUnitId])
   @@index([orgId, status])
   @@index([managerId])
+}
+
+/// Người phụ thuộc (giảm trừ gia cảnh thuế TNCN) — con, vợ/chồng, bố/mẹ...
+model Dependent {
+  id           String    @id @default(uuid()) @db.Uuid
+  employeeId   String    @db.Uuid
+  fullName     String
+  /// Quan hệ với NV: con, vợ/chồng, bố, mẹ...
+  relationship String
+  dob          DateTime? @db.Date
+  /// MST người phụ thuộc (nếu đã đăng ký giảm trừ)
+  taxCode      String?
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
 }
 
 model EmploymentContract {
@@ -884,6 +962,8 @@ model ApprovalInstance {
   status              ApprovalStatus     @default(PENDING)
   /// Snapshot các bước đã resolve approvers tại thời điểm submit
   stepsSnapshot       Json
+  /// Lần cuối đã nhắc SLA (quá hạn duyệt) — nhắc 1 lần / bước, reset khi sang bước mới
+  slaRemindedAt       DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -996,4 +1076,56 @@ model Attachment {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, targetType, targetId])
+}
+
+// ============================================================
+// HRM — Notification center (Phase 8): in-app + FCM push
+// ============================================================
+
+enum NotificationType {
+  /// Có đơn cần CHÍNH bạn duyệt (bước hiện tại)
+  APPROVAL_PENDING
+  /// Đơn DO bạn tạo đã được duyệt/từ chối
+  APPROVAL_DECIDED
+  /// Thông báo chung
+  GENERAL
+}
+
+/// Thông báo in-app cho 1 user. FCM push gửi song song qua DeviceToken.
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  /// Null = thông báo cấp platform (hiếm). Có giá trị = tenant của thông báo.
+  orgId     String?          @db.Uuid
+  /// Người nhận (User.id)
+  userId    String           @db.Uuid
+  type      NotificationType @default(GENERAL)
+  title     String
+  body      String
+  /// Link điều hướng khi click (vd /dashboard/approvals)
+  link      String?
+  /// Tham chiếu nguồn (đa hình) — vd { approvalInstanceId, targetType }
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// FCM registration token theo thiết bị — push notification (web/mobile).
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  /// FCM registration token (unique toàn hệ thống)
+  token      String   @unique
+  platform   String   @default("web")
+  userAgent  String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

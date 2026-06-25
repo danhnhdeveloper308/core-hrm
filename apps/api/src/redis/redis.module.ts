@@ -10,8 +10,14 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
  * riêng (blocking commands / pub-sub) nên chỉ chia sẻ options, không chia sẻ client.
  */
 export function redisConnectionOptions(config: AppConfigService) {
-  const { host, port, password } = config.redis;
-  return { host, port, ...(password ? { password } : {}) };
+  const { host, port, password, tls } = config.redis;
+  return {
+    host,
+    port,
+    ...(password ? { password } : {}),
+    // Redis serverless (Upstash...) yêu cầu TLS — SNI theo host
+    ...(tls ? { tls: { servername: host } } : {}),
+  };
 }
 
 @Global()

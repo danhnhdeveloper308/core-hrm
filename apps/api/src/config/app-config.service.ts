@@ -42,15 +42,25 @@ export class AppConfigService {
     return this.config.get('COOKIE_DOMAIN', { infer: true });
   }
 
+  get cookieSameSite(): 'lax' | 'strict' | 'none' {
+    return this.config.get('COOKIE_SAMESITE', { infer: true });
+  }
+
   get databaseUrl(): string {
     return this.config.get('DATABASE_URL', { infer: true });
   }
 
-  get redis(): { host: string; port: number; password: string | undefined } {
+  get redis(): {
+    host: string;
+    port: number;
+    password: string | undefined;
+    tls: boolean;
+  } {
     return {
       host: this.config.get('REDIS_HOST', { infer: true }),
       port: this.config.get('REDIS_PORT', { infer: true }),
       password: this.config.get('REDIS_PASSWORD', { infer: true }),
+      tls: this.config.get('REDIS_TLS', { infer: true }),
     };
   }
 
@@ -138,6 +148,20 @@ export class AppConfigService {
       fromAddress:
         this.config.get('MAIL_FROM_ADDRESS', { infer: true }) ?? 'no-reply@localhost',
     };
+  }
+
+  /** null khi chưa cấu hình đủ Firebase service account → tắt FCM push (chỉ in-app). */
+  get firebaseAdmin(): {
+    projectId: string;
+    clientEmail: string;
+    privateKey: string;
+  } | null {
+    const projectId = this.config.get('FIREBASE_PROJECT_ID', { infer: true });
+    const clientEmail = this.config.get('FIREBASE_CLIENT_EMAIL', { infer: true });
+    const privateKey = this.config.get('FIREBASE_PRIVATE_KEY', { infer: true });
+    if (!projectId || !clientEmail || !privateKey) return null;
+    // .env lưu '\n' literal → khôi phục newline thật cho PEM
+    return { projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, '\n') };
   }
 
   get face(): {

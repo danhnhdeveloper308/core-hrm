@@ -19,6 +19,7 @@ export const EMAIL_JOBS = {
   SEND_OTP: 'email.send-otp',
   NEW_DEVICE_ALERT: 'email.new-device-alert',
   INVITE: 'email.invite',
+  NOTIFICATION: 'email.notification',
 } as const;
 
 export interface SendOtpJobData {
@@ -40,6 +41,13 @@ export interface InviteJobData {
   link: string;
 }
 
+export interface NotificationEmailJobData {
+  to: string;
+  title: string;
+  body: string;
+  link: string | null;
+}
+
 /** Producer — các module khác chỉ gọi service này, không đụng Queue trực tiếp. */
 @Injectable()
 export class EmailQueueService {
@@ -55,6 +63,10 @@ export class EmailQueueService {
 
   async enqueueInvite(data: InviteJobData): Promise<void> {
     await this.queue.add(EMAIL_JOBS.INVITE, data);
+  }
+
+  async enqueueNotification(data: NotificationEmailJobData): Promise<void> {
+    await this.queue.add(EMAIL_JOBS.NOTIFICATION, data);
   }
 }
 
@@ -84,6 +96,9 @@ export class EmailQueueWorker implements OnModuleInit, OnApplicationShutdown {
             break;
           case EMAIL_JOBS.INVITE:
             await this.mail.sendInvite(job.data as InviteJobData);
+            break;
+          case EMAIL_JOBS.NOTIFICATION:
+            await this.mail.sendNotification(job.data as NotificationEmailJobData);
             break;
         }
       },

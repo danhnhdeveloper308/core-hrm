@@ -86,6 +86,7 @@ export class AuditInterceptor implements NestInterceptor {
   ): void {
     const params = request.params as Record<string, string | undefined>;
     const event: AuditRecordEvent = {
+      orgId: request.user?.orgId ?? null,
       actorId: request.user?.sub ?? null,
       actorEmail: request.user?.email ?? null,
       action,

@@ -40,6 +40,7 @@ import { parseUserAgent } from '../../common/utils/user-agent';
 import type { User } from '../../prisma/prisma.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailQueueService } from '../../queues/email.queue';
+import { StorageService } from '../../storage/storage.service';
 import {
   SessionsService,
   type RequestContext,
@@ -73,6 +74,7 @@ export class AuthService {
     private readonly lockout: LoginLockoutService,
     private readonly emailQueue: EmailQueueService,
     private readonly events: EventEmitter2,
+    private readonly storage: StorageService,
   ) {}
 
   // ---------------- Register / verify email ----------------
@@ -727,7 +729,12 @@ export class AuthService {
   async me(payload: AccessTokenPayload): Promise<MeResponse> {
     const user = await this.findUserWithRoles(payload.sub);
     const permissions = await this.getUserPermissions(user.id);
-    return toMeResponse(user, permissions, payload.sessionId) as MeResponse;
+    const res = toMeResponse(user, permissions, payload.sessionId) as MeResponse;
+    // Avatar tự upload → ký signed URL tươi (ưu tiên hơn avatarUrl OAuth)
+    if (user.avatarKey) {
+      res.avatarUrl = await this.storage.getSignedUrl(user.avatarKey, 86_400);
+    }
+    return res;
   }
 
   googleAuthUrl(): Promise<string> {
@@ -738,10 +745,18 @@ export class AuthService {
     code: string,
     state: string,
     ctx: RequestContext,
-  ): Promise<IssuedTokens> {
+  ): Promise<IssuedTokens | { requires2fa: true; pending2faToken: string }> {
     const user = await this.google.handleCallback(code, state);
     this.assertUserActive(user);
     await this.assignDefaultRole(user.id);
+    // BẮT BUỘC 2FA: user đã bật TOTP thì OAuth cũng phải qua bước xác thực
+    // (OAuth redirect không mang cookie trusted_device → luôn yêu cầu).
+    if (user.totpEnabled) {
+      return {
+        requires2fa: true,
+        pending2faToken: await this.tokens.signPending2faToken(user.id),
+      };
+    }
     return this.issueSession(user, ctx, 'google');
   }
 

@@ -3,14 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiConsumes,
   ApiCookieAuth,
   ApiOkResponse,
   ApiOperation,
@@ -32,11 +38,29 @@ import {
 } from './dto/user.dto';
 import { UsersService } from './users.service';
 
+const avatarPipe = new ParseFilePipeBuilder()
+  .addFileTypeValidator({ fileType: /^image\/(jpeg|png|webp)$/ })
+  .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+  .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY });
+
 @ApiTags('users')
 @ApiCookieAuth('access_token')
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
+
+  @Post('me/avatar')
+  @Audit('user.update_avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Tự upload avatar (jpeg/png/webp ≤ 5MB)' })
+  @ApiOkResponse({ description: '{ avatarUrl }' })
+  updateMyAvatar(
+    @CurrentUser() user: AccessTokenPayload,
+    @UploadedFile(avatarPipe) file: Express.Multer.File,
+  ) {
+    return this.users.updateMyAvatar(user.sub, file);
+  }
 
   @Get()
   @RequirePermissions(PERMISSIONS.USER_READ)

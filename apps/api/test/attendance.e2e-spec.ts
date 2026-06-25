@@ -21,6 +21,7 @@ class StubEmailQueue {
   enqueueOtp() { return Promise.resolve(); }
   enqueueInvite() { return Promise.resolve(); }
   enqueueNewDeviceAlert() { return Promise.resolve(); }
+  enqueueNotification() { return Promise.resolve(); }
 }
 
 const PREFIX = '/api';
@@ -247,7 +248,12 @@ describe('Attendance + Timesheet (e2e)', () => {
       .get(`${PREFIX}/attendance/grid?from=2026-03-01&to=2026-03-31`)
       .set('Cookie', hrCookie)
       .expect(200);
-    const codes = (res.body as { employeeCode: string }[]).map((r) => r.employeeCode);
+    const body = res.body as {
+      restWeekdays: number[];
+      rows: { employeeCode: string }[];
+    };
+    expect(Array.isArray(body.restWeekdays)).toBe(true);
+    const codes = body.rows.map((r) => r.employeeCode);
     expect(codes).toContain('NV-1');
   });
 

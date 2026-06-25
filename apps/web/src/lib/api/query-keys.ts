@@ -45,6 +45,7 @@ export const queryKeys = {
       ['employees', 'list', filters] as const,
     detail: (id: string) => ['employees', 'detail', id] as const,
     me: ['employees', 'me'] as const,
+    dependents: (id: string) => ['employees', 'dependents', id] as const,
   },
 
   org: {
@@ -81,5 +82,16 @@ export const queryKeys = {
   shiftRegistrations: {
     all: ['shift-registrations'] as const,
     detail: (id: string) => ['shift-registrations', id] as const,
+  },
+
+  notifications: {
+    all: ['notifications'] as const,
+    list: (unreadOnly: boolean) => ['notifications', 'list', unreadOnly] as const,
+    unreadCount: ['notifications', 'unread-count'] as const,
+    preferences: ['notifications', 'preferences'] as const,
+  },
+
+  reports: {
+    dashboard: ['reports', 'dashboard'] as const,
   },
 } as const;

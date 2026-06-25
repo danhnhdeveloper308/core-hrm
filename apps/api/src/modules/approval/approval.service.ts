@@ -10,11 +10,13 @@ import {
 } from '@repo/shared';
 import {
   APP_EVENTS,
+  type ApprovalChangedEvent,
   type ApprovalDecidedEvent,
 } from '../../common/events/app.events';
 import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { selectFlow, type ConditionContext } from './approval.conditions';
 import {
   ApprovalResolverService,
@@ -45,7 +47,43 @@ export class ApprovalService {
     private readonly prisma: PrismaService,
     private readonly resolver: ApprovalResolverService,
     private readonly events: EventEmitter2,
+    private readonly notifications: NotificationService,
   ) {}
+
+  /** Emit realtime invalidate cho requester + approver liên quan (bỏ userId null). */
+  private emitApprovalChanged(
+    userIds: (string | null | undefined)[],
+    targetType: ApprovalTargetType,
+    targetId: string,
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED',
+  ): void {
+    const ids = [...new Set(userIds.filter((id): id is string => !!id))];
+    if (ids.length === 0) return;
+    this.events.emit(APP_EVENTS.APPROVAL_CHANGED, {
+      userIds: ids,
+      targetType,
+      targetId,
+      status,
+    } satisfies ApprovalChangedEvent);
+  }
+
+  /** Thông báo cho người duyệt của bước đang chờ (inbox). */
+  private async notifyApprovers(
+    orgId: string,
+    instanceId: string,
+    approverIds: string[],
+    summary: string | null,
+  ): Promise<void> {
+    await this.notifications.dispatch({
+      orgId,
+      userIds: approverIds,
+      type: 'APPROVAL_PENDING',
+      title: 'Có đơn cần bạn duyệt',
+      body: summary ?? 'Bạn có một đơn mới cần phê duyệt',
+      link: '/dashboard/approvals',
+      data: { approvalInstanceId: instanceId },
+    });
+  }
 
   /**
    * Tạo ApprovalInstance cho 1 đơn: chọn flow theo priority+conditions, resolve
@@ -70,6 +108,20 @@ export class ApprovalService {
         HttpStatus.BAD_REQUEST,
         'Chưa cấu hình luồng duyệt cho loại đơn này',
         ERROR_CODES.APPROVAL_NO_FLOW,
+      );
+    }
+
+    // Chống tạo trùng: 1 đối tượng chỉ có 1 phiếu duyệt đang chờ (backstop bằng
+    // partial unique index ApprovalInstance_pending_target_key cho race).
+    const existingPending = await this.prisma.approvalInstance.findFirst({
+      where: { orgId, targetType, targetId, status: 'PENDING' },
+      select: { id: true },
+    });
+    if (existingPending) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        'Đơn này đã có phiếu duyệt đang chờ xử lý',
+        ERROR_CODES.APPROVAL_ALREADY_PENDING,
       );
     }
 
@@ -126,7 +178,23 @@ export class ApprovalService {
 
     if (status === 'APPROVED') {
       await this.emitDecided(orgId, targetType, targetId, 'APPROVED');
+    } else if (firstActive) {
+      // Thông báo người duyệt bước đầu tiên
+      await this.notifyApprovers(
+        orgId,
+        instance.id,
+        firstActive.approverIds,
+        summary ?? null,
+      );
     }
+
+    // Realtime: cập nhật UI cho requester + người duyệt (không cần reload)
+    this.emitApprovalChanged(
+      [requester.userId, ...(firstActive?.approverIds ?? [])],
+      targetType,
+      targetId,
+      status,
+    );
     return { instanceId: instance.id, status };
   }
 
@@ -216,19 +284,98 @@ export class ApprovalService {
       },
     });
 
+    const requester = await this.prisma.employee.findUnique({
+      where: { id: instance.requesterEmpId },
+      select: { userId: true },
+    });
+
     if (newStatus === 'APPROVED' || newStatus === 'REJECTED') {
       await this.emitDecided(orgId, instance.targetType, instance.targetId, newStatus);
+      // Báo người tạo đơn kết quả cuối
+      if (requester?.userId) {
+        await this.notifications.dispatch({
+          orgId,
+          userIds: [requester.userId],
+          type: 'APPROVAL_DECIDED',
+          title:
+            newStatus === 'APPROVED'
+              ? 'Đơn của bạn đã được duyệt'
+              : 'Đơn của bạn bị từ chối',
+          body: instance.summary ?? 'Đơn của bạn đã được xử lý',
+          link: '/dashboard/approvals',
+          data: { approvalInstanceId: instance.id },
+        });
+      }
+    } else if (newStatus === 'PENDING') {
+      // Chuyển sang bước kế → báo người duyệt bước đó
+      const nextStep = snapshot.find((s) => s.order === newCurrent);
+      if (nextStep) {
+        await this.notifyApprovers(
+          orgId,
+          instance.id,
+          nextStep.approverIds,
+          instance.summary,
+        );
+      }
     }
+
+    // Realtime: requester + MỌI approver trong flow (kể cả OR-group, bước trước/sau)
+    this.emitApprovalChanged(
+      [
+        requester?.userId,
+        actorUserId,
+        ...snapshot.flatMap((s) => s.approverIds),
+      ],
+      instance.targetType,
+      instance.targetId,
+      newStatus,
+    );
 
     return this.getInstance(orgId, instance.id);
   }
 
-  /** Huỷ instance khi đơn gốc bị huỷ. */
+  /**
+   * Huỷ instance khi người gửi huỷ đơn gốc: set CANCELLED + báo realtime cho
+   * người duyệt (gỡ khỏi inbox + thông báo) và cập nhật UI requester/approver.
+   */
   async cancelByTarget(orgId: string, targetId: string): Promise<void> {
+    const instances = await this.prisma.approvalInstance.findMany({
+      where: { orgId, targetId, status: 'PENDING' },
+    });
+    if (instances.length === 0) return;
     await this.prisma.approvalInstance.updateMany({
       where: { orgId, targetId, status: 'PENDING' },
       data: { status: 'CANCELLED' },
     });
+
+    for (const inst of instances) {
+      const snap = inst.stepsSnapshot as unknown as SnapshotStep[];
+      const current = snap.find((s) => s.order === inst.currentStep);
+      const requester = await this.prisma.employee.findUnique({
+        where: { id: inst.requesterEmpId },
+        select: { userId: true },
+      });
+      // Báo người duyệt bước hiện tại: đơn đã bị người gửi huỷ (in-app, không email)
+      if (current && current.approverIds.length > 0) {
+        await this.notifications.dispatch({
+          orgId,
+          userIds: current.approverIds,
+          type: 'GENERAL',
+          title: 'Đơn đã được người gửi huỷ',
+          body: inst.summary ?? 'Một đơn chờ bạn duyệt đã được người gửi huỷ',
+          link: '/dashboard/approvals',
+          data: { approvalInstanceId: inst.id },
+          email: false,
+        });
+      }
+      // Realtime: requester + mọi approver → inbox gỡ item, history hiện "đã huỷ"
+      this.emitApprovalChanged(
+        [requester?.userId, ...snap.flatMap((s) => s.approverIds)],
+        inst.targetType,
+        inst.targetId,
+        'CANCELLED',
+      );
+    }
   }
 
   /** Đơn đang chờ CHÍNH actor duyệt (bước hiện tại). */
@@ -245,28 +392,39 @@ export class ApprovalService {
     return Promise.all(mine.map((i) => this.toResponse(i)));
   }
 
-  /** Đơn mà actor ĐÃ xử lý (có ApprovalAction) — lịch sử duyệt của cấp quản lý. */
+  /**
+   * "Đã xử lý" của 1 người duyệt: đơn actor ĐÃ duyệt/từ chối (có ApprovalAction)
+   * + đơn bị NGƯỜI GỬI HUỶ khi actor đang là người duyệt bước hiện tại (hiển thị
+   * trạng thái "Đã huỷ" để biết kết cục, dù chưa kịp xử lý).
+   */
   async history(orgId: string, actorUserId: string): Promise<ApprovalInstanceResponse[]> {
     const actions = await this.prisma.approvalAction.findMany({
       where: { actorId: actorUserId, instance: { orgId } },
-      orderBy: { decidedAt: 'desc' },
       select: { instanceId: true },
     });
-    const seen = new Set<string>();
-    const ids: string[] = [];
-    for (const a of actions) {
-      if (!seen.has(a.instanceId)) {
-        seen.add(a.instanceId);
-        ids.push(a.instanceId);
-      }
-    }
-    const instances = await this.prisma.approvalInstance.findMany({
-      where: { id: { in: ids }, orgId },
+    const actedIds = [...new Set(actions.map((a) => a.instanceId))];
+    const acted = await this.prisma.approvalInstance.findMany({
+      where: { id: { in: actedIds }, orgId },
     });
-    const byId = new Map(instances.map((i) => [i.id, i]));
-    // Giữ thứ tự đã xử lý gần nhất
-    const ordered = ids.map((id) => byId.get(id)).filter((i) => i !== undefined);
-    return Promise.all(ordered.map((i) => this.toResponse(i)));
+
+    // Đơn bị huỷ khi actor là người duyệt bước hiện tại (chưa kịp xử lý)
+    const cancelled = await this.prisma.approvalInstance.findMany({
+      where: { orgId, status: 'CANCELLED' },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
+    const actedSet = new Set(actedIds);
+    const cancelledMine = cancelled.filter((inst) => {
+      if (actedSet.has(inst.id)) return false;
+      const snap = inst.stepsSnapshot as unknown as SnapshotStep[];
+      const step = snap.find((s) => s.order === inst.currentStep);
+      return step?.approverIds.includes(actorUserId) ?? false;
+    });
+
+    const merged = [...acted, ...cancelledMine].sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
+    return Promise.all(merged.map((i) => this.toResponse(i)));
   }
 
   async getInstance(orgId: string, id: string): Promise<ApprovalInstanceResponse> {

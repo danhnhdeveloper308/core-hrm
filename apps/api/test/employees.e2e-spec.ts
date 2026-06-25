@@ -26,6 +26,9 @@ class StubEmailQueue {
   enqueueNewDeviceAlert(): Promise<void> {
     return Promise.resolve();
   }
+  enqueueNotification(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 const PREFIX = '/api';
@@ -176,6 +179,62 @@ describe('Employee management (e2e)', () => {
       .expect(409);
   });
 
+  it('Hồ sơ VN: tạo với CCCD/BHXH... → detail trả về; CRUD người phụ thuộc', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`${PREFIX}/employees`)
+      .set('Cookie', hrCookie)
+      .send({
+        code: 'NV-HS1',
+        fullName: 'Hồ Sơ Đầy Đủ',
+        phone: '0900000099',
+        joinDate: '2026-02-01',
+        idNumber: '012345678901',
+        taxCode: '8079123456',
+        socialInsuranceNo: 'BH1234567',
+        bankAccountNo: '0123456789',
+        bankName: 'Vietcombank',
+        maritalStatus: 'MARRIED',
+        nationality: 'Việt Nam',
+      })
+      .expect(201);
+    const empId = res.body.id as string;
+    expect(res.body.idNumber).toBe('012345678901');
+    expect(res.body.maritalStatus).toBe('MARRIED');
+
+    const detail = await request(app.getHttpServer())
+      .get(`${PREFIX}/employees/${empId}`)
+      .set('Cookie', hrCookie)
+      .expect(200);
+    expect(detail.body.taxCode).toBe('8079123456');
+    expect(detail.body.bankName).toBe('Vietcombank');
+    expect(Array.isArray(detail.body.dependents)).toBe(true);
+
+    // Thêm người phụ thuộc
+    const dep = await request(app.getHttpServer())
+      .post(`${PREFIX}/employees/${empId}/dependents`)
+      .set('Cookie', hrCookie)
+      .send({ fullName: 'Con A', relationship: 'Con', dob: '2020-05-01', taxCode: 'PT001' })
+      .expect(201);
+    const depId = dep.body.id as string;
+    expect(dep.body.fullName).toBe('Con A');
+
+    const list = await request(app.getHttpServer())
+      .get(`${PREFIX}/employees/${empId}/dependents`)
+      .set('Cookie', hrCookie)
+      .expect(200);
+    expect((list.body as unknown[]).length).toBe(1);
+
+    await request(app.getHttpServer())
+      .delete(`${PREFIX}/employees/${empId}/dependents/${depId}`)
+      .set('Cookie', hrCookie)
+      .expect(200);
+    const after = await request(app.getHttpServer())
+      .get(`${PREFIX}/employees/${empId}/dependents`)
+      .set('Cookie', hrCookie)
+      .expect(200);
+    expect((after.body as unknown[]).length).toBe(0);
+  });
+
   it('HR list + filter + cursor pagination', async () => {
     // Thêm vài hồ sơ
     for (let i = 2; i <= 4; i++) {
@@ -310,14 +369,22 @@ describe('Employee management (e2e)', () => {
       .expect(403);
   });
 
-  it('HR xoá hồ sơ', async () => {
+  it('HR xoá hồ sơ (soft-delete: giữ dữ liệu, ẩn khỏi API)', async () => {
     await request(app.getHttpServer())
       .delete(`${PREFIX}/employees/${createdEmployeeId}`)
       .set('Cookie', hrCookie)
       .expect(200);
-    const gone = await prisma.employee.findUnique({
+    // Bản ghi VẪN còn (lưu trữ pháp lý) nhưng đã đánh dấu xoá + TERMINATED
+    const row = await prisma.employee.findUnique({
       where: { id: createdEmployeeId },
     });
-    expect(gone).toBeNull();
+    expect(row).not.toBeNull();
+    expect(row?.deletedAt).not.toBeNull();
+    expect(row?.status).toBe('TERMINATED');
+    // Đã ẩn khỏi API: GET chi tiết trả 404
+    await request(app.getHttpServer())
+      .get(`${PREFIX}/employees/${createdEmployeeId}`)
+      .set('Cookie', hrCookie)
+      .expect(404);
   });
 });

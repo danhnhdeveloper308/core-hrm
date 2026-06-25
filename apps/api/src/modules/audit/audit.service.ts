@@ -8,9 +8,18 @@ import { toAuditLogResponse } from '../../queues/audit.queue';
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Cursor pagination (id làm cursor, order createdAt desc) — cho infinite scroll. */
-  async list(query: AuditQuery): Promise<CursorPaginated<AuditLog>> {
+  /**
+   * Cursor pagination (id làm cursor, order createdAt desc) — cho infinite scroll.
+   * actorOrgId: orgId của người xem. != null (org user) → ÉP chỉ thấy log org mình;
+   * null (platform admin) → thấy tất cả, có thể lọc theo query.orgId.
+   */
+  async list(
+    query: AuditQuery,
+    actorOrgId: string | null,
+  ): Promise<CursorPaginated<AuditLog>> {
+    const orgScope = actorOrgId ?? query.orgId;
     const where: Prisma.AuditLogWhereInput = {
+      ...(orgScope ? { orgId: orgScope } : {}),
       ...(query.actorId ? { actorId: query.actorId } : {}),
       ...(query.resource ? { resource: query.resource } : {}),
       ...(query.action

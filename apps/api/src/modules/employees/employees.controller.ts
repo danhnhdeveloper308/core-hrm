@@ -32,8 +32,10 @@ import {
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import {
   CreateContractDto,
+  CreateDependentDto,
   CreateEmployeeDto,
   ListEmployeesQueryDto,
+  UpdateDependentDto,
   UpdateEmployeeDto,
 } from './dto/employee.dto';
 import { EmployeesService } from './employees.service';
@@ -201,5 +203,58 @@ export class EmployeesController {
     @Param('contractId', ParseUUIDPipe) contractId: string,
   ) {
     return this.employees.removeContract(orgId, id, contractId);
+  }
+
+  // ===== Người phụ thuộc (giảm trừ gia cảnh) =====
+
+  @Get(':id/dependents')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
+  @ApiOperation({ summary: 'Danh sách người phụ thuộc' })
+  @ApiOkResponse({ description: 'DependentResponse[]' })
+  listDependents(
+    @CurrentOrg() orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.employees.listDependents(orgId, id);
+  }
+
+  @Post(':id/dependents')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
+  @Audit('employee.add_dependent')
+  @ApiOperation({ summary: 'Thêm người phụ thuộc' })
+  @ApiOkResponse({ description: 'DependentResponse' })
+  addDependent(
+    @CurrentOrg() orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateDependentDto,
+  ) {
+    return this.employees.addDependent(orgId, id, dto);
+  }
+
+  @Patch(':id/dependents/:dependentId')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
+  @Audit('employee.update_dependent')
+  @ApiOperation({ summary: 'Cập nhật người phụ thuộc' })
+  @ApiOkResponse({ description: 'DependentResponse' })
+  updateDependent(
+    @CurrentOrg() orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('dependentId', ParseUUIDPipe) dependentId: string,
+    @Body() dto: UpdateDependentDto,
+  ) {
+    return this.employees.updateDependent(orgId, id, dependentId, dto);
+  }
+
+  @Delete(':id/dependents/:dependentId')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
+  @Audit('employee.delete_dependent')
+  @ApiOperation({ summary: 'Xoá người phụ thuộc' })
+  @ApiOkResponse({ description: 'Đã xoá' })
+  removeDependent(
+    @CurrentOrg() orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('dependentId', ParseUUIDPipe) dependentId: string,
+  ) {
+    return this.employees.removeDependent(orgId, id, dependentId);
   }
 }

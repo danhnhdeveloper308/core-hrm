@@ -16,8 +16,10 @@ import type { Server, Socket } from 'socket.io';
 import type { AccessTokenPayload } from '../common/decorators/current-user.decorator';
 import {
   APP_EVENTS,
+  type ApprovalChangedEvent,
   type AuditCreatedEvent,
   type ForceLogoutEvent,
+  type NotifyEvent,
   type SessionRevokedEvent,
   type UserUpdatedEvent,
 } from '../common/events/app.events';
@@ -88,7 +90,10 @@ export class EventsGateway implements OnGatewayConnection {
 
       const access = await this.permsCache.getUserAccess(payload.sub);
       if (access?.permissions.includes(PERMISSIONS.AUDIT_READ)) {
-        await socket.join(SOCKET_ROOMS.audit);
+        // Platform admin (orgId=null) → room toàn cục; org admin → room org mình
+        await socket.join(
+          payload.orgId ? SOCKET_ROOMS.auditOrg(payload.orgId) : SOCKET_ROOMS.audit,
+        );
       }
     } catch {
       // Không leak lý do từ chối — đóng kết nối là đủ
@@ -128,8 +133,29 @@ export class EventsGateway implements OnGatewayConnection {
     });
   }
 
+  @OnEvent(APP_EVENTS.NOTIFY)
+  onNotify(event: NotifyEvent): void {
+    this.emitTo(SOCKET_ROOMS.user(event.userId), 'notification:new', event.notification);
+  }
+
+  @OnEvent(APP_EVENTS.APPROVAL_CHANGED)
+  onApprovalChanged(event: ApprovalChangedEvent): void {
+    const payload = {
+      targetType: event.targetType,
+      targetId: event.targetId,
+      status: event.status,
+    };
+    for (const userId of new Set(event.userIds)) {
+      this.emitTo(SOCKET_ROOMS.user(userId), 'approval:changed', payload);
+    }
+  }
+
   @OnEvent(APP_EVENTS.AUDIT_CREATED)
   onAuditCreated(event: AuditCreatedEvent): void {
+    // Platform admin (room toàn cục) thấy mọi log; org admin chỉ room org của log.
     this.emitTo(SOCKET_ROOMS.audit, 'audit:created', event);
+    if (event.orgId) {
+      this.emitTo(SOCKET_ROOMS.auditOrg(event.orgId), 'audit:created', event);
+    }
   }
 }

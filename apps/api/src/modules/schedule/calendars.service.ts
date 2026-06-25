@@ -282,7 +282,11 @@ export class CalendarsService {
     return { working: true, dayType: 'WORKING', holidayName: null };
   }
 
-  private async resolveWorkDays(
+  /**
+   * workDays áp dụng cho 1 đơn vị (leo cây) hoặc org default → fallback T2–T6.
+   * Public để bảng công tô xám ngày nghỉ đúng theo cấu hình ca.
+   */
+  async resolveWorkDays(
     orgId: string,
     orgUnitId: string | null,
   ): Promise<number[]> {

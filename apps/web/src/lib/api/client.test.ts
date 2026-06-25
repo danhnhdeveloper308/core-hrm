@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type ClientModule = typeof import('./client');
 
-const BASE = 'http://localhost:3001/api';
+const BASE = 'http://localhost:8001/api';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

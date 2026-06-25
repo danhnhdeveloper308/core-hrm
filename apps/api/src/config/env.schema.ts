@@ -12,16 +12,26 @@ const durationString = z
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_PORT: z.coerce.number().int().positive().default(3001),
+  API_PORT: z.coerce.number().int().positive().default(8001),
   API_GLOBAL_PREFIX: z.string().default('api'),
   CORS_ORIGINS: z.string().min(1).default('http://localhost:3000'),
   COOKIE_DOMAIN: optionalString,
+  /**
+   * SameSite cho cookie auth. FE & BE KHÁC domain (vd Vercel + Railway) → 'none'
+   * (kèm Secure, bắt buộc HTTPS). Cùng site/đảo ngược qua proxy → 'lax'.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL bắt buộc'),
 
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_PASSWORD: optionalString,
+  /** Bật TLS khi dùng Redis serverless có yêu cầu mã hoá (vd Upstash). */
+  REDIS_TLS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET tối thiểu 32 ký tự'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET tối thiểu 32 ký tự'),
@@ -65,6 +75,12 @@ export const envSchema = z.object({
     .transform((v) => v === 'true'),
   /** Origin public thay cho S3_ENDPOINT trong signed URL (prod: https://DOMAIN/storage). */
   S3_PUBLIC_URL: optionalString,
+
+  // Firebase Cloud Messaging (FCM) — push notification. Thiếu cả 3 → tắt push (chỉ in-app).
+  FIREBASE_PROJECT_ID: optionalString,
+  FIREBASE_CLIENT_EMAIL: optionalString,
+  /** Private key service account — newline thường escape `\n` trong .env. */
+  FIREBASE_PRIVATE_KEY: optionalString,
 
   // Face check-in 1:1 (@vladmandic/human)
   FACE_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.55),

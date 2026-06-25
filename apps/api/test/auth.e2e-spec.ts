@@ -35,6 +35,9 @@ class CapturingEmailQueue {
   enqueueNewDeviceAlert(): Promise<void> {
     return Promise.resolve();
   }
+  enqueueNotification(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 const PREFIX = '/api';

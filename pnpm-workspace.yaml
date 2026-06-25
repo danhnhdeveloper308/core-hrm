@@ -13,3 +13,5 @@ allowBuilds:
   "@scarf/scarf": false
   "@tensorflow/tfjs-node": true
   core-js: false
+  '@firebase/util': false
+  protobufjs: false

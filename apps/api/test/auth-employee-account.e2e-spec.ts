@@ -16,6 +16,7 @@ class StubEmailQueue {
   enqueueOtp() { return Promise.resolve(); }
   enqueueInvite() { return Promise.resolve(); }
   enqueueNewDeviceAlert() { return Promise.resolve(); }
+  enqueueNotification() { return Promise.resolve(); }
 }
 
 const PREFIX = '/api';

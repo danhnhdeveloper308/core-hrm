@@ -13,7 +13,7 @@ import {
   type OtRequestResponse,
   type RequestCorrectionInput,
   type TimesheetDayResponse,
-  type TimesheetGridRow,
+  type TimesheetGridResponse,
 } from '@repo/shared';
 import { addAuditMetadata } from '../../common/audit/audit-context';
 import {
@@ -29,6 +29,7 @@ import { TimesheetQueueService } from '../../queues/timesheet.queue';
 import { ApprovalService } from '../approval/approval.service';
 import { FaceService } from '../face/face.service';
 import { EmployeesService } from '../employees/employees.service';
+import { CalendarsService } from '../schedule/calendars.service';
 import { haversineMeters } from '../face/face.matching';
 import { localDayRangeUtc } from './timesheet.engine';
 import { TimesheetService, toTimesheetResponse } from './timesheet.service';
@@ -77,6 +78,7 @@ export class AttendanceService {
     private readonly timesheet: TimesheetService,
     private readonly face: FaceService,
     private readonly approval: ApprovalService,
+    private readonly calendars: CalendarsService,
   ) {}
 
   /**
@@ -324,7 +326,7 @@ export class AttendanceService {
     orgId: string,
     actor: AccessTokenPayload,
     query: OrgAttendanceQuery,
-  ): Promise<TimesheetGridRow[]> {
+  ): Promise<TimesheetGridResponse> {
     const scopePaths = await this.employees.resolveScopePaths(actor);
     const where: Prisma.EmployeeWhereInput = {
       orgId,
@@ -353,8 +355,19 @@ export class AttendanceService {
       },
       orderBy: { code: 'asc' },
     });
+    // Ngày nghỉ theo CẤU HÌNH ca (workDays của ca mặc định org/đơn vị đang xem),
+    // chuyển sang quy ước Date.getUTCDay() (0=CN..6=T7) để FE tô xám đúng.
+    const workDays = await this.calendars.resolveWorkDays(
+      orgId,
+      query.orgUnitId ?? null,
+    );
+    const restWeekdays = [0, 1, 2, 3, 4, 5, 6].filter((jsDay) => {
+      const iso = jsDay === 0 ? 7 : jsDay; // workDays dùng 1=T2..7=CN
+      return !workDays.includes(iso);
+    });
+
     const employeeIds = employees.map((e) => e.id);
-    if (employeeIds.length === 0) return [];
+    if (employeeIds.length === 0) return { restWeekdays, rows: [] };
 
     const days = await this.prisma.timesheetDay.findMany({
       where: {
@@ -370,13 +383,14 @@ export class AttendanceService {
       byEmployee.set(d.employeeId, map);
     }
 
-    return employees.map((e) => ({
+    const rows = employees.map((e) => ({
       employeeId: e.id,
       employeeCode: e.code,
       employeeName: e.fullName,
       orgUnitName: e.orgUnit?.name ?? null,
       days: byEmployee.get(e.id) ?? {},
     }));
+    return { restWeekdays, rows };
   }
 
   /** HR tính lại 1 ngày từ log gốc (gỡ kẹt dữ liệu cũ). */

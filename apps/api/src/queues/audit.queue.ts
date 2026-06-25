@@ -28,6 +28,7 @@ const AUDIT_JOB = 'audit.write';
 export function toAuditLogResponse(row: AuditLogRow): AuditLog {
   return {
     id: row.id,
+    orgId: row.orgId,
     actorId: row.actorId,
     actorEmail: row.actorEmail,
     action: row.action,
@@ -85,6 +86,7 @@ export class AuditQueueWorker implements OnModuleInit, OnApplicationShutdown {
         const data = job.data;
         const row = await this.prisma.auditLog.create({
           data: {
+            orgId: data.orgId ?? null,
             actorId: data.actorId ?? null,
             actorEmail: data.actorEmail ?? null,
             action: data.action,
