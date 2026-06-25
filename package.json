@@ -16,6 +16,7 @@
     "db:up": "bash scripts/db/local-up.sh",
     "db:down": "bash scripts/db/local-down.sh",
     "db:migrate": "bash scripts/db/migrate.sh",
+    "db:setup-neon": "bash scripts/db/setup-neon.sh",
     "db:seed": "bash scripts/db/seed.sh",
     "db:sync-roles": "bash scripts/db/sync-roles.sh",
     "db:reset": "bash scripts/db/reset.sh",
