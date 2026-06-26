@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Logger } from '@nestjs/common';
 import type { FaceDetection, FaceEngine } from './face-engine';
+import { ensureModelsDownloaded, modelsPresent } from './model-downloader';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -22,6 +22,8 @@ export class HumanFaceEngine implements FaceEngine {
   constructor(
     private readonly modelsPath: string,
     private readonly _antispoofThreshold: number,
+    private readonly autoDownload: boolean = true,
+    private readonly modelsBaseUrl: string = 'https://vladmandic.github.io/human-models/models',
   ) {}
 
   isReady(): boolean {
@@ -47,12 +49,20 @@ export class HumanFaceEngine implements FaceEngine {
 
   private async load(): Promise<void> {
     const modelBasePath = resolve(this.modelsPath);
-    if (!existsSync(modelBasePath)) {
-      this.logger.warn(
-        `Thư mục model không tồn tại (${modelBasePath}) — face check-in tắt. ` +
-          'Chạy scripts/download-face-models.sh để bật.',
-      );
-      return;
+    if (!modelsPresent(modelBasePath)) {
+      // Tự tải model khi thiếu (mặc định bật) — tiện deploy mọi nền tảng.
+      const ok = this.autoDownload
+        ? await ensureModelsDownloaded(modelBasePath, this.modelsBaseUrl)
+        : false;
+      if (!ok) {
+        this.logger.warn(
+          `Thiếu model khuôn mặt (${modelBasePath}) — face check-in tắt. ` +
+            (this.autoDownload
+              ? 'Tự tải thất bại (kiểm tra mạng/FACE_MODELS_BASE_URL) hoặc chạy scripts/download-face-models.sh.'
+              : 'Bật FACE_MODELS_AUTODOWNLOAD=true hoặc chạy scripts/download-face-models.sh.'),
+        );
+        return;
+      }
     }
     try {
       // Import động: tránh kéo tfjs vào process không cần (vd jest unit)

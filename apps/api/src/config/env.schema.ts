@@ -86,6 +86,15 @@ export const envSchema = z.object({
   FACE_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.55),
   FACE_ANTISPOOF_THRESHOLD: z.coerce.number().min(0).max(1).default(0.5),
   FACE_MODELS_PATH: z.string().default('./models'),
+  /** Tự tải model khi thiếu lúc khởi động (tiện deploy mọi nền tảng). */
+  FACE_MODELS_AUTODOWNLOAD: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Nguồn tải model @vladmandic/human. */
+  FACE_MODELS_BASE_URL: z
+    .string()
+    .default('https://vladmandic.github.io/human-models/models'),
   /** Điểm chất lượng tối thiểu khi enroll (faceScore của human). */
   FACE_ENROLL_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.8),
 });

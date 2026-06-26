@@ -169,12 +169,16 @@ export class AppConfigService {
     antispoofThreshold: number;
     modelsPath: string;
     enrollMinScore: number;
+    modelsAutoDownload: boolean;
+    modelsBaseUrl: string;
   } {
     return {
       matchThreshold: this.config.get('FACE_MATCH_THRESHOLD', { infer: true }),
       antispoofThreshold: this.config.get('FACE_ANTISPOOF_THRESHOLD', { infer: true }),
       modelsPath: this.config.get('FACE_MODELS_PATH', { infer: true }),
       enrollMinScore: this.config.get('FACE_ENROLL_MIN_SCORE', { infer: true }),
+      modelsAutoDownload: this.config.get('FACE_MODELS_AUTODOWNLOAD', { infer: true }),
+      modelsBaseUrl: this.config.get('FACE_MODELS_BASE_URL', { infer: true }),
     };
   }
 

@@ -239,7 +239,34 @@ Repo có sẵn [`apps/web/vercel.json`](apps/web/vercel.json) **đã cấu hình
 
 ---
 
-## 10. Checklist trước khi go-live
+## 10. Cảnh báo log thường gặp (KHÔNG phải lỗi chặn)
+
+### Face check-in: "Thiếu model khuôn mặt"
+Model `@vladmandic/human` (~12MB) **không nằm trong repo**. Mặc định `FACE_MODELS_AUTODOWNLOAD=true`
+→ app **tự tải về `FACE_MODELS_PATH` (mặc định `./models`) ngay khi khởi động** nếu thiếu, không cần
+thao tác. Log sẽ thành "Tải model khuôn mặt hoàn tất" → "Human face engine sẵn sàng".
+- Filesystem **tạm thời** (Render/Railway free, không gắn disk): model bị xoá mỗi lần redeploy → app tự
+  tải lại lúc boot (thêm vài giây, 1 lần). Muốn tránh tải lại: gắn **persistent disk** mount vào
+  `./models`, **hoặc** tải sẵn lúc build (thêm `bash scripts/download-face-models.sh` vào build
+  command / Dockerfile), **hoặc** `FACE_MODELS_AUTODOWNLOAD=false` nếu không dùng chấm công khuôn mặt.
+- Tải thủ công 1 lần (local/CI): `bash scripts/download-face-models.sh` → ra `apps/api/models/`.
+- Không bật tính năng cũng không sao: endpoint `/face/*` trả 503 rõ ràng, phần còn lại chạy bình thường.
+
+### Postgres: "SSL modes 'require' … treated as aliases for 'verify-full'"
+Cảnh báo của `pg`/`pg-connection-string` về thay đổi ở phiên bản tương lai. **Không ảnh hưởng** hiện tại
+(đang chạy ở mức bảo mật cao nhất `verify-full`). Muốn hết cảnh báo: đổi `?sslmode=require` →
+`?sslmode=verify-full` trong `DATABASE_URL` (Neon hỗ trợ, CA hợp lệ). Giữ nguyên vẫn an toàn.
+
+### `GET /api/...` trả 403 sau khi đăng nhập
+Là **phân quyền**, không phải lỗi server. Tài khoản hiện tại thiếu permission cho endpoint:
+- `/api/reports/dashboard` cần `report:read`; `/api/attendance/me/today` cần user **có hồ sơ nhân viên**
+  gắn vào (+ thuộc 1 org). **Platform SUPER_ADMIN không gắn org/hồ sơ** nên các endpoint org-scope này
+  403 là bình thường — đăng nhập bằng **ORG_ADMIN** (trong 1 tổ chức) để thấy dashboard/chấm công.
+- Cấp thêm quyền: gán role có permission tương ứng (Quản trị → Vai trò) rồi đăng nhập lại.
+
+---
+
+## 11. Checklist trước khi go-live
 
 - [ ] Cookie đúng quan hệ domain: khác domain → `COOKIE_SAMESITE=none` + `COOKIE_DOMAIN` trống;
       cùng registrable domain → `lax` + `COOKIE_DOMAIN=.example.com`. Cả hai đều HTTPS.
@@ -248,6 +275,8 @@ Repo có sẵn [`apps/web/vercel.json`](apps/web/vercel.json) **đã cấu hình
 - [ ] Redis bật `REDIS_TLS` đúng (Upstash=true). `REDIS_PASSWORD` mạnh.
 - [ ] Đã `prisma migrate deploy` + `seed` + (nếu cần) `db:sync-roles`.
 - [ ] Storage bucket riêng cho prod; Brevo sender đã verify.
+- [ ] (Nếu dùng chấm công khuôn mặt) model tự tải xong lúc boot ("Human face engine sẵn sàng"), hoặc
+      đã gắn persistent disk / build sẵn model để khỏi tải lại mỗi redeploy.
 - [ ] `GOOGLE_CALLBACK_URL` (nếu dùng) khớp Google Console.
 - [ ] BE chạy đúng 1 instance (tránh trùng cron) hoặc tách worker nếu cần scale.
 - [ ] `/health` xanh; đăng nhập giữ phiên sau reload; realtime + xuất Excel hoạt động.

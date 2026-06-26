@@ -12,7 +12,12 @@ import { HumanFaceEngine } from './human-face.engine';
       provide: FACE_ENGINE,
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) =>
-        new HumanFaceEngine(config.face.modelsPath, config.face.antispoofThreshold),
+        new HumanFaceEngine(
+          config.face.modelsPath,
+          config.face.antispoofThreshold,
+          config.face.modelsAutoDownload,
+          config.face.modelsBaseUrl,
+        ),
     },
     FaceService,
   ],
