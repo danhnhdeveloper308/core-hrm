@@ -6,6 +6,7 @@ import {
   type LoginInput,
   type LoginResponse,
 } from '@repo/shared';
+import { Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
@@ -59,6 +60,11 @@ function LoginForm() {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [rememberDevice, setRememberDevice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Kiểm tra phiên có sẵn: 'checking' (mới vào) → 'redirecting' (đã đăng nhập) | 'none'.
+  // Có ?pending2fa → bỏ qua (đang giữa luồng 2FA, chưa có session đầy đủ).
+  const [sessionState, setSessionState] = useState<'checking' | 'none' | 'redirecting'>(
+    () => (searchParams.get('pending2fa') ? 'none' : 'checking'),
+  );
 
   useEffect(() => {
     if (searchParams.get('error') === 'oauth') {
@@ -68,6 +74,27 @@ function LoginForm() {
       toast.info('Tài khoản đã bật 2FA — nhập mã xác thực để hoàn tất');
     }
   }, [searchParams]);
+
+  // Đã có phiên (vd vừa từ /dashboard, hoặc remember-me) → chuyển thẳng dashboard.
+  // Dùng fetch THÔ để 401 KHÔNG kích hoạt redirect toàn cục (ta đang ở /login).
+  useEffect(() => {
+    if (pendingToken || sessionState !== 'checking') return;
+    let active = true;
+    fetch(`${API_URL}/auth/me`, { credentials: 'include' })
+      .then((r) => {
+        if (active) setSessionState(r.ok ? 'redirecting' : 'none');
+      })
+      .catch(() => {
+        if (active) setSessionState('none');
+      });
+    return () => {
+      active = false;
+    };
+  }, [pendingToken, sessionState]);
+
+  useEffect(() => {
+    if (sessionState === 'redirecting') router.replace('/dashboard');
+  }, [sessionState, router]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -143,6 +170,21 @@ function LoginForm() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Đã xác nhận có phiên → overlay chuyển hướng (KHÔNG chặn form ở bước 'checking'
+  // để người chưa đăng nhập thấy form ngay, kể cả khi BE cold-start chậm).
+  if (sessionState === 'redirecting') {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+          <Loader2 className="size-7 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Đã đăng nhập — đang chuyển hướng sang Dashboard…
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (pendingToken) {

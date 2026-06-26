@@ -22,7 +22,12 @@
     "db:reset": "bash scripts/db/reset.sh",
     "db:backup": "bash scripts/db/backup.sh",
     "db:restore": "bash scripts/db/restore.sh",
-    "db:deploy": "bash scripts/db/deploy.sh"
+    "db:deploy": "bash scripts/db/deploy.sh",
+    "db:setup:prod": "bash scripts/db/setup.prod.sh",
+    "db:deploy:prod": "bash scripts/db/deploy.prod.sh",
+    "db:seed:prod": "bash scripts/db/seed.prod.sh",
+    "db:sync-roles:prod": "bash scripts/db/sync-roles.prod.sh",
+    "db:studio:prod": "bash scripts/db/studio.prod.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

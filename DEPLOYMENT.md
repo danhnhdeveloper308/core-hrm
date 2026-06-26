@@ -79,6 +79,21 @@ Auth dùng cookie `httpOnly + Secure`. `SameSite` cấu hình qua env `COOKIE_SA
    > `create_attendance_partition`). Neon (Postgres 15+) hỗ trợ đầy đủ.
 4. Khi nâng cấp sau này: commit migration mới rồi chạy lại `prisma migrate deploy` (KHÔNG `migrate dev` trên prod).
 
+### Cách gọn hơn — script `db:*:prod` (đọc `.env.production`)
+Thay vì truyền `DATABASE_URL=…` mỗi lệnh, tạo **`.env.production` ở gốc repo** (gitignore sẵn) rồi dùng các script:
+```bash
+cp apps/api/env.production.example .env.production   # điền DATABASE_URL (pooled) + DIRECT_DATABASE_URL + SEED_ADMIN_*
+
+pnpm db:setup:prod        # migrate deploy + seed (1 phát, có xác nhận 'yes')
+pnpm db:deploy:prod       # CHỈ migrate deploy (dùng DIRECT_DATABASE_URL nếu có)
+pnpm db:seed:prod         # CHỈ seed roles/permissions + SUPER_ADMIN
+pnpm db:sync-roles:prod   # đồng bộ role org sau khi đổi default permission
+pnpm db:studio:prod       # mở Prisma Studio trỏ DB production (cẩn thận sửa tay)
+```
+> Migrate tự ưu tiên `DIRECT_DATABASE_URL` (chuỗi unpooled) — pooler PgBouncer của Neon dễ lỗi advisory
+> lock khi `migrate deploy`. Các lệnh ghi dữ liệu có bước xác nhận `yes` để tránh nhầm tay lên prod.
+> Lưu ý: trong `.env.production`, **bọc nháy kép** các URL có ký tự `?`/`&` (vd `DATABASE_URL="…?sslmode=require"`).
+
 ---
 
 ## 3. Bước B — Redis (Upstash) + Storage (Cloudflare R2)
