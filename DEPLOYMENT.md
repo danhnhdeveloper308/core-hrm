@@ -272,6 +272,19 @@ Cảnh báo của `pg`/`pg-connection-string` về thay đổi ở phiên bản 
 (đang chạy ở mức bảo mật cao nhất `verify-full`). Muốn hết cảnh báo: đổi `?sslmode=require` →
 `?sslmode=verify-full` trong `DATABASE_URL` (Neon hỗ trợ, CA hợp lệ). Giữ nguyên vẫn an toàn.
 
+### Redis: `IMPORTANT! Eviction policy is volatile-lru. It should be "noeviction"`
+Cảnh báo của BullMQ: nếu Redis được phép **evict** key khi đầy bộ nhớ, job trong hàng đợi có thể bị
+xoá. **Nên đổi sang `noeviction`** để chắc chắn không mất job:
+- **Upstash**: mở database → tab **Configuration/Details** → tắt **Eviction** (= `noeviction`) → Save.
+- Redis tự quản (Railway/VPS): đặt `maxmemory-policy noeviction` (redis.conf hoặc `CONFIG SET`).
+Không đổi cũng chạy được (chỉ rủi ro khi Redis chạm giới hạn bộ nhớ) — nhưng prod nên bật.
+
+### Log TensorFlow / DeprecationWarning (face check-in)
+- `This TensorFlow binary is optimized with oneAPI… AVX2 FMA`: thông tin, KHÔNG phải lỗi.
+- `DeprecationWarning: util.isNullOrUndefined / util.isArray`: phát từ thư viện TFJS/Human, vô hại,
+  sẽ hết khi dep cập nhật. (Có thể ẩn mọi deprecation bằng `NODE_OPTIONS=--no-deprecation` nhưng KHÔNG
+  khuyến nghị vì che luôn cảnh báo khác.)
+
 ### `GET /api/...` trả 403 sau khi đăng nhập
 Là **phân quyền**, không phải lỗi server. Tài khoản hiện tại thiếu permission cho endpoint:
 - `/api/reports/dashboard` cần `report:read`; `/api/attendance/me/today` cần user **có hồ sơ nhân viên**
