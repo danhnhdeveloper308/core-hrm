@@ -1,12 +1,14 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   ERROR_CODES,
+  UNIT_TYPE_PRESETS,
   type CreateOrgUnitTypeInput,
   type CreatePositionInput,
   type CreateWorksiteInput,
   type OrganizationResponse,
   type OrgUnitTypeResponse,
   type PositionResponse,
+  type UnitTypePresetKey,
   type UpdateOrganizationInput,
   type UpdateOrgUnitTypeInput,
   type UpdatePositionInput,
@@ -141,6 +143,43 @@ export class OrgStructureService {
       after: { code: updated.code, name: updated.name, rank: updated.rank },
     });
     return toTypeResponse(updated);
+  }
+
+  /**
+   * Khởi tạo bộ loại đơn vị mẫu theo loại hình doanh nghiệp. CHỈ chạy khi org
+   * CHƯA có loại nào (tránh ghi đè/trùng) — idempotent, an toàn.
+   */
+  async seedTypePreset(
+    orgId: string,
+    presetKey: UnitTypePresetKey,
+  ): Promise<OrgUnitTypeResponse[]> {
+    const preset = UNIT_TYPE_PRESETS.find((p) => p.key === presetKey);
+    if (!preset) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Mẫu loại đơn vị không hợp lệ',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    const existing = await this.prisma.orgUnitType.count({ where: { orgId } });
+    if (existing > 0) {
+      throw new AppException(
+        HttpStatus.CONFLICT,
+        'Tổ chức đã có loại đơn vị — không thể khởi tạo mẫu (hãy xoá hết trước)',
+        ERROR_CODES.ORG_CODE_TAKEN,
+      );
+    }
+    await this.prisma.orgUnitType.createMany({
+      data: preset.types.map((t) => ({
+        orgId,
+        code: t.code,
+        name: t.name,
+        rank: t.rank,
+      })),
+      skipDuplicates: true,
+    });
+    addAuditMetadata({ after: { preset: presetKey, count: preset.types.length } });
+    return this.listTypes(orgId);
   }
 
   async removeType(orgId: string, id: string): Promise<{ message: string }> {

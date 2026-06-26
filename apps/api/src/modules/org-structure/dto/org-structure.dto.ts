@@ -4,6 +4,7 @@ import {
   createPositionSchema,
   createWorksiteSchema,
   moveOrgUnitSchema,
+  seedUnitTypePresetSchema,
   updateOrganizationSchema,
   updateOrgUnitSchema,
   updateOrgUnitTypeSchema,
@@ -19,6 +20,7 @@ export class UpdateOwnOrgDto extends createZodDto(
 
 export class CreateOrgUnitTypeDto extends createZodDto(createOrgUnitTypeSchema) {}
 export class UpdateOrgUnitTypeDto extends createZodDto(updateOrgUnitTypeSchema) {}
+export class SeedUnitTypePresetDto extends createZodDto(seedUnitTypePresetSchema) {}
 
 export class CreateOrgUnitDto extends createZodDto(createOrgUnitSchema) {}
 export class UpdateOrgUnitDto extends createZodDto(updateOrgUnitSchema) {}

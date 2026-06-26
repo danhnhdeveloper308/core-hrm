@@ -24,6 +24,7 @@ import {
   CreatePositionDto,
   CreateWorksiteDto,
   MoveOrgUnitDto,
+  SeedUnitTypePresetDto,
   UpdateOrgUnitDto,
   UpdateOrgUnitTypeDto,
   UpdateOwnOrgDto,
@@ -78,6 +79,17 @@ export class OrgUnitTypesController {
   @ApiOkResponse({ description: 'OrgUnitTypeResponse' })
   create(@CurrentOrg() orgId: string, @Body() dto: CreateOrgUnitTypeDto) {
     return this.service.createType(orgId, dto);
+  }
+
+  @Post('seed-preset')
+  @RequirePermissions(PERMISSIONS.ORGUNIT_MANAGE)
+  @Audit('orgunit_type.seed_preset')
+  @ApiOperation({
+    summary: 'Khởi tạo bộ loại đơn vị mẫu theo loại hình DN (chỉ khi chưa có loại nào)',
+  })
+  @ApiOkResponse({ description: 'OrgUnitTypeResponse[]' })
+  seedPreset(@CurrentOrg() orgId: string, @Body() dto: SeedUnitTypePresetDto) {
+    return this.service.seedTypePreset(orgId, dto.preset);
   }
 
   @Patch(':id')

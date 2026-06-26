@@ -93,6 +93,11 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **Fix `pnpm db:seed:prod` báo "DATABASE_URL chưa set"**: `_env.prod.sh` nay tìm `.env.production` ở GỐC repo **rồi** `apps/api/.env.production`, và khi DATABASE_URL trống → báo rõ file đã đọc + nhắc bọc nháy kép + cảnh báo env Vercel/FE không có DATABASE_URL. (Nguyên nhân: `.env.production` chưa có DATABASE_URL backend.)
 - Cảnh báo SSL `pg` (sslmode=require → alias verify-full) vẫn vô hại; muốn hết: đổi `DATABASE_URL` trên Render sang `sslmode=verify-full` (đã ghi DEPLOYMENT.md mục 10).
 
+## Khởi tạo loại đơn vị từ mẫu (2026-06-26)
+- **Bộ mẫu loại đơn vị** trong `@repo/shared` ([org.ts](packages/shared/src/schemas/org.ts) `UNIT_TYPE_PRESETS`): 4 loại hình — Tập đoàn sản xuất (tập đoàn→ngành→chuỗi→tổ hợp→cty thành viên→nhà máy→phân xưởng→phòng ban→tổ SX), Công ty phần mềm (cty→khối→trung tâm→phòng→nhóm), Công ty TNHH (cty→phòng ban→bộ phận→tổ/nhóm), Tập đoàn hàng không kiểu Vietjet (tập đoàn→cty/hãng→khối→ban→trung tâm→phòng→đội/tổ) + `seedUnitTypePresetSchema`.
+- **BE**: `POST /org-unit-types/seed-preset` (ORGUNIT_MANAGE, `@Audit`) → `seedTypePreset(orgId, key)`: chỉ chạy khi org **chưa có loại nào** (409 nếu đã có), `createMany` skipDuplicates.
+- **FE** ([unit-types/page.tsx](apps/web/src/app/dashboard/settings/unit-types/page.tsx)): nút **"Khởi tạo từ mẫu"** hiện khi **chưa có loại nào + là superadmin** (role `SUPER_ADMIN` hệ thống hoặc `ORG_ADMIN`) — ở header + empty-state. Dialog chọn 1 trong các mẫu (card chọn, xem trước các tầng dạng badge) → tạo hàng loạt.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 1. **Phase 8 — tinh chỉnh (tuỳ chọn)**: email digest (gộp nhiều sự kiện) thay vì gửi mỗi lần. FCM push khi đóng trình duyệt cần `FIREBASE_*` + `NEXT_PUBLIC_FIREBASE_*` (xem `.env.example`).

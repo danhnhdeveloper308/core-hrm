@@ -82,6 +82,84 @@ export const updateOrgUnitTypeSchema = createOrgUnitTypeSchema.partial();
 export type UpdateOrgUnitTypeInput = z.infer<typeof updateOrgUnitTypeSchema>;
 
 // ============================================================
+// Bộ loại đơn vị mẫu (khởi tạo nhanh theo loại hình doanh nghiệp)
+// ============================================================
+
+export interface UnitTypePreset {
+  key: string;
+  label: string;
+  description: string;
+  /** Các tầng từ cao → thấp (rank tăng dần). */
+  types: { code: string; name: string; rank: number }[];
+}
+
+export const UNIT_TYPE_PRESETS = [
+  {
+    key: 'MANUFACTURING_GROUP',
+    label: 'Tập đoàn sản xuất',
+    description:
+      'Tập đoàn → Ngành → Chuỗi → Tổ hợp → Công ty thành viên → Nhà máy → Phân xưởng → Phòng ban → Tổ sản xuất',
+    types: [
+      { code: 'TAP_DOAN', name: 'Tập đoàn', rank: 0 },
+      { code: 'NGANH', name: 'Ngành', rank: 1 },
+      { code: 'CHUOI', name: 'Chuỗi', rank: 2 },
+      { code: 'TO_HOP', name: 'Tổ hợp', rank: 3 },
+      { code: 'CONG_TY_TV', name: 'Công ty thành viên', rank: 4 },
+      { code: 'NHA_MAY', name: 'Nhà máy', rank: 5 },
+      { code: 'PHAN_XUONG', name: 'Phân xưởng', rank: 6 },
+      { code: 'PHONG_BAN', name: 'Phòng ban', rank: 7 },
+      { code: 'TO_SX', name: 'Tổ sản xuất', rank: 8 },
+    ],
+  },
+  {
+    key: 'SOFTWARE_COMPANY',
+    label: 'Công ty phần mềm',
+    description: 'Công ty → Khối → Trung tâm → Phòng → Nhóm (Team/Squad)',
+    types: [
+      { code: 'CONG_TY', name: 'Công ty', rank: 0 },
+      { code: 'KHOI', name: 'Khối', rank: 1 },
+      { code: 'TRUNG_TAM', name: 'Trung tâm', rank: 2 },
+      { code: 'PHONG', name: 'Phòng', rank: 3 },
+      { code: 'NHOM', name: 'Nhóm', rank: 4 },
+    ],
+  },
+  {
+    key: 'LLC',
+    label: 'Công ty TNHH',
+    description: 'Công ty → Phòng ban → Bộ phận → Tổ/Nhóm',
+    types: [
+      { code: 'CONG_TY', name: 'Công ty', rank: 0 },
+      { code: 'PHONG_BAN', name: 'Phòng ban', rank: 1 },
+      { code: 'BO_PHAN', name: 'Bộ phận', rank: 2 },
+      { code: 'TO_NHOM', name: 'Tổ/Nhóm', rank: 3 },
+    ],
+  },
+  {
+    key: 'VIETJET_GROUP',
+    label: 'Tập đoàn hàng không (kiểu Vietjet Air)',
+    description: 'Tập đoàn → Công ty/Hãng → Khối → Ban → Trung tâm → Phòng → Đội/Tổ',
+    types: [
+      { code: 'TAP_DOAN', name: 'Tập đoàn', rank: 0 },
+      { code: 'CONG_TY', name: 'Công ty / Hãng', rank: 1 },
+      { code: 'KHOI', name: 'Khối', rank: 2 },
+      { code: 'BAN', name: 'Ban', rank: 3 },
+      { code: 'TRUNG_TAM', name: 'Trung tâm', rank: 4 },
+      { code: 'PHONG', name: 'Phòng', rank: 5 },
+      { code: 'DOI_TO', name: 'Đội/Tổ', rank: 6 },
+    ],
+  },
+] as const satisfies readonly UnitTypePreset[];
+
+export type UnitTypePresetKey = (typeof UNIT_TYPE_PRESETS)[number]['key'];
+
+export const seedUnitTypePresetSchema = z.object({
+  preset: z.enum(
+    UNIT_TYPE_PRESETS.map((p) => p.key) as [UnitTypePresetKey, ...UnitTypePresetKey[]],
+  ),
+});
+export type SeedUnitTypePresetInput = z.infer<typeof seedUnitTypePresetSchema>;
+
+// ============================================================
 // OrgUnit
 // ============================================================
 
