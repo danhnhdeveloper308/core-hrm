@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
+  createEmployeeSchema,
   ERROR_CODES,
   ORG_ROLES,
   type ContractResponse,
@@ -10,11 +11,13 @@ import {
   type DependentResponse,
   type EmployeeDetailResponse,
   type EmployeeResponse,
+  type ImportEmployeesResult,
   type ListEmployeesQuery,
   type OrgChartNode,
   type UpdateDependentInput,
   type UpdateEmployeeInput,
 } from '@repo/shared';
+import ExcelJS from 'exceljs';
 import { addAuditMetadata } from '../../common/audit/audit-context';
 import type { AccessTokenPayload } from '../../common/decorators/current-user.decorator';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -41,6 +44,115 @@ type EmployeeWithRelations = Prisma.EmployeeGetPayload<{
 
 function dateOnly(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null;
+}
+
+/**
+ * Cột template import nhân viên (theo THỨ TỰ cố định — file mẫu sinh theo đây,
+ * khi đọc cũng map theo vị trí cột). `key` trùng field input để build object.
+ */
+const IMPORT_COLUMNS: {
+  header: string;
+  key: string;
+  width: number;
+  example: string;
+}[] = [
+  { header: 'Mã NV (*)', key: 'code', width: 14, example: 'NV-001' },
+  { header: 'Họ tên (*)', key: 'fullName', width: 24, example: 'Nguyễn Văn A' },
+  { header: 'Số điện thoại (*)', key: 'phone', width: 16, example: '0901234567' },
+  { header: 'Ngày vào làm (*) YYYY-MM-DD', key: 'joinDate', width: 22, example: '2025-01-15' },
+  { header: 'Ngày sinh (YYYY-MM-DD)', key: 'dob', width: 20, example: '1995-05-20' },
+  { header: 'Giới tính (Nam/Nữ/Khác)', key: 'gender', width: 18, example: 'Nam' },
+  { header: 'Email mời tài khoản', key: 'inviteEmail', width: 24, example: 'a.nguyen@congty.vn' },
+  { header: 'Email cá nhân', key: 'personalEmail', width: 24, example: '' },
+  { header: 'Đơn vị (tên)', key: 'orgUnitName', width: 20, example: 'Phòng Nhân sự' },
+  { header: 'Chức danh (tên)', key: 'positionName', width: 20, example: 'Nhân viên' },
+  { header: 'Địa điểm (tên)', key: 'worksiteName', width: 20, example: 'Trụ sở chính' },
+  { header: 'Số CCCD/CMND', key: 'idNumber', width: 18, example: '' },
+  { header: 'Ngày cấp CCCD (YYYY-MM-DD)', key: 'idIssuedDate', width: 22, example: '' },
+  { header: 'Nơi cấp CCCD', key: 'idIssuedPlace', width: 22, example: '' },
+  { header: 'Mã số thuế', key: 'taxCode', width: 16, example: '' },
+  { header: 'Số sổ BHXH', key: 'socialInsuranceNo', width: 16, example: '' },
+  { header: 'Số thẻ BHYT', key: 'healthInsuranceNo', width: 18, example: '' },
+  { header: 'Số tài khoản NH', key: 'bankAccountNo', width: 18, example: '' },
+  { header: 'Ngân hàng', key: 'bankName', width: 18, example: '' },
+  { header: 'Chi nhánh NH', key: 'bankBranch', width: 18, example: '' },
+  { header: 'Địa chỉ thường trú', key: 'permanentAddress', width: 28, example: '' },
+  { header: 'Địa chỉ tạm trú', key: 'currentAddress', width: 28, example: '' },
+  { header: 'Liên hệ khẩn cấp - Họ tên', key: 'emergencyContactName', width: 22, example: '' },
+  { header: 'Liên hệ khẩn cấp - SĐT', key: 'emergencyContactPhone', width: 20, example: '' },
+  { header: 'Liên hệ khẩn cấp - Quan hệ', key: 'emergencyContactRelation', width: 22, example: '' },
+  { header: 'Tình trạng hôn nhân', key: 'maritalStatus', width: 20, example: '' },
+  { header: 'Dân tộc', key: 'ethnicity', width: 14, example: 'Kinh' },
+  { header: 'Quốc tịch', key: 'nationality', width: 14, example: 'Việt Nam' },
+  { header: 'Tôn giáo', key: 'religion', width: 14, example: '' },
+  { header: 'Trình độ', key: 'educationLevel', width: 16, example: '' },
+  { header: 'Chuyên ngành', key: 'major', width: 18, example: '' },
+];
+
+const SHEET_NAME = 'Nhân viên';
+
+const GENDER_MAP: Record<string, string> = {
+  nam: 'MALE',
+  male: 'MALE',
+  m: 'MALE',
+  nữ: 'FEMALE',
+  nu: 'FEMALE',
+  female: 'FEMALE',
+  f: 'FEMALE',
+  khác: 'OTHER',
+  khac: 'OTHER',
+  other: 'OTHER',
+};
+
+const MARITAL_MAP: Record<string, string> = {
+  'độc thân': 'SINGLE',
+  'doc than': 'SINGLE',
+  single: 'SINGLE',
+  'đã kết hôn': 'MARRIED',
+  'da ket hon': 'MARRIED',
+  'kết hôn': 'MARRIED',
+  married: 'MARRIED',
+  'ly hôn': 'DIVORCED',
+  'ly hon': 'DIVORCED',
+  divorced: 'DIVORCED',
+  goá: 'WIDOWED',
+  goa: 'WIDOWED',
+  'góa': 'WIDOWED',
+  widowed: 'WIDOWED',
+};
+
+/** Giá trị 1 ô Excel → chuỗi đã trim (xử lý Date / rich-text / formula). */
+function cellToString(value: ExcelJS.CellValue): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'object') {
+    if ('text' in value && value.text != null) return String(value.text).trim() || null;
+    if ('result' in value && value.result != null) {
+      return String(value.result).trim() || null;
+    }
+    if ('richText' in value && Array.isArray(value.richText)) {
+      return value.richText.map((t) => t.text).join('').trim() || null;
+    }
+    if ('hyperlink' in value && 'text' in value) {
+      return String(value.text).trim() || null;
+    }
+    return null;
+  }
+  return String(value).trim() || null;
+}
+
+/** Chuẩn hoá ô ngày → "YYYY-MM-DD" (Date hoặc chuỗi). null nếu rỗng. */
+function cellToDateOnly(value: ExcelJS.CellValue): string | null {
+  const s = cellToString(value);
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // dd/mm/yyyy hoặc dd-mm-yyyy
+  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo!.padStart(2, '0')}-${d!.padStart(2, '0')}`;
+  }
+  return s; // để zod báo lỗi định dạng nếu sai
 }
 
 function toContractResponse(c: EmploymentContract): ContractResponse {
@@ -448,6 +560,202 @@ export class EmployeesService {
     });
     addAuditMetadata({ after: { avatarKey: key } });
     return { avatarUrl: await this.storage.getSignedUrl(key, 3600) };
+  }
+
+  // ===== Import từ Excel =====
+
+  /** Sinh file Excel mẫu (header + ví dụ + sheet hướng dẫn) để user tải về. */
+  async buildImportTemplate(): Promise<Buffer> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(SHEET_NAME);
+    ws.columns = IMPORT_COLUMNS.map((c) => ({ header: c.header, key: c.key, width: c.width }));
+    // Header in đậm + đóng băng dòng tiêu đề + auto filter
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.alignment = { vertical: 'middle', wrapText: true };
+    headerRow.height = 30;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: IMPORT_COLUMNS.length } };
+    // 1 dòng ví dụ (in nghiêng, xám) — XOÁ trước khi nhập dữ liệu thật
+    const exampleRow = ws.addRow(IMPORT_COLUMNS.map((c) => c.example));
+    exampleRow.font = { italic: true, color: { argb: 'FF9CA3AF' } };
+
+    const guide = wb.addWorksheet('Hướng dẫn');
+    guide.getColumn(1).width = 100;
+    const lines = [
+      'HƯỚNG DẪN NHẬP NHÂN VIÊN TỪ EXCEL',
+      '',
+      '1. Nhập dữ liệu vào sheet "Nhân viên". XOÁ dòng ví dụ (in nghiêng) trước khi nhập.',
+      '2. Các cột có dấu (*) là bắt buộc: Mã NV, Họ tên, Số điện thoại, Ngày vào làm.',
+      '3. Mã NV không được trùng. Chỉ gồm chữ, số, gạch ngang, gạch dưới.',
+      '4. Ngày nhập theo định dạng YYYY-MM-DD (vd 2025-01-15) hoặc dd/mm/yyyy.',
+      '5. Giới tính: Nam / Nữ / Khác.',
+      '6. Tình trạng hôn nhân: Độc thân / Đã kết hôn / Ly hôn / Goá.',
+      '7. Đơn vị / Chức danh / Địa điểm: nhập đúng TÊN đã tạo trong hệ thống (bỏ trống nếu chưa có).',
+      '8. Có "Email mời tài khoản" → gửi link kích hoạt. Bỏ trống → tạo tài khoản đăng nhập bằng MÃ NV + mật khẩu mặc định Abcd123@.',
+      '9. Mỗi lần nhập tối đa 500 dòng.',
+    ];
+    lines.forEach((t) => guide.addRow([t]));
+    guide.getRow(1).font = { bold: true, size: 14 };
+
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  /**
+   * Nhập danh sách nhân viên từ file Excel (theo template). Mỗi dòng được
+   * validate riêng + tái sử dụng `create()` (tạo cả tài khoản đăng nhập);
+   * dòng lỗi được bỏ qua và gom vào kết quả để báo lại cho user.
+   */
+  async importEmployees(
+    orgId: string,
+    actor: AccessTokenPayload,
+    fileBuffer: Buffer,
+  ): Promise<ImportEmployeesResult> {
+    const wb = new ExcelJS.Workbook();
+    try {
+      // cast: lệch generic Buffer<ArrayBufferLike> giữa @types/node và exceljs
+      await wb.xlsx.load(fileBuffer as unknown as ArrayBuffer);
+    } catch {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'File Excel không hợp lệ',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    const ws = wb.getWorksheet(SHEET_NAME) ?? wb.worksheets[0];
+    if (!ws) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Không tìm thấy sheet dữ liệu',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    // Map tên → id (case-insensitive) để giải nghĩa cột Đơn vị/Chức danh/Địa điểm
+    const [units, positions, worksites] = await Promise.all([
+      this.prisma.orgUnit.findMany({ where: { orgId }, select: { id: true, name: true } }),
+      this.prisma.position.findMany({ where: { orgId }, select: { id: true, name: true } }),
+      this.prisma.worksite.findMany({ where: { orgId }, select: { id: true, name: true } }),
+    ]);
+    const norm = (s: string) => s.trim().toLowerCase();
+    const unitByName = new Map(units.map((u) => [norm(u.name), u.id]));
+    const posByName = new Map(positions.map((p) => [norm(p.name), p.id]));
+    const wsByName = new Map(worksites.map((w) => [norm(w.name), w.id]));
+
+    // Đọc các dòng dữ liệu (từ dòng 2). Bỏ dòng trống / dòng ví dụ mẫu.
+    type RawRow = { rowNumber: number; values: Record<string, string | null> };
+    const rows: RawRow[] = [];
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // header
+      const values: Record<string, string | null> = {};
+      let hasData = false;
+      IMPORT_COLUMNS.forEach((col, i) => {
+        const raw =
+          col.key === 'dob' || col.key === 'joinDate' || col.key === 'idIssuedDate'
+            ? cellToDateOnly(row.getCell(i + 1).value)
+            : cellToString(row.getCell(i + 1).value);
+        values[col.key] = raw;
+        if (raw) hasData = true;
+      });
+      if (!hasData) return;
+      // Bỏ qua dòng ví dụ mẫu còn sót (mã NV-001 + họ tên ví dụ)
+      if (values.code === 'NV-001' && values.fullName === 'Nguyễn Văn A') return;
+      rows.push({ rowNumber, values });
+    });
+
+    if (rows.length > 500) {
+      throw new AppException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Tối đa 500 dòng mỗi lần nhập',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+
+    const failed: ImportEmployeesResult['failed'] = [];
+    let created = 0;
+
+    for (const { rowNumber, values } of rows) {
+      const code = values.code ?? null;
+      try {
+        // Giải nghĩa tên đơn vị/chức danh/địa điểm → id
+        const orgUnitId = this.resolveName(unitByName, values.orgUnitName, 'Đơn vị');
+        const positionId = this.resolveName(posByName, values.positionName, 'Chức danh');
+        const worksiteId = this.resolveName(wsByName, values.worksiteName, 'Địa điểm');
+
+        const gender = values.gender ? GENDER_MAP[norm(values.gender)] : undefined;
+        if (values.gender && !gender) throw new Error(`Giới tính "${values.gender}" không hợp lệ`);
+        const maritalStatus = values.maritalStatus
+          ? MARITAL_MAP[norm(values.maritalStatus)]
+          : undefined;
+        if (values.maritalStatus && !maritalStatus) {
+          throw new Error(`Tình trạng hôn nhân "${values.maritalStatus}" không hợp lệ`);
+        }
+
+        const candidate = {
+          code: values.code ?? '',
+          fullName: values.fullName ?? '',
+          phone: values.phone ?? '',
+          joinDate: values.joinDate ?? '',
+          dob: values.dob,
+          gender,
+          inviteEmail: values.inviteEmail,
+          personalEmail: values.personalEmail,
+          orgUnitId,
+          positionId,
+          worksiteId,
+          idNumber: values.idNumber,
+          idIssuedDate: values.idIssuedDate,
+          idIssuedPlace: values.idIssuedPlace,
+          taxCode: values.taxCode,
+          socialInsuranceNo: values.socialInsuranceNo,
+          healthInsuranceNo: values.healthInsuranceNo,
+          bankAccountNo: values.bankAccountNo,
+          bankName: values.bankName,
+          bankBranch: values.bankBranch,
+          permanentAddress: values.permanentAddress,
+          currentAddress: values.currentAddress,
+          emergencyContactName: values.emergencyContactName,
+          emergencyContactPhone: values.emergencyContactPhone,
+          emergencyContactRelation: values.emergencyContactRelation,
+          maritalStatus,
+          ethnicity: values.ethnicity,
+          nationality: values.nationality,
+          religion: values.religion,
+          educationLevel: values.educationLevel,
+          major: values.major,
+        };
+        const parsed = createEmployeeSchema.safeParse(candidate);
+        if (!parsed.success) {
+          const first = parsed.error.issues[0];
+          throw new Error(
+            first ? `${first.path.join('.') || 'dữ liệu'}: ${first.message}` : 'Dữ liệu không hợp lệ',
+          );
+        }
+        await this.create(orgId, actor, parsed.data);
+        created += 1;
+      } catch (err) {
+        failed.push({
+          row: rowNumber,
+          code,
+          message: err instanceof AppException ? err.message : (err as Error).message,
+        });
+      }
+    }
+
+    addAuditMetadata({ after: { total: rows.length, created, failed: failed.length } });
+    return { total: rows.length, created, failed };
+  }
+
+  /** Tra id theo tên (case-insensitive); có tên nhưng không khớp → ném lỗi. */
+  private resolveName(
+    map: Map<string, string>,
+    name: string | null | undefined,
+    label: string,
+  ): string | undefined {
+    if (!name) return undefined;
+    const id = map.get(name.trim().toLowerCase());
+    if (!id) throw new Error(`${label} "${name}" không tồn tại trong tổ chức`);
+    return id;
   }
 
   // ===== Contracts =====

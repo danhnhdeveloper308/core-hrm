@@ -210,6 +210,24 @@ export const employeeDetailSchema = employeeSchema.extend({
 });
 export type EmployeeDetailResponse = z.infer<typeof employeeDetailSchema>;
 
+// ===== Import nhân viên từ Excel =====
+
+export const importEmployeesResultSchema = z.object({
+  /** Số dòng dữ liệu đọc được (không tính header). */
+  total: z.number().int(),
+  /** Số nhân viên tạo thành công. */
+  created: z.number().int(),
+  /** Các dòng lỗi: số dòng trong file + mã (nếu có) + thông báo. */
+  failed: z.array(
+    z.object({
+      row: z.number().int(),
+      code: z.string().nullable(),
+      message: z.string(),
+    }),
+  ),
+});
+export type ImportEmployeesResult = z.infer<typeof importEmployeesResultSchema>;
+
 // ===== Org chart =====
 
 export interface OrgChartNode {

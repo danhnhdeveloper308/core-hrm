@@ -11,6 +11,7 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PERMISSIONS } from '@repo/shared';
+import type { Response } from 'express';
 import { Audit } from '../../common/decorators/audit.decorator';
 import { CurrentOrg } from '../../common/decorators/current-org.decorator';
 import {
@@ -51,6 +53,15 @@ const documentPipe = new ParseFilePipeBuilder()
   })
   .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
   .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY });
+
+// File Excel: mimetype xlsx không ổn định giữa các trình duyệt → chỉ giới hạn
+// kích thước, tính hợp lệ do ExcelJS quyết định khi parse.
+const spreadsheetPipe = new ParseFilePipeBuilder()
+  .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+  .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY });
+
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 @ApiTags('employees')
 @ApiCookieAuth('access_token')
@@ -98,6 +109,34 @@ export class EmployeesController {
     @Body() dto: CreateEmployeeDto,
   ) {
     return this.employees.create(orgId, actor, dto);
+  }
+
+  @Get('import/template')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_CREATE)
+  @ApiOperation({ summary: 'Tải file Excel mẫu để nhập danh sách nhân viên' })
+  async importTemplate(@Res() res: Response): Promise<void> {
+    const buf = await this.employees.buildImportTemplate();
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="mau-import-nhan-vien.xlsx"',
+    );
+    res.send(buf);
+  }
+
+  @Post('import')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_CREATE)
+  @Audit('employee.import')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Nhập danh sách nhân viên từ file Excel (theo mẫu)' })
+  @ApiOkResponse({ description: 'ImportEmployeesResult' })
+  import(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @UploadedFile(spreadsheetPipe) file: Express.Multer.File,
+  ) {
+    return this.employees.importEmployees(orgId, actor, file.buffer);
   }
 
   @Get(':id')

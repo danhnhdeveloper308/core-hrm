@@ -10,7 +10,7 @@ import {
   type WorkShiftResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, FileText, Plus, Trash2, Upload } from 'lucide-react';
+import { Clock, FileText, Plus, ScanFace, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/permission-gate';
@@ -319,11 +319,129 @@ export function EmployeeDetailSheet({
 
               <Separator />
               <ShiftAssignmentSection employeeId={data.id} />
+
+              <PermissionGate permission={PERMISSIONS.FACE_MANAGE}>
+                <Separator />
+                <FaceSection employeeId={data.id} />
+              </PermissionGate>
             </div>
           </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+interface EnrolledPhoto {
+  index: number;
+  url: string;
+}
+
+const MAX_FACE_PHOTOS = 5;
+
+/** HR xem / xoá / thêm ảnh khuôn mặt chấm công của nhân viên (tối đa 5, ghi đè cũ). */
+function FaceSection({ employeeId }: { employeeId: string }) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: photos } = useQuery({
+    queryKey: ['face', 'employee', employeeId, 'photos'],
+    queryFn: () => api.get<EnrolledPhoto[]>(`/face/${employeeId}/photos`),
+  });
+  const count = photos?.length ?? 0;
+  const remaining = Math.max(0, MAX_FACE_PHOTOS - count);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['face', 'employee', employeeId, 'photos'],
+    });
+
+  const addPhotos = useMutation({
+    mutationFn: (files: FileList) => {
+      const form = new FormData();
+      Array.from(files)
+        .slice(0, MAX_FACE_PHOTOS)
+        .forEach((f, i) => form.append('photos', f, f.name || `face-${i}.jpg`));
+      return api.upload<{ enrolledCount: number }>(`/face/${employeeId}/photos`, form);
+    },
+    onSuccess: (res) => {
+      toast.success(`Đã lưu — hiện có ${res.enrolledCount}/${MAX_FACE_PHOTOS} ảnh`);
+      void invalidate();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Lưu ảnh thất bại'),
+  });
+
+  const deletePhoto = useMutation({
+    mutationFn: (index: number) =>
+      api.delete<{ enrolledCount: number }>(`/face/${employeeId}/photos/${index}`),
+    onSuccess: () => {
+      toast.success('Đã xoá ảnh');
+      void invalidate();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Xoá thất bại'),
+  });
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+          <ScanFace className="size-3.5" /> Khuôn mặt chấm công ({count}/{MAX_FACE_PHOTOS})
+        </h3>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={addPhotos.isPending}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="size-3.5" /> Thêm ảnh
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) addPhotos.mutate(files);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      <p className="mb-2 text-xs text-muted-foreground">
+        {count === 0
+          ? 'Chưa đăng ký — chọn ảnh rõ mặt, nhìn thẳng (1 mặt/ảnh).'
+          : remaining > 0
+            ? `Có thể thêm ${remaining} ảnh nữa.`
+            : 'Đã đủ 5 ảnh — thêm nữa sẽ ghi đè ảnh cũ nhất.'}
+      </p>
+      {count > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {(photos ?? []).map((p) => (
+            <div key={p.index} className="relative">
+              {/* signed URL từ storage — không dùng next/image */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.url}
+                alt={`Ảnh ${p.index + 1}`}
+                className="size-20 rounded-md border object-cover"
+              />
+              <button
+                type="button"
+                aria-label="Xoá ảnh"
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-1 text-white disabled:opacity-50"
+                disabled={deletePhoto.isPending}
+                onClick={() => deletePhoto.mutate(p.index)}
+              >
+                <Trash2 className="size-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

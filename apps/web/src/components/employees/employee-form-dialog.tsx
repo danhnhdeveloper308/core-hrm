@@ -210,7 +210,7 @@ export function EmployeeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? `Sửa hồ sơ ${employee.fullName}` : 'Tạo hồ sơ nhân viên'}
@@ -226,7 +226,7 @@ export function EmployeeFormDialog({
             onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
             className="space-y-4"
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="fullName"
@@ -254,7 +254,7 @@ export function EmployeeFormDialog({
                 )}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormField
                 control={form.control}
                 name="dob"
@@ -349,7 +349,7 @@ export function EmployeeFormDialog({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="positionId"
@@ -437,7 +437,7 @@ export function EmployeeFormDialog({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="joinDate"
@@ -481,7 +481,7 @@ export function EmployeeFormDialog({
               <p className="mb-2 text-sm font-semibold text-muted-foreground">
                 Giấy tờ & bảo hiểm
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <TextField control={form.control} name="idNumber" label="Số CCCD/CMND" />
                 <TextField
                   control={form.control}
@@ -512,7 +512,7 @@ export function EmployeeFormDialog({
               <p className="mb-2 text-sm font-semibold text-muted-foreground">
                 Tài khoản ngân hàng
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <TextField
                   control={form.control}
                   name="bankAccountNo"
@@ -527,7 +527,7 @@ export function EmployeeFormDialog({
               <p className="mb-2 text-sm font-semibold text-muted-foreground">
                 Địa chỉ
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField
                   control={form.control}
                   name="permanentAddress"
@@ -545,7 +545,7 @@ export function EmployeeFormDialog({
               <p className="mb-2 text-sm font-semibold text-muted-foreground">
                 Liên hệ khẩn cấp
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <TextField
                   control={form.control}
                   name="emergencyContactName"
@@ -568,7 +568,7 @@ export function EmployeeFormDialog({
               <p className="mb-2 text-sm font-semibold text-muted-foreground">
                 Thông tin khác
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="maritalStatus"
@@ -729,7 +729,7 @@ function DependentsSection({ employeeId }: { employeeId: string }) {
           <p className="text-xs text-muted-foreground">Chưa có người phụ thuộc</p>
         )}
       </div>
-      <div className="mt-2 grid grid-cols-4 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Input
           placeholder="Họ tên"
           value={draft.fullName}

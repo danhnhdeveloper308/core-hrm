@@ -210,4 +210,35 @@ describe('computeTimesheet', () => {
     expect(r.lastOut).toEqual(vn('2026-06-15', '17:00'));
     expect(r.status).toBe('PRESENT');
   });
+
+  it('chấm nhiều lần loạn thứ tự: vẫn lấy VÀO đầu + RA cuối theo ca', () => {
+    const r = computeTimesheet({
+      ...base,
+      // cố tình đảo thứ tự + nhiều cặp trong ngày
+      logs: [
+        { at: vn('2026-06-15', '12:00'), type: 'OUT' },
+        { at: vn('2026-06-15', '08:01'), type: 'IN' },
+        { at: vn('2026-06-15', '17:30'), type: 'OUT' },
+        { at: vn('2026-06-15', '13:00'), type: 'IN' },
+        { at: vn('2026-06-15', '10:00'), type: 'IN' },
+      ],
+    });
+    expect(r.firstIn).toEqual(vn('2026-06-15', '08:01')); // VÀO sớm nhất
+    expect(r.lastOut).toEqual(vn('2026-06-15', '17:30')); // RA muộn nhất
+    expect(r.status).toBe('PRESENT');
+  });
+
+  it('lỡ chấm thêm 1 lần VÀO sau khi đã chấm RA → lastOut vẫn là lần RA', () => {
+    const r = computeTimesheet({
+      ...base,
+      logs: [
+        { at: vn('2026-06-15', '08:00'), type: 'IN' },
+        { at: vn('2026-06-15', '17:00'), type: 'OUT' },
+        { at: vn('2026-06-15', '17:05'), type: 'IN' }, // bấm nhầm sau khi RA
+      ],
+    });
+    expect(r.firstIn).toEqual(vn('2026-06-15', '08:00')); // VÀO đầu tiên
+    expect(r.lastOut).toEqual(vn('2026-06-15', '17:00')); // RA cuối cùng (không tính lần IN nhầm)
+    expect(r.status).toBe('PRESENT');
+  });
 });

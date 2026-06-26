@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft,
   ChevronRight,
+  Clock,
   Download,
   Lock,
   Pencil,
@@ -586,6 +587,22 @@ export default function AttendancePage() {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
+                    {/* Quên chấm ra (có giờ vào, thiếu giờ ra) → chấm bù nhanh */}
+                    {detail.day.firstIn && !detail.day.lastOut && (
+                      <Button
+                        size="sm"
+                        disabled={editMut.isPending}
+                        onClick={() =>
+                          setEditForm({
+                            firstIn: toHHmm(detail.day.firstIn) || '08:00',
+                            lastOut: '17:00',
+                            note: 'Chấm bù quên chấm ra',
+                          })
+                        }
+                      >
+                        <Clock className="size-3.5" /> Chấm bù giờ ra
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

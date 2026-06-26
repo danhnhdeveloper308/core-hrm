@@ -4,9 +4,10 @@ import {
   PERMISSIONS,
   type CursorPaginated,
   type EmployeeResponse,
+  type ImportEmployeesResult,
   type OrgUnitResponse,
 } from '@repo/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
   ColDef,
   GridApi,
@@ -14,8 +15,9 @@ import type {
   IDatasource,
   ICellRendererParams,
 } from 'ag-grid-community';
-import { Plus, Search } from 'lucide-react';
+import { Download, FileUp, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { DataGrid } from '@/components/data-grid';
 import { EmployeeDetailSheet } from '@/components/employees/employee-detail-sheet';
 import { EmployeeFormDialog } from '@/components/employees/employee-form-dialog';
@@ -23,6 +25,13 @@ import { FadeIn } from '@/components/motion/primitives';
 import { PermissionGate } from '@/components/permission-gate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -31,12 +40,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { orgUnitOptions } from '@/lib/org';
 
 const ALL = '__all__';
 const PAGE_SIZE = 50;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001/api';
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Chính thức',
@@ -64,7 +74,9 @@ export default function EmployeesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EmployeeResponse | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<ImportEmployeesResult | null>(null);
   const gridApiRef = useRef<GridApi<EmployeeResponse> | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -112,6 +124,44 @@ export default function EmployeesPage() {
     gridApiRef.current?.refreshInfiniteCache();
   }, []);
 
+  async function downloadTemplate() {
+    try {
+      const res = await fetch(`${BASE_URL}/employees/import/template`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mau-import-nhan-vien.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Không tải được file mẫu');
+    }
+  }
+
+  const importMut = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return api.upload<ImportEmployeesResult>('/employees/import', form);
+    },
+    onSuccess: (result) => {
+      setImportResult(result);
+      if (result.created > 0) {
+        toast.success(`Đã nhập ${result.created} nhân viên`);
+        refreshGrid();
+      }
+      if (result.created === 0 && result.failed.length > 0) {
+        toast.error('Không nhập được dòng nào — xem chi tiết lỗi');
+      }
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Nhập file thất bại'),
+  });
+
   const columnDefs = useMemo<ColDef<EmployeeResponse>[]>(
     () => [
       { field: 'code', headerName: 'Mã NV', width: 120, pinned: 'left' },
@@ -140,14 +190,38 @@ export default function EmployeesPage() {
           </p>
         </div>
         <PermissionGate permission={PERMISSIONS.EMPLOYEE_CREATE}>
-          <Button
-            onClick={() => {
-              setEditTarget(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="size-4" /> Thêm nhân viên
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void downloadTemplate()}>
+              <Download className="size-4" /> Tải mẫu Excel
+            </Button>
+            <Button
+              variant="outline"
+              disabled={importMut.isPending}
+              onClick={() => importInputRef.current?.click()}
+            >
+              <FileUp className="size-4" />
+              {importMut.isPending ? 'Đang nhập…' : 'Nhập từ Excel'}
+            </Button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importMut.mutate(file);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              onClick={() => {
+                setEditTarget(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="size-4" /> Thêm nhân viên
+            </Button>
+          </div>
         </PermissionGate>
       </div>
 
@@ -217,6 +291,43 @@ export default function EmployeesPage() {
           setFormOpen(true);
         }}
       />
+
+      <Dialog
+        open={importResult !== null}
+        onOpenChange={(o) => !o && setImportResult(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kết quả nhập Excel</DialogTitle>
+            <DialogDescription>
+              {importResult
+                ? `Tổng ${importResult.total} dòng · thành công ${importResult.created} · lỗi ${importResult.failed.length}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {importResult && importResult.failed.length > 0 && (
+            <div className="max-h-72 space-y-1.5 overflow-y-auto">
+              {importResult.failed.map((f) => (
+                <div
+                  key={f.row}
+                  className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-sm"
+                >
+                  <span className="font-medium">
+                    Dòng {f.row}
+                    {f.code ? ` · ${f.code}` : ''}
+                  </span>
+                  <p className="text-xs text-muted-foreground">{f.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {importResult && importResult.failed.length === 0 && (
+            <p className="text-sm text-emerald-600">
+              Tất cả {importResult.created} dòng đã được nhập thành công.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
     </FadeIn>
   );
 }

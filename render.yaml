@@ -9,7 +9,7 @@ services:
   - type: web
     name: hrm-api
     runtime: docker
-    repo: https://github.com/your-org/your-repo # đổi thành repo của bạn
+    repo: https://github.com/danhnhdeveloper308/core-hrm # đổi thành repo của bạn
     branch: main
     dockerfilePath: ./docker/Dockerfile.api
     dockerContext: . # build context = gốc monorepo (Dockerfile copy cả workspace)

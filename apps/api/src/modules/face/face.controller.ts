@@ -160,6 +160,64 @@ export class FaceController {
     return this.face.getStatus(orgId, employeeId);
   }
 
+  @Get(':employeeId/photos')
+  @RequirePermissions(PERMISSIONS.FACE_MANAGE)
+  @ApiOperation({ summary: 'HR xem ảnh khuôn mặt đã đăng ký của 1 nhân viên' })
+  @ApiOkResponse({ description: '[{ index, url }]' })
+  photos(
+    @CurrentOrg() orgId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+  ) {
+    return this.face.listPhotos(orgId, employeeId);
+  }
+
+  @Post(':employeeId/photos')
+  @RequirePermissions(PERMISSIONS.FACE_MANAGE)
+  @Audit('face.add_photos_for')
+  @UseInterceptors(FilesInterceptor('photos', 5))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'HR thêm/thay ảnh khuôn mặt cho nhân viên — giữ tối đa 5 (ghi đè ảnh cũ nhất)',
+  })
+  @ApiOkResponse({ description: '{ enrolledCount }' })
+  addPhotosFor(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^image\/(jpeg|png|webp)$/,
+          skipMagicNumbersValidation: true,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    files: Express.Multer.File[],
+  ) {
+    if (files.length < 1 || files.length > 5) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Chọn 1–5 ảnh để thêm',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    return this.face.addPhotos(orgId, employeeId, files.map((f) => f.buffer), actor.sub);
+  }
+
+  @Delete(':employeeId/photos/:index')
+  @RequirePermissions(PERMISSIONS.FACE_MANAGE)
+  @Audit('face.delete_photo_for')
+  @ApiOperation({ summary: 'HR xoá 1 ảnh khuôn mặt theo vị trí của nhân viên' })
+  @ApiOkResponse({ description: '{ enrolledCount }' })
+  deletePhotoFor(
+    @CurrentOrg() orgId: string,
+    @Param('employeeId', ParseUUIDPipe) employeeId: string,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return this.face.deletePhoto(orgId, employeeId, index);
+  }
+
   @Post(':employeeId/enroll')
   @RequirePermissions(PERMISSIONS.FACE_MANAGE)
   @Audit('face.enroll_for')
