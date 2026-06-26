@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, CheckCircle2, X } from 'lucide-react';
+import { Camera, CheckCircle2, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { FadeIn } from '@/components/motion/primitives';
@@ -20,8 +20,11 @@ interface FaceStatus {
   enrolledCount: number;
   enrolledAt: string | null;
 }
+interface EnrolledPhoto {
+  index: number;
+  url: string;
+}
 
-const MIN_SHOTS = 3;
 const MAX_SHOTS = 5;
 
 export default function FaceEnrollPage() {
@@ -36,6 +39,13 @@ export default function FaceEnrollPage() {
     queryKey: ['face', 'me', 'status'],
     queryFn: () => api.get<FaceStatus>('/face/me/status'),
   });
+  const { data: photos } = useQuery({
+    queryKey: ['face', 'me', 'photos'],
+    queryFn: () => api.get<EnrolledPhoto[]>('/face/me/photos'),
+  });
+
+  const enrolledCount = photos?.length ?? status?.enrolledCount ?? 0;
+  const remaining = Math.max(0, MAX_SHOTS - enrolledCount);
 
   const startCamera = useCallback(async () => {
     try {
@@ -55,7 +65,6 @@ export default function FaceEnrollPage() {
   }, []);
 
   useEffect(() => {
-    // Subscribe camera (external system) — setState trong callback async
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void startCamera();
     return () => streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -64,6 +73,11 @@ export default function FaceEnrollPage() {
   useEffect(() => {
     return () => previews.forEach((url) => URL.revokeObjectURL(url));
   }, [previews]);
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['face', 'me', 'status'] });
+    void queryClient.invalidateQueries({ queryKey: ['face', 'me', 'photos'] });
+  };
 
   const capture = useCallback(() => {
     const video = videoRef.current;
@@ -83,20 +97,31 @@ export default function FaceEnrollPage() {
     );
   }, [shots.length]);
 
-  const enroll = useMutation({
+  const addPhotos = useMutation({
     mutationFn: () => {
       const form = new FormData();
-      shots.forEach((blob, i) => form.append('photos', blob, `enroll-${i}.jpg`));
-      return api.upload<{ enrolledCount: number }>('/face/enroll', form);
+      shots.forEach((blob, i) => form.append('photos', blob, `face-${i}.jpg`));
+      return api.upload<{ enrolledCount: number }>('/face/me/photos', form);
     },
     onSuccess: (res) => {
-      toast.success(`Đã đăng ký khuôn mặt với ${res.enrolledCount} ảnh`);
+      toast.success(`Đã lưu — hiện có ${res.enrolledCount}/${MAX_SHOTS} ảnh`);
       setShots([]);
       setPreviews([]);
-      void queryClient.invalidateQueries({ queryKey: ['face', 'me', 'status'] });
+      invalidate();
     },
     onError: (error) =>
-      toast.error(error instanceof ApiError ? error.message : 'Đăng ký thất bại'),
+      toast.error(error instanceof ApiError ? error.message : 'Lưu ảnh thất bại'),
+  });
+
+  const deletePhoto = useMutation({
+    mutationFn: (index: number) =>
+      api.delete<{ enrolledCount: number }>(`/face/me/photos/${index}`),
+    onSuccess: () => {
+      toast.success('Đã xoá ảnh');
+      invalidate();
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Xoá thất bại'),
   });
 
   function removeShot(index: number) {
@@ -111,31 +136,66 @@ export default function FaceEnrollPage() {
   return (
     <FadeIn className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Đăng ký khuôn mặt</h1>
+        <h1 className="text-2xl font-bold">Khuôn mặt chấm công</h1>
         <p className="text-muted-foreground">
-          Dùng để chấm công bằng khuôn mặt. Chụp {MIN_SHOTS}–{MAX_SHOTS} ảnh rõ
-          mặt, nhìn thẳng, đủ sáng.
+          Dùng để chấm công bằng khuôn mặt. Lưu tối đa {MAX_SHOTS} ảnh (rõ mặt,
+          nhìn thẳng, đủ sáng) — đủ để nhận diện.
         </p>
       </div>
 
-      {status?.enrolled && (
-        <Card>
-          <CardContent className="flex items-center gap-2 p-4 text-sm">
-            <CheckCircle2 className="size-5 text-green-600" />
-            Đã đăng ký {status.enrolledCount} ảnh
-            {status.enrolledAt
-              ? ` · ${new Date(status.enrolledAt).toLocaleDateString('vi-VN')}`
-              : ''}
-            . Chụp lại để cập nhật.
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Ảnh đã đăng ký */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Camera</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            {enrolledCount > 0 && <CheckCircle2 className="size-5 text-green-600" />}
+            Ảnh đã đăng ký ({enrolledCount}/{MAX_SHOTS})
+          </CardTitle>
           <CardDescription>
-            Đã chụp {shots.length}/{MAX_SHOTS}
+            {enrolledCount === 0
+              ? 'Chưa có ảnh nào — chụp bên dưới để đăng ký.'
+              : status?.enrolledAt
+                ? `Cập nhật ${new Date(status.enrolledAt).toLocaleDateString('vi-VN')} · bấm thùng rác để xoá`
+                : 'Bấm thùng rác để xoá ảnh'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {enrolledCount === 0 ? (
+            <p className="text-sm text-muted-foreground">Chưa đăng ký khuôn mặt</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {(photos ?? []).map((p) => (
+                <div key={p.index} className="relative">
+                  {/* signed URL từ storage — không dùng next/image */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.url}
+                    alt={`Ảnh ${p.index + 1}`}
+                    className="size-24 rounded-md border object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Xoá ảnh"
+                    className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-1 text-white disabled:opacity-50"
+                    disabled={deletePhoto.isPending}
+                    onClick={() => deletePhoto.mutate(p.index)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Chụp thêm */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Chụp thêm ảnh</CardTitle>
+          <CardDescription>
+            {remaining > 0
+              ? `Có thể thêm ${remaining} ảnh nữa`
+              : `Đã đủ ${MAX_SHOTS} ảnh — chụp thêm sẽ GHI ĐÈ ảnh cũ nhất`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -154,18 +214,17 @@ export default function FaceEnrollPage() {
             onClick={capture}
             disabled={shots.length >= MAX_SHOTS || camError !== null}
           >
-            <Camera className="size-4" /> Chụp ảnh ({shots.length}/{MAX_SHOTS})
+            <Camera className="size-4" /> Chụp ({shots.length}/{MAX_SHOTS})
           </Button>
 
           {previews.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {previews.map((url, i) => (
                 <div key={url} className="relative">
-                  {/* preview blob local, không cần next/image */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={url}
-                    alt={`Ảnh ${i + 1}`}
+                    alt={`Ảnh mới ${i + 1}`}
                     className="size-20 rounded-md object-cover"
                   />
                   <button
@@ -182,12 +241,10 @@ export default function FaceEnrollPage() {
 
           <Button
             className="w-full"
-            disabled={shots.length < MIN_SHOTS || enroll.isPending}
-            onClick={() => enroll.mutate()}
+            disabled={shots.length < 1 || addPhotos.isPending}
+            onClick={() => addPhotos.mutate()}
           >
-            {enroll.isPending
-              ? 'Đang đăng ký…'
-              : `Đăng ký khuôn mặt (${shots.length} ảnh)`}
+            {addPhotos.isPending ? 'Đang lưu…' : `Lưu ${shots.length} ảnh`}
           </Button>
         </CardContent>
       </Card>

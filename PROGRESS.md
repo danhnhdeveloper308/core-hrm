@@ -29,6 +29,10 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 ### Approver "Quản lý đơn vị" + chainLevel
 - UNIT_MANAGER_OF_TYPE (leo cây theo loại đv) và UNIT_MANAGER_OF_UNIT (chọn đúng 1 đv) đều nhận `chainLevel` tuỳ chọn: 1 = chính quản lý đơn vị, 2 = quản lý cấp trên của họ… (resolver `climbManager`). VD giám đốc TS1 = UNIT_MANAGER_OF_UNIT(TS1) chainLevel 1.
 
+## Quản lý ảnh khuôn mặt self-service (2026-06-25)
+- `FaceService.listPhotos` (signed URL) + `addPhotos` (append, **cap 5 — ghi đè ảnh cũ nhất**, embeddings + photoKeys song song) + `deletePhoto(index)` (xoá 1 ảnh + embedding; hết ảnh → xoá profile). Endpoints self: `GET/POST /face/me/photos`, `DELETE /face/me/photos/:index` (FACE_ENROLL, @Audit).
+- FE `/dashboard/face`: xem lại ảnh đã đăng ký (grid + nút xoá), chụp thêm (cap 5, cảnh báo ghi đè khi đủ). Trước đây chỉ enroll replace-all 3–5 ảnh.
+
 ## Chấm công: geofence + chặn checkout muộn + kiosk public (2026-06-25)
 - **Location (geofence)**: đã review — `haversineMeters` + `dist <= worksite.radiusM` đúng; flag `locationSuspect` khi accuracy>200m. Có unit test (boundary trong/ngoài bán kính).
 - **Chặn chấm RA sau giờ tan**: `AttendanceService.assertCheckoutAllowed` — qua `shift.endTime` (ca ngày) → 422 `ATTENDANCE_AFTER_SHIFT_END`, KHÔNG tạo log OUT → ngày giữ "quên chấm ra" (IN không OUT) cho HR chấm bù (HR edit/correction sẵn có). Ca qua đêm/không ca → bỏ qua. Áp cho cả luồng cá nhân lẫn kiosk.

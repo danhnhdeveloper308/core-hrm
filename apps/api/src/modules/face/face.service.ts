@@ -265,6 +265,120 @@ export class FaceService implements OnModuleInit {
     };
   }
 
+  /** Ảnh khuôn mặt đã đăng ký (signed URL) — cho user xem lại / quản lý. */
+  async listPhotos(
+    orgId: string,
+    employeeId: string,
+  ): Promise<{ index: number; url: string }[]> {
+    const profile = await this.prisma.faceProfile.findFirst({
+      where: { employeeId, orgId },
+    });
+    if (!profile) return [];
+    return Promise.all(
+      profile.photoKeys.map(async (k, index) => ({
+        index,
+        url: await this.storage.getSignedUrl(k, 3600),
+      })),
+    );
+  }
+
+  /**
+   * Thêm ảnh khuôn mặt (append) — GIỮ TỐI ĐA 5 ảnh: nếu vượt thì GHI ĐÈ ảnh cũ
+   * nhất (xoá storage). Tạo profile nếu chưa có. 5 ảnh đã đủ để nhận diện.
+   */
+  async addPhotos(
+    orgId: string,
+    employeeId: string,
+    images: Buffer[],
+    actorId: string,
+  ): Promise<{ enrolledCount: number }> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, orgId },
+      select: { id: true },
+    });
+    if (!employee) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy nhân viên',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+
+    const existing = await this.prisma.faceProfile.findUnique({
+      where: { employeeId },
+    });
+    let embeddings: number[][] = existing
+      ? (existing.embeddings as number[][])
+      : [];
+    let photoKeys: string[] = existing ? existing.photoKeys : [];
+
+    for (let i = 0; i < images.length; i++) {
+      const embedding = await this.extractEmbedding(images[i]!);
+      const key = `${orgId}/face/${employeeId}/enroll-${Date.now()}-${i}.jpg`;
+      await this.storage.put({ key, body: images[i]!, contentType: 'image/jpeg' });
+      embeddings = [...embeddings, embedding];
+      photoKeys = [...photoKeys, key];
+    }
+
+    // Cap 5: bỏ ảnh CŨ NHẤT (đầu mảng), xoá storage tương ứng
+    if (photoKeys.length > 5) {
+      const drop = photoKeys.length - 5;
+      await Promise.all(
+        photoKeys.slice(0, drop).map((k) => this.storage.delete(k).catch(() => undefined)),
+      );
+      embeddings = embeddings.slice(drop);
+      photoKeys = photoKeys.slice(drop);
+    }
+
+    await this.prisma.faceProfile.upsert({
+      where: { employeeId },
+      create: { orgId, employeeId, embeddings, photoKeys, updatedBy: actorId },
+      update: { embeddings, photoKeys, updatedBy: actorId, enrolledAt: new Date() },
+    });
+    addAuditMetadata({ after: { employeeId, enrolledCount: photoKeys.length } });
+    return { enrolledCount: photoKeys.length };
+  }
+
+  /** Xoá 1 ảnh theo vị trí (kèm embedding tương ứng). Hết ảnh → xoá profile. */
+  async deletePhoto(
+    orgId: string,
+    employeeId: string,
+    index: number,
+  ): Promise<{ enrolledCount: number }> {
+    const profile = await this.prisma.faceProfile.findFirst({
+      where: { employeeId, orgId },
+    });
+    if (!profile) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Nhân viên chưa đăng ký khuôn mặt',
+        ERROR_CODES.FACE_NOT_ENROLLED,
+      );
+    }
+    if (index < 0 || index >= profile.photoKeys.length) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Ảnh không tồn tại',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    const removedKey = profile.photoKeys[index]!;
+    const photoKeys = profile.photoKeys.filter((_, i) => i !== index);
+    const embeddings = (profile.embeddings as number[][]).filter((_, i) => i !== index);
+    await this.storage.delete(removedKey).catch(() => undefined);
+
+    if (photoKeys.length === 0) {
+      await this.prisma.faceProfile.delete({ where: { id: profile.id } });
+    } else {
+      await this.prisma.faceProfile.update({
+        where: { id: profile.id },
+        data: { embeddings, photoKeys },
+      });
+    }
+    addAuditMetadata({ after: { employeeId, removedIndex: index, remaining: photoKeys.length } });
+    return { enrolledCount: photoKeys.length };
+  }
+
   async deleteProfile(orgId: string, employeeId: string): Promise<{ message: string }> {
     const profile = await this.prisma.faceProfile.findFirst({
       where: { employeeId, orgId },

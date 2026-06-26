@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   UploadedFiles,
@@ -88,6 +89,64 @@ export class FaceController {
   ) {
     const employeeId = await this.resolveTargetEmployee(orgId, actor);
     return this.face.getStatus(orgId, employeeId);
+  }
+
+  @Get('me/photos')
+  @RequirePermissions(PERMISSIONS.FACE_ENROLL)
+  @ApiOperation({ summary: 'Xem lại các ảnh khuôn mặt đã đăng ký của chính mình' })
+  @ApiOkResponse({ description: '[{ index, url }]' })
+  async myPhotos(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+  ) {
+    const employeeId = await this.resolveTargetEmployee(orgId, actor);
+    return this.face.listPhotos(orgId, employeeId);
+  }
+
+  @Post('me/photos')
+  @RequirePermissions(PERMISSIONS.FACE_ENROLL)
+  @Audit('face.add_photos')
+  @UseInterceptors(FilesInterceptor('photos', 5))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Thêm/thay ảnh khuôn mặt — tự giữ tối đa 5 (ghi đè ảnh cũ nhất)' })
+  @ApiOkResponse({ description: '{ enrolledCount }' })
+  async addMyPhotos(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /^image\/(jpeg|png|webp)$/,
+          skipMagicNumbersValidation: true,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    files: Express.Multer.File[],
+  ) {
+    if (files.length < 1 || files.length > 5) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'Chọn 1–5 ảnh để thêm',
+        ERROR_CODES.VALIDATION_ERROR,
+      );
+    }
+    const employeeId = await this.resolveTargetEmployee(orgId, actor);
+    return this.face.addPhotos(orgId, employeeId, files.map((f) => f.buffer), actor.sub);
+  }
+
+  @Delete('me/photos/:index')
+  @RequirePermissions(PERMISSIONS.FACE_ENROLL)
+  @Audit('face.delete_photo')
+  @ApiOperation({ summary: 'Xoá 1 ảnh khuôn mặt theo vị trí (của chính mình)' })
+  @ApiOkResponse({ description: '{ enrolledCount }' })
+  async deleteMyPhoto(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    const employeeId = await this.resolveTargetEmployee(orgId, actor);
+    return this.face.deletePhoto(orgId, employeeId, index);
   }
 
   @Get(':employeeId/status')
