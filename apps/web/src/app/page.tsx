@@ -72,10 +72,17 @@ const STATS = [
   { value: '3 kênh', label: 'Thông báo realtime' },
   { value: '1:N', label: 'Nhận diện khuôn mặt' },
   { value: 'Đa cấp', label: 'Luồng phê duyệt' },
-  { value: '100%', label: 'Type-safe FE↔BE' },
+  { value: 'Đa', label: 'Tổ chức / chi nhánh' },
 ];
 
-const STACK = ['NestJS 11', 'Next.js 16', 'Prisma 7', 'PostgreSQL', 'Redis', 'Socket.IO', 'BullMQ'];
+// Giá trị nổi bật (thay cho danh sách công nghệ)
+const HIGHLIGHT_PILLS = [
+  'Khuôn mặt & GPS',
+  'Bảng công tự động',
+  'Phê duyệt đa cấp',
+  'Realtime',
+  'Báo cáo Excel',
+];
 
 export default function LandingPage() {
   return (
@@ -137,10 +144,10 @@ export default function LandingPage() {
           </SlideUp>
           <FadeIn delay={0.25}>
             <div className="flex max-w-2xl flex-wrap items-center justify-center gap-2 pt-2">
-              {STACK.map((item) => (
+              {HIGHLIGHT_PILLS.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-xs text-muted-foreground backdrop-blur"
+                  className="rounded-full border border-border/60 bg-background/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur"
                 >
                   {item}
                 </span>
@@ -267,8 +274,20 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="mt-auto border-t border-border/60">
         <div className="mx-auto flex h-16 max-w-6xl flex-col items-center justify-between gap-2 px-4 text-sm text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} HRM</span>
-          <span>NestJS 11 · Next.js 16 · Prisma 7</span>
+          <span className="flex items-center gap-2">
+            <span className="flex size-6 items-center justify-center rounded-md bg-linear-to-br from-violet-600 to-sky-500 text-white">
+              <LayoutDashboard className="size-3.5" />
+            </span>
+            © {new Date().getFullYear()} HRM
+          </span>
+          <nav className="flex items-center gap-4">
+            <Link href="/login" className="hover:text-foreground">
+              Đăng nhập
+            </Link>
+            <Link href="/register" className="hover:text-foreground">
+              Đăng ký
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

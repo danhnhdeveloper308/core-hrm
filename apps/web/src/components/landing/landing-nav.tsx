@@ -4,35 +4,31 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSessionFlag } from './use-session-flag';
+import { LandingUserMenu, ThemeToggleButton } from './landing-user-menu';
+import { useSession } from './use-session';
 
 /** Nav phải của header landing — đổi theo phiên đăng nhập (client). */
 export function LandingNav() {
-  const authed = useSessionFlag();
+  const { loading, user } = useSession();
 
-  if (authed === null) {
-    return <Skeleton className="h-8 w-40" />;
+  if (loading) {
+    return <Skeleton className="h-9 w-36" />;
   }
 
-  if (authed) {
-    return (
-      <Button asChild size="sm">
-        <Link href="/dashboard">
-          Vào dashboard <ArrowRight className="size-4" />
-        </Link>
-      </Button>
-    );
+  if (user) {
+    return <LandingUserMenu user={user} />;
   }
 
   return (
-    <>
+    <div className="flex items-center gap-1">
+      <ThemeToggleButton />
       <Button asChild variant="ghost" size="sm">
         <Link href="/login">Đăng nhập</Link>
       </Button>
       <Button asChild size="sm">
         <Link href="/register">Đăng ký</Link>
       </Button>
-    </>
+    </div>
   );
 }
 
@@ -51,9 +47,9 @@ export function SessionCta({
   loggedOutHref = '/login',
   className,
 }: SessionCtaProps) {
-  const authed = useSessionFlag();
-  const href = authed ? '/dashboard' : loggedOutHref;
-  const label = authed ? 'Vào dashboard' : loggedOutLabel;
+  const { user } = useSession();
+  const href = user ? '/dashboard' : loggedOutHref;
+  const label = user ? 'Vào dashboard' : loggedOutLabel;
 
   return (
     <Button asChild size={size} className={className}>

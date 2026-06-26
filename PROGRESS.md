@@ -86,6 +86,13 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **Script DB production (chạy từ local)**: `_env.prod.sh` đọc `.env.production` ở gốc repo (tách hẳn `.env` dev), migrate ưu tiên `DIRECT_DATABASE_URL` (unpooled — tránh lỗi advisory lock của pooler Neon). Lệnh mới: `pnpm db:setup:prod` (migrate+seed), `db:deploy:prod`, `db:seed:prod`, `db:sync-roles:prod`, `db:studio:prod` (lệnh ghi có xác nhận 'yes'). `env.production.example` thêm `DIRECT_DATABASE_URL`; DEPLOYMENT.md Bước A ghi cách dùng.
 - **Landing polish (UI hiện đại)**: nền aurora [landing-aurora.tsx](apps/web/src/components/landing/landing-aurora.tsx) (3 khối gradient mờ trôi nhẹ transform-only + lưới chấm CSS, reduced-motion đứng yên), tiêu đề gradient-clip, badge "live" ping, dải thống kê, card glass + icon gradient hover-lift, panel CTA gradient. DEPLOYMENT.md mục 10 thêm: cảnh báo Redis eviction (đổi Upstash → `noeviction`) + log TensorFlow/DeprecationWarning (vô hại). Face model auto-download đã xác nhận chạy OK trên Render.
 
+## Landing + auth UI hoàn thiện + user menu + fix script env (2026-06-26)
+- **Bỏ hết nhắc công nghệ** trên landing (NestJS/Next/Prisma…) → thay bằng pill giá trị (Khuôn mặt & GPS, Bảng công tự động, Phê duyệt đa cấp, Realtime, Báo cáo Excel); footer dùng link Đăng nhập/Đăng ký + logo.
+- **User menu header landing** ([landing-user-menu.tsx](apps/web/src/components/landing/landing-user-menu.tsx)): khi đã đăng nhập → avatar dropdown **Đổi giao diện · Vào dashboard · Đăng xuất**; khách → nút đổi theme + Đăng nhập/Đăng ký. Phiên đọc qua [use-session.ts](apps/web/src/components/landing/use-session.ts) (fetch thô `/auth/me`, trả `user`, dedupe, `resetSession()` sau logout). Thay `use-session-flag.ts` cũ.
+- **Auth pages đẹp hơn** ([(auth)/layout.tsx](apps/web/src/app/(auth)/layout.tsx)): nền aurora + logo HRM gradient + link "← Về trang chủ", card drop-shadow.
+- **Fix `pnpm db:seed:prod` báo "DATABASE_URL chưa set"**: `_env.prod.sh` nay tìm `.env.production` ở GỐC repo **rồi** `apps/api/.env.production`, và khi DATABASE_URL trống → báo rõ file đã đọc + nhắc bọc nháy kép + cảnh báo env Vercel/FE không có DATABASE_URL. (Nguyên nhân: `.env.production` chưa có DATABASE_URL backend.)
+- Cảnh báo SSL `pg` (sslmode=require → alias verify-full) vẫn vô hại; muốn hết: đổi `DATABASE_URL` trên Render sang `sslmode=verify-full` (đã ghi DEPLOYMENT.md mục 10).
+
 ## CHƯA LÀM (roadmap còn lại)
 
 1. **Phase 8 — tinh chỉnh (tuỳ chọn)**: email digest (gộp nhiều sự kiện) thay vì gửi mỗi lần. FCM push khi đóng trình duyệt cần `FIREBASE_*` + `NEXT_PUBLIC_FIREBASE_*` (xem `.env.example`).
