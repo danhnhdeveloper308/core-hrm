@@ -272,6 +272,18 @@ Cảnh báo của `pg`/`pg-connection-string` về thay đổi ở phiên bản 
 (đang chạy ở mức bảo mật cao nhất `verify-full`). Muốn hết cảnh báo: đổi `?sslmode=require` →
 `?sslmode=verify-full` trong `DATABASE_URL` (Neon hỗ trợ, CA hợp lệ). Giữ nguyên vẫn an toàn.
 
+### Email mời/OTP KHÔNG tới (user mời không nhận được link)
+Tài khoản mời được tạo nhưng **chưa có mật khẩu** — phải bấm link trong email mới đặt được mật khẩu và
+đăng nhập. Nếu email không tới:
+- **Sender không được dùng email miễn phí**: `MAIL_FROM_ADDRESS=...@gmail.com` (hoặc yahoo/outlook) sẽ bị
+  Brevo/ESP **từ chối hoặc cho vào spam** (DMARC). Boot log sẽ cảnh báo. **Phải** dùng địa chỉ thuộc domain
+  bạn **đã verify** trong Brevo (vd `no-reply@congty.com`).
+- **Khuyến nghị dùng Brevo HTTP API** thay SMTP: đặt `BREVO_API_KEY=...` (provider tự ưu tiên API → ổn định
+  hơn SMTP, ít bị chặn). Verify sender/domain tại Brevo → Senders, Domains & Dedicated IPs.
+- Kiểm tra **Brevo → Logs/Statistics** xem mail được gửi/bounce ra sao; kiểm tra hộp **Spam**.
+- Worker email log `Job invite … thất bại: …` nếu gửi lỗi (xem log BE) — Redis phải chạy để queue hoạt động.
+- Mời lại: gọi lại "Mời user" cùng email (idempotent — gửi lại link cho tài khoản chưa kích hoạt).
+
 ### Redis: `IMPORTANT! Eviction policy is volatile-lru. It should be "noeviction"`
 Cảnh báo của BullMQ: nếu Redis được phép **evict** key khi đầy bộ nhớ, job trong hàng đợi có thể bị
 xoá. **Nên đổi sang `noeviction`** để chắc chắn không mất job:

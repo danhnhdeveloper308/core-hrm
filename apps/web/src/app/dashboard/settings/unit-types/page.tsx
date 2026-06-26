@@ -59,11 +59,16 @@ export default function UnitTypesPage() {
   const [editTarget, setEditTarget] = useState<OrgUnitTypeResponse | null>(null);
 
   const user = useAuthStore((s) => s.user);
-  // "Superadmin": SUPER_ADMIN hệ thống hoặc ORG_ADMIN của chính tổ chức.
+  // Khởi tạo mẫu là thao tác org-scoped → chỉ dành cho ADMIN CÓ ngữ cảnh tổ chức
+  // (ORG_ADMIN / SUPER_ADMIN của org). Platform super admin (orgId = null) KHÔNG
+  // thao tác trực tiếp lên cơ cấu org — họ tạo tổ chức ở /dashboard/organizations
+  // (tự seed loại đơn vị + mời ORG_ADMIN).
   const isSuperAdmin =
-    user?.roles.some(
+    !!user?.orgId &&
+    (user.roles.some(
       (r) => r.name === ROLES.SUPER_ADMIN || r.name === ORG_ROLES.ORG_ADMIN,
-    ) ?? false;
+    ) ??
+      false);
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.org.unitTypes,

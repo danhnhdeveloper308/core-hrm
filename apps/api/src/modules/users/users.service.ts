@@ -66,9 +66,33 @@ export class UsersService {
     input: InviteUserInput,
     opts?: { orgId?: string | null },
   ): Promise<UserResponse> {
-    // Org admin mời vào org mình; platform admin mời user platform —
-    // trừ khi caller nội bộ (tạo org) chỉ định orgId tường minh.
-    const targetOrgId = opts?.orgId !== undefined ? opts.orgId : actor.orgId;
+    // Xác định org đích:
+    // - caller nội bộ (tạo org) chỉ định opts.orgId tường minh → ưu tiên.
+    // - platform admin (actor.orgId = null) có thể chỉ định input.orgId để mời
+    //   ORG_ADMIN vào 1 org cụ thể (1 license = 1 org).
+    // - org admin → luôn org của chính mình (bỏ qua input.orgId chống vượt quyền).
+    const platformActor = actor.orgId == null;
+    const targetOrgId =
+      opts?.orgId !== undefined
+        ? opts.orgId
+        : platformActor && input.orgId
+          ? input.orgId
+          : actor.orgId;
+
+    // Platform admin chỉ định org → org phải tồn tại
+    if (platformActor && input.orgId) {
+      const org = await this.prisma.organization.findFirst({
+        where: { id: input.orgId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!org) {
+        throw new AppException(
+          HttpStatus.BAD_REQUEST,
+          'Tổ chức đích không tồn tại',
+          ERROR_CODES.NOT_FOUND,
+        );
+      }
+    }
 
     const existing = await this.prisma.user.findUnique({
       where: { email: input.email },
@@ -88,12 +112,16 @@ export class UsersService {
       );
     }
 
-    // Roles gán sẵn — mặc định EMPLOYEE (org) / USER (platform)
+    // Roles gán sẵn — mặc định: platform admin mời vào org → ORG_ADMIN (cấp license);
+    // org admin mời → EMPLOYEE; platform (không org) → USER.
     let roleIds = input.roleIds ?? [];
     if (roleIds.length === 0) {
       const defaultRole = await this.prisma.role.findFirst({
         where: targetOrgId
-          ? { name: ORG_ROLES.EMPLOYEE, orgId: targetOrgId }
+          ? {
+              name: platformActor ? ORG_ROLES.ORG_ADMIN : ORG_ROLES.EMPLOYEE,
+              orgId: targetOrgId,
+            }
           : { name: ROLES.USER, orgId: null },
         select: { id: true },
       });

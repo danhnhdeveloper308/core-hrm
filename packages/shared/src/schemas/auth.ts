@@ -103,6 +103,11 @@ export const inviteUserSchema = z.object({
   name: z.string().trim().min(1, 'Tên không được để trống').max(100),
   /** Roles gán sẵn; bỏ trống → role USER mặc định. */
   roleIds: z.array(z.uuid()).optional(),
+  /**
+   * CHỈ platform admin: mời user vào 1 tổ chức cụ thể. Bỏ trống → mời user
+   * platform (role USER). Có giá trị → mời làm ORG_ADMIN của org đó (1 license).
+   */
+  orgId: z.uuid().nullish(),
 });
 
 export const acceptInviteSchema = z.object({

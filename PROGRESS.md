@@ -98,6 +98,11 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **BE**: `POST /org-unit-types/seed-preset` (ORGUNIT_MANAGE, `@Audit`) → `seedTypePreset(orgId, key)`: chỉ chạy khi org **chưa có loại nào** (409 nếu đã có), `createMany` skipDuplicates.
 - **FE** ([unit-types/page.tsx](apps/web/src/app/dashboard/settings/unit-types/page.tsx)): nút **"Khởi tạo từ mẫu"** hiện khi **chưa có loại nào + là superadmin** (role `SUPER_ADMIN` hệ thống hoặc `ORG_ADMIN`) — ở header + empty-state. Dialog chọn 1 trong các mẫu (card chọn, xem trước các tầng dạng badge) → tạo hàng loạt.
 
+## Fix org-context seed + mời ORG_ADMIN + email deliverability (2026-06-26)
+- **Fix "Tài khoản không thuộc tổ chức nào" khi superadmin khởi tạo loại đơn vị**: thao tác org-scoped → platform SUPER_ADMIN (orgId=null) không làm trực tiếp được. Nút "Khởi tạo từ mẫu" nay chỉ hiện khi user **CÓ org** (ORG_ADMIN/SUPER_ADMIN của org). Platform admin tạo tổ chức ở /dashboard/organizations (đã tự seed loại đơn vị theo preset + mời ORG_ADMIN).
+- **Mời ORG_ADMIN ở dashboard/users** (1 license = 1 org): `inviteUserSchema` thêm `orgId` (chỉ platform admin). `users.invite`: platform admin truyền orgId → mời vào org đó, mặc định role **ORG_ADMIN**; org admin mời → EMPLOYEE; platform không org → USER (org admin KHÔNG vượt quyền chỉ định org khác). FE [invite-user-dialog](apps/web/src/components/users/invite-user-dialog.tsx): platform admin thấy ô chọn Tổ chức (để trống = user platform). Luồng tạo Tổ chức vẫn tự mời ORG_ADMIN như cũ → **cả hai nơi đều cấp được**.
+- **Email mời không tới (chỉ sửa gửi email)**: nguyên nhân `MAIL_FROM_ADDRESS` dùng gmail → Brevo/ESP chặn/spam (DMARC). [mail.module](apps/api/src/mail/mail.module.ts) **cảnh báo lúc boot** nếu sender là domain miễn phí (gmail/yahoo/outlook/hotmail/icloud). DEPLOYMENT.md mục 10 + env.production.example: phải dùng sender thuộc domain đã verify trong Brevo, khuyến nghị `BREVO_API_KEY` (HTTP API) thay SMTP. (Không đổi logic provisioning — giữ email-only theo yêu cầu.)
+
 ## CHƯA LÀM (roadmap còn lại)
 
 1. **Phase 8 — tinh chỉnh (tuỳ chọn)**: email digest (gộp nhiều sự kiện) thay vì gửi mỗi lần. FCM push khi đóng trình duyệt cần `FIREBASE_*` + `NEXT_PUBLIC_FIREBASE_*` (xem `.env.example`).
