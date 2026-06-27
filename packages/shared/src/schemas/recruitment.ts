@@ -297,3 +297,62 @@ export const submitFeedbackSchema = z.object({
   comment: z.string().trim().max(2000).nullish(),
 });
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>;
+
+// ===== Thư mời nhận việc (Offer) =====
+
+export const offerStatusSchema = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'SENT',
+  'ACCEPTED',
+  'DECLINED',
+  'EXPIRED',
+]);
+export type OfferStatus = z.infer<typeof offerStatusSchema>;
+
+export const offerSchema = z.object({
+  id: z.uuid(),
+  applicationId: z.string(),
+  candidateName: z.string(),
+  candidatePhone: z.string().nullable(),
+  jobTitle: z.string().nullable(),
+  position: z.string().nullable(),
+  baseSalary: z.number().int(),
+  startDate: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+  status: offerStatusSchema,
+  createdAt: z.string(),
+});
+export type OfferResponse = z.infer<typeof offerSchema>;
+
+export const createOfferSchema = z.object({
+  applicationId: z.uuid(),
+  position: z.string().trim().max(200).nullish(),
+  baseSalary: z.coerce.number().int().min(0),
+  startDate: dateOnlySchema.nullish(),
+  expiresAt: dateOnlySchema.nullish(),
+});
+export type CreateOfferInput = z.infer<typeof createOfferSchema>;
+
+export const updateOfferSchema = z.object({
+  position: z.string().trim().max(200).nullish(),
+  baseSalary: z.coerce.number().int().min(0).optional(),
+  startDate: dateOnlySchema.nullish(),
+  expiresAt: dateOnlySchema.nullish(),
+});
+export type UpdateOfferInput = z.infer<typeof updateOfferSchema>;
+
+/** Chấp nhận offer → tạo nhân viên: HR cấp mã NV + ngày vào làm. */
+export const acceptOfferSchema = z.object({
+  employeeCode: z.string().trim().min(1).max(50),
+  joinDate: dateOnlySchema.optional(),
+});
+export type AcceptOfferInput = z.infer<typeof acceptOfferSchema>;
+
+export const listOffersQuerySchema = z.object({
+  applicationId: z.uuid().optional(),
+  status: offerStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListOffersQuery = z.infer<typeof listOffersQuerySchema>;

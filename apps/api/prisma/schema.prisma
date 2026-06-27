@@ -275,6 +275,7 @@ model Organization {
   applications          Application[]
   interviews            Interview[]
   interviewFeedbacks    InterviewFeedback[]
+  offers                Offer[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -962,6 +963,15 @@ enum InterviewRecommendation {
   MAYBE
 }
 
+enum OfferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
 /// Cách tính công khi áp giờ đăng ký tăng/giãn ca.
 /// CLAMP_TO_REGISTERED: lương = trong [giờ ca, giờ kết thúc đăng ký] (sản xuất).
 /// SEPARATE_OT: giờ hành chính giữ nguyên, phần dôi cộng thành OT riêng (phần mềm).
@@ -1226,10 +1236,33 @@ model Application {
   candidate      Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   jobRequisition JobRequisition @relation(fields: [jobRequisitionId], references: [id], onDelete: Cascade)
   interviews     Interview[]
+  offers         Offer[]
 
   @@unique([candidateId, jobRequisitionId])
   @@index([orgId, stage])
   @@index([jobRequisitionId, stage])
+}
+
+/// Thư mời nhận việc. Duyệt qua engine (OFFER); ACCEPTED → tạo Employee.
+model Offer {
+  id            String      @id @default(uuid()) @db.Uuid
+  orgId         String      @db.Uuid
+  applicationId String      @db.Uuid
+  position      String?
+  baseSalary    Int
+  allowanceJson Json?
+  startDate     DateTime?   @db.Date
+  expiresAt     DateTime?   @db.Date
+  status        OfferStatus @default(DRAFT)
+  letterKey     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([applicationId])
 }
 
 /// Buổi phỏng vấn của 1 hồ sơ ứng tuyển.

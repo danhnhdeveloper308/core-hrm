@@ -53,6 +53,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { ApplicationsTab } from './applications-tab';
 import { InterviewsTab } from './interviews-tab';
+import { OffersTab } from './offers-tab';
 import { RequisitionTab } from './requisition-tab';
 
 const STATUS_META: Record<ManpowerRequestStatus, { label: string; cls: string }> = {
@@ -361,6 +362,7 @@ export default function RecruitmentPage() {
             <TabsTrigger value="requisitions">Tin tuyển dụng</TabsTrigger>
             <TabsTrigger value="applications">Ứng viên</TabsTrigger>
             <TabsTrigger value="interviews">Phỏng vấn</TabsTrigger>
+            <TabsTrigger value="offers">Offer</TabsTrigger>
           </TabsList>
           <TabsContent value="manpower" className="mt-4">
             <ManpowerTab />
@@ -373,6 +375,9 @@ export default function RecruitmentPage() {
           </TabsContent>
           <TabsContent value="interviews" className="mt-4">
             <InterviewsTab />
+          </TabsContent>
+          <TabsContent value="offers" className="mt-4">
+            <OffersTab />
           </TabsContent>
         </Tabs>
       </div>

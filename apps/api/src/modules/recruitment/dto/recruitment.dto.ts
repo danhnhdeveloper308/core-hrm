@@ -8,11 +8,15 @@ import {
   listInterviewsQuerySchema,
   listJobRequisitionsQuerySchema,
   listManpowerRequestsQuerySchema,
+  acceptOfferSchema,
+  createOfferSchema,
+  listOffersQuerySchema,
   submitFeedbackSchema,
   updateApplicationStageSchema,
   updateCandidateSchema,
   updateInterviewSchema,
   updateJobRequisitionSchema,
+  updateOfferSchema,
 } from '@repo/shared';
 import { createZodDto } from 'nestjs-zod';
 
@@ -59,3 +63,11 @@ export class ListInterviewsQueryDto extends createZodDto(
 ) {}
 
 export class SubmitFeedbackDto extends createZodDto(submitFeedbackSchema) {}
+
+export class CreateOfferDto extends createZodDto(createOfferSchema) {}
+
+export class UpdateOfferDto extends createZodDto(updateOfferSchema) {}
+
+export class AcceptOfferDto extends createZodDto(acceptOfferSchema) {}
+
+export class ListOffersQueryDto extends createZodDto(listOffersQuerySchema) {}
