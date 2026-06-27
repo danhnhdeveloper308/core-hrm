@@ -208,6 +208,19 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **FE** tab **360°** ([feedback360-tab.tsx](apps/web/src/app/dashboard/performance/feedback360-tab.tsx)): khối **Lời mời của tôi** (điền điểm + nhận xét) + khối **Đợt 360°** (chọn chu kỳ → bảng đợt: đã nộp/điểm TB/ẩn danh/trạng thái; nút Xem tổng hợp, Đóng; dialog lập đợt: chọn NV được ĐG + ẩn danh + thêm raters {NV, quan hệ}). Dialog tổng hợp: bảng theo nhóm + danh sách nhận xét (ẩn tên khi ẩn danh).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-D.5 Hiệu suất — KPI Dashboard (recharts) (2026-06-27)
+- **BE** `PerformanceDashboardService` + `GET /performance-reports/dashboard?cycleId=` (gate `performance:read`, lọc theo scope): tổng hợp 1 chu kỳ — summary (đánh giá hoàn tất/tổng, điểm chốt TB, tổng mục tiêu, tiến độ mục tiêu TB), `ratingDistribution` (groupBy ratingLabel của review DONE), `scoreByUnit` (điểm chốt TB theo đơn vị — gộp JS từ `employee.orgUnit.name`), `goalByStatus` (groupBy status). Dùng `Promise.all` + Prisma `groupBy`/`aggregate`.
+- **FE** tab **Dashboard** ([dashboard-tab.tsx](apps/web/src/app/dashboard/performance/dashboard-tab.tsx), recharts): 4 stat card + BarChart ngang điểm theo đơn vị + PieChart phân phối xếp loại + BarChart mục tiêu theo trạng thái. Đặt làm tab mặc định của /dashboard/performance.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
+## P-D ĐÃ XONG TRỌN (P-D.1→P-D.5) — Performance/KPI/360° (2026-06-27)
+- **Luồng đầy đủ**: Chu kỳ → (Thư viện KPI) → Mục tiêu (OKR/MBO, tiến độ) → Đánh giá self→manager→ký duyệt(PERFORMANCE_REVIEW)→DONE → 360° (mời/nộp/tổng hợp ẩn danh) → KPI Dashboard. FE gom ở [/dashboard/performance](apps/web/src/app/dashboard/performance/page.tsx) (6 tab).
+- **Quyền (gộp, 3)**: `performance:read` / `performance:manage` / `review:conduct`. Quyền chi tiết theo **phạm vi dữ liệu** (resolveScopePaths: bản thân/subtree quản lý/HR toàn org) thay vì nở thêm permission.
+- Models: ReviewCycle, KpiDefinition, Goal, PerformanceReview, Feedback360(+Rater). 5 migration (`20260627124652`→`20260627131425`). Approval `PERFORMANCE_REVIEW` (ký duyệt tuỳ chọn — không cấu hình luồng thì chốt DONE thẳng).
+- **⚠️ Đăng nhập lại** để nhận 3 quyền hiệu suất. Ký duyệt đánh giá: cấu hình luồng "Đánh giá hiệu suất (ký duyệt)" ở /dashboard/settings/approval-flows nếu muốn bắt buộc.
+- Chưa chạy e2e write-path qua app thật (gate typecheck/lint/test là bar nghiệm thu như các phase trước).
+- **Còn lại roadmap**: P-E (Đào tạo/Chứng chỉ) · P-F (Payroll — làm cuối).
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

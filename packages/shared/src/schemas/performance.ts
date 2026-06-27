@@ -359,6 +359,44 @@ export const listFeedback360QuerySchema = z.object({
 });
 export type ListFeedback360Query = z.infer<typeof listFeedback360QuerySchema>;
 
+// ===== KPI Dashboard (tổng hợp theo chu kỳ) =====
+
+export const performanceDashboardQuerySchema = z.object({
+  cycleId: z.uuid(),
+});
+export type PerformanceDashboardQuery = z.infer<
+  typeof performanceDashboardQuerySchema
+>;
+
+export const performanceDashboardSchema = z.object({
+  cycleId: z.string(),
+  cycleName: z.string().nullable(),
+  summary: z.object({
+    reviewTotal: z.number().int(),
+    reviewDone: z.number().int(),
+    avgFinalScore: z.number().nullable(),
+    goalTotal: z.number().int(),
+    avgGoalProgress: z.number().nullable(),
+  }),
+  /** Phân phối xếp loại (review DONE) — recharts pie/bar. */
+  ratingDistribution: z.array(
+    z.object({ label: z.string(), count: z.number().int() }),
+  ),
+  /** Điểm chốt trung bình theo đơn vị (đã chốt). */
+  scoreByUnit: z.array(
+    z.object({
+      unitName: z.string(),
+      avgScore: z.number(),
+      count: z.number().int(),
+    }),
+  ),
+  /** Mục tiêu theo trạng thái. */
+  goalByStatus: z.array(
+    z.object({ status: goalStatusSchema, count: z.number().int() }),
+  ),
+});
+export type PerformanceDashboard = z.infer<typeof performanceDashboardSchema>;
+
 /** 1 lời mời đánh giá 360° của tôi (để điền). */
 export const feedback360InvitationSchema = z.object({
   raterId: z.uuid(),

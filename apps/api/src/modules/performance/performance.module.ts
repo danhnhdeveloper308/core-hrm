@@ -6,6 +6,8 @@ import { Feedback360Controller } from './feedback360.controller';
 import { Feedback360Service } from './feedback360.service';
 import { GoalsController } from './goals.controller';
 import { GoalsService } from './goals.service';
+import { PerformanceDashboardController } from './performance-dashboard.controller';
+import { PerformanceDashboardService } from './performance-dashboard.service';
 import { KpiDefinitionsController } from './kpi-definitions.controller';
 import { KpiDefinitionsService } from './kpi-definitions.service';
 import { PerformanceReviewsController } from './performance-reviews.controller';
@@ -22,6 +24,7 @@ import { ReviewCyclesService } from './review-cycles.service';
     GoalsController,
     PerformanceReviewsController,
     Feedback360Controller,
+    PerformanceDashboardController,
   ],
   providers: [
     ReviewCyclesService,
@@ -29,6 +32,7 @@ import { ReviewCyclesService } from './review-cycles.service';
     GoalsService,
     PerformanceReviewsService,
     Feedback360Service,
+    PerformanceDashboardService,
   ],
 })
 export class PerformanceModule {}

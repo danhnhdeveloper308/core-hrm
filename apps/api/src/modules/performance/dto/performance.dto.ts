@@ -10,6 +10,7 @@ import {
   listKpiDefinitionsQuerySchema,
   listPerformanceReviewsQuerySchema,
   listReviewCyclesQuerySchema,
+  performanceDashboardQuerySchema,
   submitFeedback360Schema,
   submitManagerReviewSchema,
   submitSelfReviewSchema,
@@ -80,4 +81,8 @@ export class SubmitFeedback360Dto extends createZodDto(
 
 export class ListFeedback360QueryDto extends createZodDto(
   listFeedback360QuerySchema,
+) {}
+
+export class PerformanceDashboardQueryDto extends createZodDto(
+  performanceDashboardQuerySchema,
 ) {}

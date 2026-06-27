@@ -127,6 +127,8 @@ export const queryKeys = {
     feedback360Detail: (id: string) =>
       ['performance', 'feedback360', 'detail', id] as const,
     myInvitations: ['performance', 'feedback360', 'my-invitations'] as const,
+    dashboard: (cycleId: string) =>
+      ['performance', 'dashboard', cycleId] as const,
   },
 
   reports: {

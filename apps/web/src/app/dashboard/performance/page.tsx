@@ -48,6 +48,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { DashboardTab } from './dashboard-tab';
 import { Feedback360Tab } from './feedback360-tab';
 import { GoalsTab } from './goals-tab';
 import { KpiTab } from './kpi-tab';
@@ -404,14 +405,18 @@ export default function PerformancePage() {
           </p>
         </div>
 
-        <Tabs defaultValue="cycles">
+        <Tabs defaultValue="dashboard">
           <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="cycles">Chu kỳ</TabsTrigger>
             <TabsTrigger value="goals">Mục tiêu</TabsTrigger>
             <TabsTrigger value="reviews">Đánh giá</TabsTrigger>
             <TabsTrigger value="feedback360">360°</TabsTrigger>
             <TabsTrigger value="kpi">Thư viện KPI</TabsTrigger>
           </TabsList>
+          <TabsContent value="dashboard" className="mt-4">
+            <DashboardTab />
+          </TabsContent>
           <TabsContent value="cycles" className="mt-4">
             <CyclesTab />
           </TabsContent>
