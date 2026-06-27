@@ -113,6 +113,13 @@ export const queryKeys = {
       ['recruitment', 'offers', filters] as const,
   },
 
+  performance: {
+    cycles: (filters: Record<string, unknown>) =>
+      ['performance', 'cycles', filters] as const,
+    kpiDefinitions: (filters: Record<string, unknown>) =>
+      ['performance', 'kpi-definitions', filters] as const,
+  },
+
   reports: {
     dashboard: ['reports', 'dashboard'] as const,
     /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */

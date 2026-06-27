@@ -68,6 +68,7 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'OT', label: 'Tăng ca' },
   { value: 'MANPOWER_REQUEST', label: 'Yêu cầu tuyển dụng' },
   { value: 'OFFER', label: 'Thư mời nhận việc (offer)' },
+  { value: 'PERFORMANCE_REVIEW', label: 'Đánh giá hiệu suất (ký duyệt)' },
 ];
 
 const APPROVER_TYPE_OPTIONS: { value: ApproverType; label: string }[] = [

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ApprovalTargetType" ADD VALUE 'PERFORMANCE_REVIEW';

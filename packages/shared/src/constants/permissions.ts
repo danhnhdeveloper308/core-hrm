@@ -51,6 +51,10 @@ export const PERMISSIONS = {
   RECRUITMENT_READ: 'recruitment:read',
   RECRUITMENT_MANAGE: 'recruitment:manage',
   OFFER_MANAGE: 'offer:manage',
+  // hiệu suất / KPI / 360° (đọc theo scope; manage = HR cấu hình; conduct = quản lý chấm điểm/ký)
+  PERFORMANCE_READ: 'performance:read',
+  PERFORMANCE_MANAGE: 'performance:manage',
+  REVIEW_CONDUCT: 'review:conduct',
   // nghỉ phép
   LEAVE_READ: 'leave:read',
   LEAVE_REQUEST: 'leave:request',
@@ -121,6 +125,11 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'recruitment:read': 'Xem dữ liệu tuyển dụng (yêu cầu, tin, ứng viên, phỏng vấn)',
   'recruitment:manage': 'Quản lý tuyển dụng (yêu cầu, tin, ứng viên, phỏng vấn)',
   'offer:manage': 'Tạo / duyệt / gửi thư mời nhận việc (offer)',
+  'performance:read':
+    'Xem chu kỳ, thư viện KPI, mục tiêu & đánh giá (theo phạm vi) + KPI dashboard',
+  'performance:manage':
+    'Quản lý chu kỳ đánh giá, thư viện KPI và khởi tạo đánh giá / 360°',
+  'review:conduct': 'Chấm điểm đánh giá (quản lý), giao mục tiêu cấp dưới & ký duyệt',
   'leave:read': 'Xem số dư và đơn nghỉ phép',
   'leave:request': 'Tạo đơn nghỉ phép',
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',

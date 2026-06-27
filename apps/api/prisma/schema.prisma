@@ -276,6 +276,8 @@ model Organization {
   interviews            Interview[]
   interviewFeedbacks    InterviewFeedback[]
   offers                Offer[]
+  reviewCycles          ReviewCycle[]
+  kpiDefinitions        KpiDefinition[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -917,6 +919,7 @@ enum ApprovalTargetType {
   SHIFT_BATCH
   MANPOWER_REQUEST
   OFFER
+  PERFORMANCE_REVIEW
 }
 
 enum ManpowerRequestStatus {
@@ -1318,6 +1321,65 @@ model InterviewFeedback {
 
   @@unique([interviewId, interviewerId])
   @@index([interviewId])
+}
+
+// ===== P-D — Hiệu suất / KPI / 360° =====
+
+enum ReviewCycleType {
+  QUARTERLY
+  SEMI
+  ANNUAL
+  CUSTOM
+}
+
+enum ReviewCycleStatus {
+  DRAFT
+  OPEN
+  CALIBRATING
+  CLOSED
+}
+
+enum KpiDirection {
+  HIGHER_BETTER
+  LOWER_BETTER
+}
+
+/// Chu kỳ đánh giá hiệu suất (quý/6 tháng/năm/tuỳ chỉnh). Khung thời gian cho
+/// mục tiêu (Goal), đánh giá (PerformanceReview) và 360° (Feedback360).
+model ReviewCycle {
+  id          String            @id @default(uuid()) @db.Uuid
+  orgId       String            @db.Uuid
+  name        String
+  type        ReviewCycleType   @default(QUARTERLY)
+  periodStart DateTime          @db.Date
+  periodEnd   DateTime          @db.Date
+  status      ReviewCycleStatus @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+}
+
+/// Thư viện KPI dùng lại — gắn vào mục tiêu (Goal) để chuẩn hoá đơn vị/chiều tốt.
+model KpiDefinition {
+  id            String       @id @default(uuid()) @db.Uuid
+  orgId         String       @db.Uuid
+  name          String
+  category      String?
+  unit          String?
+  direction     KpiDirection @default(HIGHER_BETTER)
+  /// Trọng số gợi ý (%) khi đưa vào mục tiêu
+  defaultWeight Int          @default(0)
+  description   String?
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, active])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

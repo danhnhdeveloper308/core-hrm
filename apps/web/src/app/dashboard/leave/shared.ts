@@ -57,6 +57,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   SHIFT_BATCH: 'Phiếu tăng/giãn ca',
   MANPOWER_REQUEST: 'Yêu cầu tuyển dụng',
   OFFER: 'Thư mời nhận việc (offer)',
+  PERFORMANCE_REVIEW: 'Đánh giá hiệu suất (ký duyệt)',
 };
 
 /** "2" / "1.5" → bỏ số 0 thừa. */

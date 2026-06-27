@@ -178,6 +178,15 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Vận hành**: gửi offer đi duyệt cần cấu hình **luồng duyệt "Thư mời nhận việc (offer)"** ở /dashboard/settings/approval-flows (đã thêm vào builder ở P-C.1), nếu không sẽ lỗi APPROVAL_NO_FLOW (offer giữ DRAFT).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-D.1 Hiệu suất — Chu kỳ đánh giá + Thư viện KPI (2026-06-27)
+- Model `ReviewCycle` (name/type/period/status) + enum `ReviewCycleType` (QUARTERLY/SEMI/ANNUAL/CUSTOM), `ReviewCycleStatus` (DRAFT/OPEN/CALIBRATING/CLOSED) + `KpiDefinition` (name/category/unit/direction/defaultWeight/active) + enum `KpiDirection` (HIGHER_BETTER/LOWER_BETTER). Migration `20260627124652_perf_review_cycle_kpi`. Org thêm back-rel `reviewCycles`/`kpiDefinitions`.
+- Enum approval `PERFORMANCE_REVIEW` (cho ký duyệt đánh giá ở P-D.3) thêm vào `ApprovalTargetType` (shared + prisma, migration `20260627124934_perf_review_approval_target`) + `OVERRIDE_PERM` (→ `review:conduct`) + builder FE (TARGET_TYPES + labels).
+- **Permission (gộp, 3)**: `performance:read` (xem chu kỳ/KPI/mục tiêu/đánh giá theo scope + dashboard), `performance:manage` (HR cấu hình chu kỳ + thư viện KPI + khởi tạo đánh giá/360°), `review:conduct` (quản lý chấm điểm + giao mục tiêu cấp dưới + ký duyệt). Gán: ORG_ADMIN/HR_MANAGER = cả 3; UNIT_MANAGER = read+conduct; EMPLOYEE/WORKER = read. Seed 47 quyền + sync-roles.
+- **BE** module `performance/`: `ReviewCyclesService` (`GET/POST/PATCH/DELETE /review-cycles`, xoá chỉ khi DRAFT, PATCH đổi cả status) + `KpiDefinitionsService` (`GET/POST/PATCH/DELETE /kpi-definitions`, lọc category/active/search). `goalCount`/`reviewCount` tạm = 0 (nối thật ở P-D.2/P-D.3). `@Audit` mọi mutation.
+- **FE** `/dashboard/performance` ([page.tsx](apps/web/src/app/dashboard/performance/page.tsx)) tab **Chu kỳ** (bảng + dialog tạo/sửa name/type/period/status, xoá khi nháp) + **Thư viện KPI** ([kpi-tab.tsx](apps/web/src/app/dashboard/performance/kpi-tab.tsx)) (bảng + dialog CRUD). Sidebar item "Hiệu suất" (icon Target, `performance:read`).
+- **⚠️ Đăng nhập lại** để nhận 3 quyền mới. Tab Mục tiêu/Đánh giá/360°/Dashboard ở các slice P-D.2→P-D.5.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.
