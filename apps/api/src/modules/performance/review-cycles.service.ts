@@ -15,7 +15,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 const dateOnly = (d: Date): string => d.toISOString().slice(0, 10);
 
 const INCLUDE = {
-  _count: { select: { goals: true } },
+  _count: { select: { goals: true, reviews: true } },
 } as const;
 
 type CycleRow = Prisma.ReviewCycleGetPayload<{ include: typeof INCLUDE }>;
@@ -29,8 +29,7 @@ function toResponse(c: CycleRow): ReviewCycleResponse {
     periodEnd: dateOnly(c.periodEnd),
     status: c.status,
     goalCount: c._count.goals,
-    // reviewCount nối ở P-D.3 (PerformanceReview)
-    reviewCount: 0,
+    reviewCount: c._count.reviews,
     createdAt: c.createdAt.toISOString(),
   };
 }

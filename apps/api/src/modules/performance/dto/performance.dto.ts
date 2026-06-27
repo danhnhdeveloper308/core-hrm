@@ -1,10 +1,15 @@
 import {
   createGoalSchema,
   createKpiDefinitionSchema,
+  createPerformanceReviewSchema,
   createReviewCycleSchema,
+  generateReviewsSchema,
   listGoalsQuerySchema,
   listKpiDefinitionsQuerySchema,
+  listPerformanceReviewsQuerySchema,
   listReviewCyclesQuerySchema,
+  submitManagerReviewSchema,
+  submitSelfReviewSchema,
   updateGoalProgressSchema,
   updateGoalSchema,
   updateKpiDefinitionSchema,
@@ -45,3 +50,19 @@ export class UpdateGoalProgressDto extends createZodDto(
 ) {}
 
 export class ListGoalsQueryDto extends createZodDto(listGoalsQuerySchema) {}
+
+export class CreatePerformanceReviewDto extends createZodDto(
+  createPerformanceReviewSchema,
+) {}
+
+export class GenerateReviewsDto extends createZodDto(generateReviewsSchema) {}
+
+export class SubmitSelfReviewDto extends createZodDto(submitSelfReviewSchema) {}
+
+export class SubmitManagerReviewDto extends createZodDto(
+  submitManagerReviewSchema,
+) {}
+
+export class ListPerformanceReviewsQueryDto extends createZodDto(
+  listPerformanceReviewsQuerySchema,
+) {}

@@ -193,3 +193,82 @@ export const listGoalsQuerySchema = z.object({
   cursor: z.uuid().optional(),
 });
 export type ListGoalsQuery = z.infer<typeof listGoalsQuerySchema>;
+
+// ===== Đánh giá hiệu suất (PerformanceReview) =====
+
+export const performanceReviewStatusSchema = z.enum([
+  'SELF',
+  'MANAGER',
+  'CALIBRATION',
+  'DONE',
+]);
+export type PerformanceReviewStatus = z.infer<
+  typeof performanceReviewStatusSchema
+>;
+
+export const performanceReviewSchema = z.object({
+  id: z.uuid(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  cycleId: z.string(),
+  cycleName: z.string().nullable(),
+  reviewerId: z.string().nullable(),
+  reviewerName: z.string().nullable(),
+  selfScore: z.number().nullable(),
+  selfComment: z.string().nullable(),
+  managerScore: z.number().nullable(),
+  managerComment: z.string().nullable(),
+  finalScore: z.number().nullable(),
+  ratingLabel: z.string().nullable(),
+  status: performanceReviewStatusSchema,
+  submittedSelfAt: z.string().nullable(),
+  submittedManagerAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type PerformanceReviewResponse = z.infer<
+  typeof performanceReviewSchema
+>;
+
+export const createPerformanceReviewSchema = z.object({
+  employeeId: z.uuid(),
+  cycleId: z.uuid(),
+  reviewerId: z.uuid().nullish(),
+});
+export type CreatePerformanceReviewInput = z.infer<
+  typeof createPerformanceReviewSchema
+>;
+
+/** Sinh hàng loạt phiếu đánh giá cho 1 chu kỳ (mỗi NV trong phạm vi 1 phiếu). */
+export const generateReviewsSchema = z.object({
+  cycleId: z.uuid(),
+});
+export type GenerateReviewsInput = z.infer<typeof generateReviewsSchema>;
+
+const scoreSchema = z.coerce.number().min(0).max(5);
+
+export const submitSelfReviewSchema = z.object({
+  selfScore: scoreSchema,
+  selfComment: z.string().trim().max(4000).nullish(),
+});
+export type SubmitSelfReviewInput = z.infer<typeof submitSelfReviewSchema>;
+
+export const submitManagerReviewSchema = z.object({
+  managerScore: scoreSchema,
+  managerComment: z.string().trim().max(4000).nullish(),
+  finalScore: scoreSchema,
+  ratingLabel: z.string().trim().max(100).nullish(),
+});
+export type SubmitManagerReviewInput = z.infer<
+  typeof submitManagerReviewSchema
+>;
+
+export const listPerformanceReviewsQuerySchema = z.object({
+  cycleId: z.uuid().optional(),
+  employeeId: z.uuid().optional(),
+  status: performanceReviewStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListPerformanceReviewsQuery = z.infer<
+  typeof listPerformanceReviewsQuerySchema
+>;

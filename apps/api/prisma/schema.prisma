@@ -279,6 +279,7 @@ model Organization {
   reviewCycles          ReviewCycle[]
   kpiDefinitions        KpiDefinition[]
   goals                 Goal[]
+  performanceReviews    PerformanceReview[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -498,6 +499,8 @@ model Employee {
   interviewPanels       InterviewPanelist[]  @relation("InterviewPanelist")
   interviewFeedbacks    InterviewFeedback[]  @relation("InterviewFeedbackAuthor")
   goals                 Goal[]               @relation("EmployeeGoals")
+  reviewsReceived       PerformanceReview[]  @relation("EmployeeReviews")
+  reviewsGiven          PerformanceReview[]  @relation("ReviewerReviews")
 
   // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
   @@index([orgId, code])
@@ -1359,8 +1362,9 @@ model ReviewCycle {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  goals Goal[]
+  org     Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  goals   Goal[]
+  reviews PerformanceReview[]
 
   @@index([orgId, status])
 }
@@ -1424,6 +1428,44 @@ model Goal {
 
   @@index([orgId, cycleId])
   @@index([employeeId, cycleId])
+}
+
+enum PerformanceReviewStatus {
+  SELF
+  MANAGER
+  CALIBRATION
+  DONE
+}
+
+/// Phiếu đánh giá hiệu suất của 1 nhân viên trong 1 chu kỳ: tự đánh giá (self)
+/// → quản lý đánh giá (manager) → ký duyệt (engine PERFORMANCE_REVIEW) → DONE.
+model PerformanceReview {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  orgId              String                  @db.Uuid
+  employeeId         String                  @db.Uuid
+  cycleId            String                  @db.Uuid
+  /// Employee.id người đánh giá (quản lý) — null = chưa gán
+  reviewerId         String?                 @db.Uuid
+  selfScore          Float?
+  selfComment        String?
+  managerScore       Float?
+  managerComment     String?
+  finalScore         Float?
+  ratingLabel        String?
+  status             PerformanceReviewStatus @default(SELF)
+  submittedSelfAt    DateTime?
+  submittedManagerAt DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee Employee     @relation("EmployeeReviews", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer Employee?    @relation("ReviewerReviews", fields: [reviewerId], references: [id], onDelete: SetNull)
+  cycle    ReviewCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, employeeId])
+  @@index([orgId, cycleId])
+  @@index([employeeId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

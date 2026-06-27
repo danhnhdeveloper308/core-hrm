@@ -50,6 +50,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { GoalsTab } from './goals-tab';
 import { KpiTab } from './kpi-tab';
+import { ReviewsTab } from './reviews-tab';
 
 const TYPE_LABEL: Record<ReviewCycleType, string> = {
   QUARTERLY: 'Theo quý',
@@ -406,6 +407,7 @@ export default function PerformancePage() {
           <TabsList>
             <TabsTrigger value="cycles">Chu kỳ</TabsTrigger>
             <TabsTrigger value="goals">Mục tiêu</TabsTrigger>
+            <TabsTrigger value="reviews">Đánh giá</TabsTrigger>
             <TabsTrigger value="kpi">Thư viện KPI</TabsTrigger>
           </TabsList>
           <TabsContent value="cycles" className="mt-4">
@@ -413,6 +415,9 @@ export default function PerformancePage() {
           </TabsContent>
           <TabsContent value="goals" className="mt-4">
             <GoalsTab />
+          </TabsContent>
+          <TabsContent value="reviews" className="mt-4">
+            <ReviewsTab />
           </TabsContent>
           <TabsContent value="kpi" className="mt-4">
             <KpiTab />
