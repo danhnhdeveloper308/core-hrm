@@ -105,6 +105,8 @@ export const queryKeys = {
   recruitment: {
     manpowerRequests: (filters: Record<string, unknown>) =>
       ['recruitment', 'manpower-requests', filters] as const,
+    jobRequisitions: (filters: Record<string, unknown>) =>
+      ['recruitment', 'job-requisitions', filters] as const,
   },
 
   reports: {

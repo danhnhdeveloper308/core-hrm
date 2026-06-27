@@ -270,6 +270,7 @@ model Organization {
   otRequests            OtRequest[]
   otPolicies            OtPolicy[]
   manpowerRequests      ManpowerRequest[]
+  jobRequisitions       JobRequisition[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -324,6 +325,7 @@ model OrgUnit {
   leavePolicies LeavePolicy[]
   otPolicies   OtPolicy[]
   manpowerRequests ManpowerRequest[]
+  jobRequisitions  JobRequisition[]
 
   @@unique([orgId, parentId, code])
   @@index([orgId, path])
@@ -343,6 +345,7 @@ model Position {
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   employees Employee[]
   manpowerRequests ManpowerRequest[]
+  jobRequisitions  JobRequisition[]
 
   @@unique([orgId, code])
 }
@@ -917,6 +920,14 @@ enum ManpowerRequestStatus {
   CANCELLED
 }
 
+enum RequisitionStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+  FILLED
+}
+
 /// Cách tính công khi áp giờ đăng ký tăng/giãn ca.
 /// CLAMP_TO_REGISTERED: lương = trong [giờ ca, giờ kết thúc đăng ký] (sản xuất).
 /// SEPARATE_OT: giờ hành chính giữ nguyên, phần dôi cộng thành OT riêng (phần mềm).
@@ -1110,6 +1121,36 @@ model ManpowerRequest {
   orgUnit   OrgUnit?     @relation(fields: [orgUnitId], references: [id], onDelete: SetNull)
   position  Position?    @relation(fields: [positionId], references: [id], onDelete: SetNull)
   requester Employee     @relation("ManpowerRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requisitions JobRequisition[]
+
+  @@index([orgId, status])
+}
+
+/// Tin/đợt tuyển dụng — mở từ 1 ManpowerRequest đã duyệt (tuỳ chọn). Ứng viên
+/// (Application) gắn vào đây ở P-C.3.
+model JobRequisition {
+  id                String            @id @default(uuid()) @db.Uuid
+  orgId             String            @db.Uuid
+  manpowerRequestId String?           @db.Uuid
+  title             String
+  orgUnitId         String?           @db.Uuid
+  positionId        String?           @db.Uuid
+  headcount         Int               @default(1)
+  description       String?
+  requirements      String?
+  salaryFrom        Int?
+  salaryTo          Int?
+  employmentType    ContractType?
+  status            RequisitionStatus @default(DRAFT)
+  openedAt          DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  manpowerRequest ManpowerRequest? @relation(fields: [manpowerRequestId], references: [id], onDelete: SetNull)
+  orgUnit         OrgUnit?         @relation(fields: [orgUnitId], references: [id], onDelete: SetNull)
+  position        Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
 
   @@index([orgId, status])
 }

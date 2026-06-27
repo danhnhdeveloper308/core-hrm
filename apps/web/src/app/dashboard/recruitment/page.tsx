@@ -51,6 +51,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { RequisitionTab } from './requisition-tab';
 
 const STATUS_META: Record<ManpowerRequestStatus, { label: string; cls: string }> = {
   PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
@@ -355,9 +356,13 @@ export default function RecruitmentPage() {
         <Tabs defaultValue="manpower">
           <TabsList>
             <TabsTrigger value="manpower">Yêu cầu nhân sự</TabsTrigger>
+            <TabsTrigger value="requisitions">Tin tuyển dụng</TabsTrigger>
           </TabsList>
           <TabsContent value="manpower" className="mt-4">
             <ManpowerTab />
+          </TabsContent>
+          <TabsContent value="requisitions" className="mt-4">
+            <RequisitionTab />
           </TabsContent>
         </Tabs>
       </div>
