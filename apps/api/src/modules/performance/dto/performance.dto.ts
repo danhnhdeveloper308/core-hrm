@@ -1,13 +1,16 @@
 import {
+  createFeedback360Schema,
   createGoalSchema,
   createKpiDefinitionSchema,
   createPerformanceReviewSchema,
   createReviewCycleSchema,
   generateReviewsSchema,
+  listFeedback360QuerySchema,
   listGoalsQuerySchema,
   listKpiDefinitionsQuerySchema,
   listPerformanceReviewsQuerySchema,
   listReviewCyclesQuerySchema,
+  submitFeedback360Schema,
   submitManagerReviewSchema,
   submitSelfReviewSchema,
   updateGoalProgressSchema,
@@ -65,4 +68,16 @@ export class SubmitManagerReviewDto extends createZodDto(
 
 export class ListPerformanceReviewsQueryDto extends createZodDto(
   listPerformanceReviewsQuerySchema,
+) {}
+
+export class CreateFeedback360Dto extends createZodDto(
+  createFeedback360Schema,
+) {}
+
+export class SubmitFeedback360Dto extends createZodDto(
+  submitFeedback360Schema,
+) {}
+
+export class ListFeedback360QueryDto extends createZodDto(
+  listFeedback360QuerySchema,
 ) {}

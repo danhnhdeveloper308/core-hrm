@@ -201,6 +201,13 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Vận hành**: muốn **bắt buộc ký duyệt** đánh giá, cấu hình luồng "Đánh giá hiệu suất (ký duyệt)" ở /dashboard/settings/approval-flows (đã thêm builder ở P-D.1); không cấu hình thì chốt thẳng DONE.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-D.4 Hiệu suất — Phản hồi 360° (ẩn danh) (2026-06-27)
+- Model `Feedback360` (revieweeId/cycleId/status/anonymous) + `Feedback360Rater` (raterEmployeeId/relation/score/comment/submitted) + enum `Feedback360Status` (COLLECTING/CLOSED), `Rater360Relation` (MANAGER/PEER/SUBORDINATE/SELF). Unique `[cycleId, revieweeId]` + `[feedback360Id, raterEmployeeId]`. Migration `20260627131425_perf_feedback360`. Back-rel Org/ReviewCycle(`feedback360s`)/Employee(`feedback360sReceived`+`feedback360Given`).
+- **Ẩn danh (gotcha)**: chi tiết đợt trả **tổng hợp** — `byRelation` (đếm + điểm TB theo nhóm quan hệ) + `comments` (nhận xét). Khi `anonymous=true` → `raterName=null` (KHÔNG lộ danh tính); chỉ lộ tên khi đợt công khai.
+- **BE** `Feedback360Service`: `GET /feedback-360` (list theo scope reviewee), `GET /feedback-360/:id` (chi tiết tổng hợp/ẩn danh, scope), `POST /feedback-360` (lập đợt + mời raters), `POST /:id/close`, `GET /feedback-360/my-invitations` (lời mời của tôi), `POST /feedback-360/raters/:raterId/submit` (nộp — chỉ phiếu của mình, khi COLLECTING). Notification (GENERAL) mời raters. Gate: list/get/my-invitations/submit = `performance:read`; create/close = `review:conduct`. Scope như Goal/Review. `@Audit`.
+- **FE** tab **360°** ([feedback360-tab.tsx](apps/web/src/app/dashboard/performance/feedback360-tab.tsx)): khối **Lời mời của tôi** (điền điểm + nhận xét) + khối **Đợt 360°** (chọn chu kỳ → bảng đợt: đã nộp/điểm TB/ẩn danh/trạng thái; nút Xem tổng hợp, Đóng; dialog lập đợt: chọn NV được ĐG + ẩn danh + thêm raters {NV, quan hệ}). Dialog tổng hợp: bảng theo nhóm + danh sách nhận xét (ẩn tên khi ẩn danh).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

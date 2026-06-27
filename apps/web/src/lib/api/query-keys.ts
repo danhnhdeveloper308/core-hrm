@@ -122,6 +122,11 @@ export const queryKeys = {
       ['performance', 'goals', filters] as const,
     reviews: (filters: Record<string, unknown>) =>
       ['performance', 'reviews', filters] as const,
+    feedback360: (filters: Record<string, unknown>) =>
+      ['performance', 'feedback360', filters] as const,
+    feedback360Detail: (id: string) =>
+      ['performance', 'feedback360', 'detail', id] as const,
+    myInvitations: ['performance', 'feedback360', 'my-invitations'] as const,
   },
 
   reports: {

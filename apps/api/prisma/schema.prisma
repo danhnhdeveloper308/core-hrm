@@ -280,6 +280,8 @@ model Organization {
   kpiDefinitions        KpiDefinition[]
   goals                 Goal[]
   performanceReviews    PerformanceReview[]
+  feedback360s          Feedback360[]
+  feedback360Raters     Feedback360Rater[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -501,6 +503,8 @@ model Employee {
   goals                 Goal[]               @relation("EmployeeGoals")
   reviewsReceived       PerformanceReview[]  @relation("EmployeeReviews")
   reviewsGiven          PerformanceReview[]  @relation("ReviewerReviews")
+  feedback360sReceived  Feedback360[]        @relation("Feedback360Reviewee")
+  feedback360Given      Feedback360Rater[]   @relation("Feedback360Rater")
 
   // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
   @@index([orgId, code])
@@ -1362,9 +1366,10 @@ model ReviewCycle {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org     Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  goals   Goal[]
-  reviews PerformanceReview[]
+  org          Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  goals        Goal[]
+  reviews      PerformanceReview[]
+  feedback360s Feedback360[]
 
   @@index([orgId, status])
 }
@@ -1466,6 +1471,61 @@ model PerformanceReview {
   @@unique([cycleId, employeeId])
   @@index([orgId, cycleId])
   @@index([employeeId])
+}
+
+enum Feedback360Status {
+  COLLECTING
+  CLOSED
+}
+
+enum Rater360Relation {
+  MANAGER
+  PEER
+  SUBORDINATE
+  SELF
+}
+
+/// Đợt phản hồi 360° cho 1 nhân viên (reviewee) trong 1 chu kỳ. Khi anonymous=true,
+/// tổng hợp KHÔNG lộ danh tính người đánh giá (chỉ theo nhóm quan hệ).
+model Feedback360 {
+  id         String            @id @default(uuid()) @db.Uuid
+  orgId      String            @db.Uuid
+  revieweeId String            @db.Uuid
+  cycleId    String            @db.Uuid
+  status     Feedback360Status @default(COLLECTING)
+  anonymous  Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  org      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  reviewee Employee           @relation("Feedback360Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  cycle    ReviewCycle        @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  raters   Feedback360Rater[]
+
+  @@unique([cycleId, revieweeId])
+  @@index([orgId, cycleId])
+}
+
+/// 1 người đánh giá trong đợt 360° (gắn quan hệ với reviewee + phản hồi của họ).
+model Feedback360Rater {
+  id              String           @id @default(uuid()) @db.Uuid
+  orgId           String           @db.Uuid
+  feedback360Id   String           @db.Uuid
+  raterEmployeeId String           @db.Uuid
+  relation        Rater360Relation
+  score           Float?
+  comment         String?
+  submitted       Boolean          @default(false)
+  submittedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  feedback360 Feedback360  @relation(fields: [feedback360Id], references: [id], onDelete: Cascade)
+  rater       Employee     @relation("Feedback360Rater", fields: [raterEmployeeId], references: [id], onDelete: Cascade)
+
+  @@unique([feedback360Id, raterEmployeeId])
+  @@index([orgId, raterEmployeeId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

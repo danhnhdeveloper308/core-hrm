@@ -272,3 +272,105 @@ export const listPerformanceReviewsQuerySchema = z.object({
 export type ListPerformanceReviewsQuery = z.infer<
   typeof listPerformanceReviewsQuerySchema
 >;
+
+// ===== Phản hồi 360° (Feedback360) =====
+
+export const feedback360StatusSchema = z.enum(['COLLECTING', 'CLOSED']);
+export type Feedback360Status = z.infer<typeof feedback360StatusSchema>;
+
+export const rater360RelationSchema = z.enum([
+  'MANAGER',
+  'PEER',
+  'SUBORDINATE',
+  'SELF',
+]);
+export type Rater360Relation = z.infer<typeof rater360RelationSchema>;
+
+/** Tóm tắt 1 đợt 360° (danh sách). */
+export const feedback360Schema = z.object({
+  id: z.uuid(),
+  revieweeId: z.string(),
+  revieweeName: z.string().nullable(),
+  cycleId: z.string(),
+  cycleName: z.string().nullable(),
+  status: feedback360StatusSchema,
+  anonymous: z.boolean(),
+  raterCount: z.number().int(),
+  submittedCount: z.number().int(),
+  avgScore: z.number().nullable(),
+  createdAt: z.string(),
+});
+export type Feedback360Response = z.infer<typeof feedback360Schema>;
+
+/** Tổng hợp theo nhóm quan hệ — KHÔNG lộ danh tính khi ẩn danh. */
+export const feedback360RelationStatSchema = z.object({
+  relation: rater360RelationSchema,
+  count: z.number().int(),
+  submitted: z.number().int(),
+  avgScore: z.number().nullable(),
+});
+export type Feedback360RelationStat = z.infer<
+  typeof feedback360RelationStatSchema
+>;
+
+export const feedback360CommentSchema = z.object({
+  relation: rater360RelationSchema,
+  comment: z.string(),
+  /** Chỉ có khi đợt KHÔNG ẩn danh. */
+  raterName: z.string().nullable(),
+});
+export type Feedback360Comment = z.infer<typeof feedback360CommentSchema>;
+
+/** Chi tiết 1 đợt 360° (đã tổng hợp / ẩn danh nếu cần). */
+export const feedback360DetailSchema = feedback360Schema.extend({
+  byRelation: z.array(feedback360RelationStatSchema),
+  comments: z.array(feedback360CommentSchema),
+});
+export type Feedback360Detail = z.infer<typeof feedback360DetailSchema>;
+
+export const createFeedback360RaterSchema = z.object({
+  employeeId: z.uuid(),
+  relation: rater360RelationSchema,
+});
+export type CreateFeedback360RaterInput = z.infer<
+  typeof createFeedback360RaterSchema
+>;
+
+export const createFeedback360Schema = z.object({
+  revieweeId: z.uuid(),
+  cycleId: z.uuid(),
+  anonymous: z.boolean().default(true),
+  raters: z.array(createFeedback360RaterSchema).min(1, 'Cần ít nhất 1 người đánh giá'),
+});
+export type CreateFeedback360Input = z.infer<typeof createFeedback360Schema>;
+
+export const submitFeedback360Schema = z.object({
+  score: z.coerce.number().min(0).max(5),
+  comment: z.string().trim().max(4000).nullish(),
+});
+export type SubmitFeedback360Input = z.infer<typeof submitFeedback360Schema>;
+
+export const listFeedback360QuerySchema = z.object({
+  cycleId: z.uuid().optional(),
+  revieweeId: z.uuid().optional(),
+  status: feedback360StatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListFeedback360Query = z.infer<typeof listFeedback360QuerySchema>;
+
+/** 1 lời mời đánh giá 360° của tôi (để điền). */
+export const feedback360InvitationSchema = z.object({
+  raterId: z.uuid(),
+  feedback360Id: z.string(),
+  revieweeName: z.string().nullable(),
+  cycleName: z.string().nullable(),
+  relation: rater360RelationSchema,
+  status: feedback360StatusSchema,
+  submitted: z.boolean(),
+  score: z.number().nullable(),
+  comment: z.string().nullable(),
+});
+export type Feedback360Invitation = z.infer<
+  typeof feedback360InvitationSchema
+>;

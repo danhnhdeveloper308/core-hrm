@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ApprovalModule } from '../approval/approval.module';
 import { EmployeesModule } from '../employees/employees.module';
 import { NotificationModule } from '../notification/notification.module';
+import { Feedback360Controller } from './feedback360.controller';
+import { Feedback360Service } from './feedback360.service';
 import { GoalsController } from './goals.controller';
 import { GoalsService } from './goals.service';
 import { KpiDefinitionsController } from './kpi-definitions.controller';
@@ -19,12 +21,14 @@ import { ReviewCyclesService } from './review-cycles.service';
     KpiDefinitionsController,
     GoalsController,
     PerformanceReviewsController,
+    Feedback360Controller,
   ],
   providers: [
     ReviewCyclesService,
     KpiDefinitionsService,
     GoalsService,
     PerformanceReviewsService,
+    Feedback360Service,
   ],
 })
 export class PerformanceModule {}
