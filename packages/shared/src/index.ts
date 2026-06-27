@@ -26,6 +26,7 @@ export * from './schemas/notification';
 export * from './schemas/reports';
 export * from './schemas/overtime';
 export * from './schemas/contract';
+export * from './schemas/recruitment';
 
 export * from './types/api';
 export * from './types/socket';

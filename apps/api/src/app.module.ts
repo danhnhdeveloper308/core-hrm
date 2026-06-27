@@ -29,6 +29,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { OvertimeModule } from './modules/overtime/overtime.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -87,6 +88,7 @@ import { StorageModule } from './storage/storage.module';
     ReportsModule,
     OvertimeModule,
     ContractsModule,
+    RecruitmentModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

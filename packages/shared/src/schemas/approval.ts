@@ -5,6 +5,8 @@ export const approvalTargetTypeSchema = z.enum([
   'ATTENDANCE_CORRECTION',
   'OT',
   'SHIFT_BATCH',
+  'MANPOWER_REQUEST',
+  'OFFER',
 ]);
 export type ApprovalTargetType = z.infer<typeof approvalTargetTypeSchema>;
 

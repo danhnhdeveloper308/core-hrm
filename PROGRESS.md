@@ -142,6 +142,16 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **Phạm vi v1**: file HĐ vẫn dùng upload `fileKey` sẵn có ở route nhân viên (chưa chuyển sang Attachment targetType CONTRACT); UI phụ cấp (allowances) chưa làm (API đã hỗ trợ); chọn NV trong dialog tạo giới hạn 100 NV đầu (cần combobox search khi quy mô lớn).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-C.1 Tuyển dụng — Yêu cầu nhân sự (Manpower Request) (2026-06-27)
+- **Bắt đầu cụm ATS** (P-C). Slice 1: yêu cầu tuyển dụng, **duyệt qua engine có sẵn**. Migration `20260627062511_recruitment_manpower`.
+- **Enum**: `ApprovalTargetType` += `MANPOWER_REQUEST` + `OFFER` (thêm sẵn OFFER để khỏi migrate enum lần nữa ở P-C.5); enum mới `ManpowerRequestStatus`. Model `ManpowerRequest` (orgUnit/position SetNull, requester=Employee).
+- **Permission MỚI** `recruitment:read` + `recruitment:manage` + `offer:manage` (thêm sẵn offer:manage) → ORG_ADMIN + HR_MANAGER. Seed (44 quyền) + sync-roles → **đăng nhập lại**.
+- **BE** `apps/api/src/modules/recruitment/` (`ManpowerRequestsService`): `POST /manpower-requests` (recruitment:manage) tạo + `approval.createInstance('MANPOWER_REQUEST', requesterEmployeeId, ctx{quantity,positionId,orgUnitId,budgetSalary})`; **chưa cấu hình flow → rollback xoá yêu cầu** (tránh mồ côi). `GET /manpower-requests` (cursor + lọc status), `GET /:id`, `POST /:id/cancel` (chỉ PENDING → `approval.cancelByTarget`). `@OnEvent(APPROVAL_DECIDED)` áp APPROVED/REJECTED. `OVERRIDE_PERM` (duyệt thay) += MANPOWER_REQUEST→recruitment:manage, OFFER→offer:manage.
+- **FE** `/dashboard/recruitment` ([page.tsx](apps/web/src/app/dashboard/recruitment/page.tsx)) tab **Yêu cầu nhân sự**: bảng + lọc trạng thái + infinite, dialog tạo (OrgUnitCascader + chức danh + SL + cần-trước + lương dự kiến + lý do) gửi duyệt, huỷ khi PENDING. Nav "Tuyển dụng" (gate recruitment:read). **Thêm MANPOWER_REQUEST + OFFER vào builder luồng duyệt** ([approval-flows](apps/web/src/app/dashboard/settings/approval-flows/page.tsx) + TARGET_TYPE_LABELS).
+- **⚠️ Vận hành**: phải **cấu hình luồng duyệt cho "Yêu cầu tuyển dụng"** ở `/dashboard/settings/approval-flows` trước, nếu không tạo yêu cầu sẽ lỗi `APPROVAL_NO_FLOW` (và tự rollback). Người tạo yêu cầu phải có hồ sơ Employee (định tuyến duyệt theo vị trí cây).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+- **Còn lại P-C**: P-C.2 Tin tuyển dụng (JobRequisition) · P-C.3 Ứng viên/Application (Kanban) · P-C.4 Phỏng vấn (panelist+feedback+notify) · P-C.5 Offer (duyệt OFFER + convertOfferToEmployee).
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

@@ -47,6 +47,10 @@ export const PERMISSIONS = {
   // hợp đồng lao động
   CONTRACT_READ: 'contract:read',
   CONTRACT_MANAGE: 'contract:manage',
+  // tuyển dụng (manpower/requisition/candidate/interview dùng chung)
+  RECRUITMENT_READ: 'recruitment:read',
+  RECRUITMENT_MANAGE: 'recruitment:manage',
+  OFFER_MANAGE: 'offer:manage',
   // nghỉ phép
   LEAVE_READ: 'leave:read',
   LEAVE_REQUEST: 'leave:request',
@@ -114,6 +118,9 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'overtime:manage': 'Cấu hình trần giờ tăng ca (OT) theo tổ chức / đơn vị',
   'contract:read': 'Xem hợp đồng lao động',
   'contract:manage': 'Tạo / sửa / chấm dứt hợp đồng lao động',
+  'recruitment:read': 'Xem dữ liệu tuyển dụng (yêu cầu, tin, ứng viên, phỏng vấn)',
+  'recruitment:manage': 'Quản lý tuyển dụng (yêu cầu, tin, ứng viên, phỏng vấn)',
+  'offer:manage': 'Tạo / duyệt / gửi thư mời nhận việc (offer)',
   'leave:read': 'Xem số dư và đơn nghỉ phép',
   'leave:request': 'Tạo đơn nghỉ phép',
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',

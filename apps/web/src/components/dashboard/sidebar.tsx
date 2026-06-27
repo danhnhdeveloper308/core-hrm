@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Timer,
   User,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/employees', label: 'Nhân viên', icon: Contact, permission: PERMISSIONS.EMPLOYEE_READ },
   { href: '/dashboard/org-chart', label: 'Sơ đồ tổ chức', icon: Network, permission: PERMISSIONS.ORG_READ },
   { href: '/dashboard/contracts', label: 'Hợp đồng', icon: FileText, permission: PERMISSIONS.CONTRACT_READ },
+  { href: '/dashboard/recruitment', label: 'Tuyển dụng', icon: UserPlus, permission: PERMISSIONS.RECRUITMENT_READ },
   { href: '/dashboard/attendance', label: 'Bảng công', icon: CalendarCheck, permission: PERMISSIONS.ATTENDANCE_READ_ALL },
   { href: '/dashboard/attendance-dashboard', label: 'Dashboard chấm công', icon: BarChart3, permission: PERMISSIONS.REPORT_READ },
   { href: '/dashboard/overtime', label: 'Quản trị tăng ca', icon: Timer, permission: PERMISSIONS.ATTENDANCE_READ_ALL },

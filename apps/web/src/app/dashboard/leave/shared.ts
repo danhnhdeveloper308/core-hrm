@@ -55,6 +55,8 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   ATTENDANCE_CORRECTION: 'Điều chỉnh công',
   OT: 'Tăng ca',
   SHIFT_BATCH: 'Phiếu tăng/giãn ca',
+  MANPOWER_REQUEST: 'Yêu cầu tuyển dụng',
+  OFFER: 'Thư mời nhận việc (offer)',
 };
 
 /** "2" / "1.5" → bỏ số 0 thừa. */
