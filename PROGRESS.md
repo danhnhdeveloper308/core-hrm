@@ -187,6 +187,12 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Đăng nhập lại** để nhận 3 quyền mới. Tab Mục tiêu/Đánh giá/360°/Dashboard ở các slice P-D.2→P-D.5.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-D.2 Hiệu suất — Mục tiêu (Goal OKR/MBO) (2026-06-27)
+- Model `Goal` (employeeId/cycleId/parentId/title/kpiDefinitionId/target/actual/unit/weight/progress/status) + enum `GoalStatus` (DRAFT/ACTIVE/DONE/CANCELLED). Migration `20260627125705_perf_goal`. Back-rel: Org `goals`, Employee `goals(EmployeeGoals)`, ReviewCycle `goals`, KpiDefinition `goals`. `ReviewCycle.goalCount` nay đếm thật qua `_count`.
+- **BE** `GoalsService` (`apps/api/src/modules/performance/`): `GET /goals?cycleId=&employeeId=&status=` (lọc theo **phạm vi dữ liệu** = bản thân + subtree quản lý + HR toàn org), `POST /goals` (employeeId trống = của mình), `PATCH /goals/:id`, `PATCH /goals/:id/progress` (đặt actual + % ; tự DRAFT→ACTIVE khi >0, ACTIVE→DONE khi ≥100), `DELETE /goals/:id`. Quyền theo **scope reachability** (tái dùng `EmployeesService.resolveScopePaths` + check employee trong scope) thay vì thêm permission — EMPLOYEE chỉ chạm mục tiêu của mình, quản lý chạm subtree, HR toàn org. Controller gate `performance:read`. `@Audit`. PerformanceModule import EmployeesModule.
+- **FE** tab **Mục tiêu** ([goals-tab.tsx](apps/web/src/app/dashboard/performance/goals-tab.tsx)): chọn chu kỳ → danh sách mục tiêu (thanh tiến độ inline, badge trạng thái, KPI/chỉ tiêu/trọng số); dialog tạo/sửa (tên, KPI từ thư viện, chỉ tiêu/đơn vị/trọng số, **giao cho** = của tôi/nhân viên — chỉ hiện nếu có `employee:read`); dialog cập nhật tiến độ (thực tế + %).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

@@ -118,3 +118,78 @@ export const listKpiDefinitionsQuerySchema = z.object({
 export type ListKpiDefinitionsQuery = z.infer<
   typeof listKpiDefinitionsQuerySchema
 >;
+
+// ===== Mục tiêu (Goal — OKR/MBO) =====
+
+export const goalStatusSchema = z.enum([
+  'DRAFT',
+  'ACTIVE',
+  'DONE',
+  'CANCELLED',
+]);
+export type GoalStatus = z.infer<typeof goalStatusSchema>;
+
+export const goalSchema = z.object({
+  id: z.uuid(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  cycleId: z.string(),
+  cycleName: z.string().nullable(),
+  parentId: z.string().nullable(),
+  title: z.string(),
+  description: z.string().nullable(),
+  kpiDefinitionId: z.string().nullable(),
+  kpiName: z.string().nullable(),
+  target: z.number().nullable(),
+  actual: z.number().nullable(),
+  unit: z.string().nullable(),
+  weight: z.number().int(),
+  progress: z.number().int(),
+  status: goalStatusSchema,
+  createdAt: z.string(),
+});
+export type GoalResponse = z.infer<typeof goalSchema>;
+
+export const createGoalSchema = z.object({
+  /** Bỏ trống = mục tiêu của chính mình. */
+  employeeId: z.uuid().nullish(),
+  cycleId: z.uuid(),
+  parentId: z.uuid().nullish(),
+  title: z.string().trim().min(1).max(300),
+  description: z.string().trim().max(2000).nullish(),
+  kpiDefinitionId: z.uuid().nullish(),
+  target: z.coerce.number().nullish(),
+  unit: z.string().trim().max(50).nullish(),
+  weight: z.coerce.number().int().min(0).max(100).default(0),
+});
+export type CreateGoalInput = z.infer<typeof createGoalSchema>;
+
+export const updateGoalSchema = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  description: z.string().trim().max(2000).nullish(),
+  kpiDefinitionId: z.uuid().nullish(),
+  parentId: z.uuid().nullish(),
+  target: z.coerce.number().nullish(),
+  unit: z.string().trim().max(50).nullish(),
+  weight: z.coerce.number().int().min(0).max(100).optional(),
+  status: goalStatusSchema.optional(),
+});
+export type UpdateGoalInput = z.infer<typeof updateGoalSchema>;
+
+export const updateGoalProgressSchema = z.object({
+  actual: z.coerce.number().nullish(),
+  progress: z.coerce.number().int().min(0).max(100),
+});
+export type UpdateGoalProgressInput = z.infer<
+  typeof updateGoalProgressSchema
+>;
+
+export const listGoalsQuerySchema = z.object({
+  cycleId: z.uuid().optional(),
+  /** Bỏ trống = mục tiêu trong phạm vi của tôi (bản thân + cấp dưới). */
+  employeeId: z.uuid().optional(),
+  status: goalStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListGoalsQuery = z.infer<typeof listGoalsQuerySchema>;

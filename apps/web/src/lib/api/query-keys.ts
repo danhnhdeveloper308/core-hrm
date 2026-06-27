@@ -118,6 +118,8 @@ export const queryKeys = {
       ['performance', 'cycles', filters] as const,
     kpiDefinitions: (filters: Record<string, unknown>) =>
       ['performance', 'kpi-definitions', filters] as const,
+    goals: (filters: Record<string, unknown>) =>
+      ['performance', 'goals', filters] as const,
   },
 
   reports: {

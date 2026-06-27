@@ -14,13 +14,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 const dateOnly = (d: Date): string => d.toISOString().slice(0, 10);
 
-type CycleRow = Prisma.ReviewCycleGetPayload<object>;
+const INCLUDE = {
+  _count: { select: { goals: true } },
+} as const;
 
-function toResponse(
-  c: CycleRow,
-  goalCount = 0,
-  reviewCount = 0,
-): ReviewCycleResponse {
+type CycleRow = Prisma.ReviewCycleGetPayload<{ include: typeof INCLUDE }>;
+
+function toResponse(c: CycleRow): ReviewCycleResponse {
   return {
     id: c.id,
     name: c.name,
@@ -28,8 +28,9 @@ function toResponse(
     periodStart: dateOnly(c.periodStart),
     periodEnd: dateOnly(c.periodEnd),
     status: c.status,
-    goalCount,
-    reviewCount,
+    goalCount: c._count.goals,
+    // reviewCount nối ở P-D.3 (PerformanceReview)
+    reviewCount: 0,
     createdAt: c.createdAt.toISOString(),
   };
 }
@@ -45,6 +46,7 @@ export class ReviewCyclesService {
   ): Promise<CursorPaginated<ReviewCycleResponse>> {
     const rows = await this.prisma.reviewCycle.findMany({
       where: { orgId, ...(query.status ? { status: query.status } : {}) },
+      include: INCLUDE,
       orderBy: [{ periodStart: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -69,6 +71,7 @@ export class ReviewCyclesService {
         periodStart: new Date(input.periodStart),
         periodEnd: new Date(input.periodEnd),
       },
+      include: INCLUDE,
     });
     addAuditMetadata({ after: { name: input.name, type: input.type } });
     return toResponse(created);
@@ -93,6 +96,7 @@ export class ReviewCyclesService {
           : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
       },
+      include: INCLUDE,
     });
     addAuditMetadata({
       before: { status: existing.status },
@@ -116,7 +120,10 @@ export class ReviewCyclesService {
   }
 
   private async require(orgId: string, id: string): Promise<CycleRow> {
-    const c = await this.prisma.reviewCycle.findFirst({ where: { id, orgId } });
+    const c = await this.prisma.reviewCycle.findFirst({
+      where: { id, orgId },
+      include: INCLUDE,
+    });
     if (!c) {
       throw new AppException(
         HttpStatus.NOT_FOUND,

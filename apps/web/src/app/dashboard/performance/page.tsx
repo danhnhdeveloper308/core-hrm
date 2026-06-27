@@ -48,6 +48,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { GoalsTab } from './goals-tab';
 import { KpiTab } from './kpi-tab';
 
 const TYPE_LABEL: Record<ReviewCycleType, string> = {
@@ -404,10 +405,14 @@ export default function PerformancePage() {
         <Tabs defaultValue="cycles">
           <TabsList>
             <TabsTrigger value="cycles">Chu kỳ</TabsTrigger>
+            <TabsTrigger value="goals">Mục tiêu</TabsTrigger>
             <TabsTrigger value="kpi">Thư viện KPI</TabsTrigger>
           </TabsList>
           <TabsContent value="cycles" className="mt-4">
             <CyclesTab />
+          </TabsContent>
+          <TabsContent value="goals" className="mt-4">
+            <GoalsTab />
           </TabsContent>
           <TabsContent value="kpi" className="mt-4">
             <KpiTab />

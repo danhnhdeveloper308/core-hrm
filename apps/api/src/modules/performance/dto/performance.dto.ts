@@ -1,8 +1,12 @@
 import {
+  createGoalSchema,
   createKpiDefinitionSchema,
   createReviewCycleSchema,
+  listGoalsQuerySchema,
   listKpiDefinitionsQuerySchema,
   listReviewCyclesQuerySchema,
+  updateGoalProgressSchema,
+  updateGoalSchema,
   updateKpiDefinitionSchema,
   updateReviewCycleSchema,
 } from '@repo/shared';
@@ -31,3 +35,13 @@ export class UpdateKpiDefinitionDto extends createZodDto(
 export class ListKpiDefinitionsQueryDto extends createZodDto(
   listKpiDefinitionsQuerySchema,
 ) {}
+
+export class CreateGoalDto extends createZodDto(createGoalSchema) {}
+
+export class UpdateGoalDto extends createZodDto(updateGoalSchema) {}
+
+export class UpdateGoalProgressDto extends createZodDto(
+  updateGoalProgressSchema,
+) {}
+
+export class ListGoalsQueryDto extends createZodDto(listGoalsQuerySchema) {}
