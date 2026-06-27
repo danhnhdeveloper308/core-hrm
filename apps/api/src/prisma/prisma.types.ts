@@ -25,6 +25,7 @@ import type {
   EmployeeModel,
   DependentModel,
   EmploymentContractModel,
+  CandidateModel,
   FaceProfileModel,
   HolidayCalendarModel,
   HolidayModel,
@@ -62,6 +63,7 @@ export type Organization = OrganizationModel;
 export type Employee = EmployeeModel;
 export type Dependent = DependentModel;
 export type EmploymentContract = EmploymentContractModel;
+export type Candidate = CandidateModel;
 export type OrgUnitType = OrgUnitTypeModel;
 export type OrgUnit = OrgUnitModel;
 export type Position = PositionModel;

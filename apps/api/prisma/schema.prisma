@@ -271,6 +271,8 @@ model Organization {
   otPolicies            OtPolicy[]
   manpowerRequests      ManpowerRequest[]
   jobRequisitions       JobRequisition[]
+  candidates            Candidate[]
+  applications          Application[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -928,6 +930,15 @@ enum RequisitionStatus {
   FILLED
 }
 
+enum ApplicationStage {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
 /// Cách tính công khi áp giờ đăng ký tăng/giãn ca.
 /// CLAMP_TO_REGISTERED: lương = trong [giờ ca, giờ kết thúc đăng ký] (sản xuất).
 /// SEPARATE_OT: giờ hành chính giữ nguyên, phần dôi cộng thành OT riêng (phần mềm).
@@ -1151,8 +1162,50 @@ model JobRequisition {
   manpowerRequest ManpowerRequest? @relation(fields: [manpowerRequestId], references: [id], onDelete: SetNull)
   orgUnit         OrgUnit?         @relation(fields: [orgUnitId], references: [id], onDelete: SetNull)
   position        Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  applications    Application[]
 
   @@index([orgId, status])
+}
+
+/// Ứng viên (chưa phải User/Employee). Chỉ tạo Employee khi accept offer (P-C.5).
+model Candidate {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  fullName  String
+  email     String?
+  phone     String?
+  source    String?
+  resumeKey String?
+  tagsJson  Json?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([orgId])
+}
+
+/// Hồ sơ ứng tuyển: 1 ứng viên ứng tuyển 1 tin. Stage = cột Kanban.
+model Application {
+  id               String           @id @default(uuid()) @db.Uuid
+  orgId            String           @db.Uuid
+  candidateId      String           @db.Uuid
+  jobRequisitionId String           @db.Uuid
+  stage            ApplicationStage @default(APPLIED)
+  ratingAvg        Float?
+  rejectReason     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  candidate      Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobRequisition JobRequisition @relation(fields: [jobRequisitionId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobRequisitionId])
+  @@index([orgId, stage])
+  @@index([jobRequisitionId, stage])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

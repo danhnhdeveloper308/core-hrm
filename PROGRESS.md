@@ -150,12 +150,18 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **FE** `/dashboard/recruitment` ([page.tsx](apps/web/src/app/dashboard/recruitment/page.tsx)) tab **Yêu cầu nhân sự**: bảng + lọc trạng thái + infinite, dialog tạo (OrgUnitCascader + chức danh + SL + cần-trước + lương dự kiến + lý do) gửi duyệt, huỷ khi PENDING. Nav "Tuyển dụng" (gate recruitment:read). **Thêm MANPOWER_REQUEST + OFFER vào builder luồng duyệt** ([approval-flows](apps/web/src/app/dashboard/settings/approval-flows/page.tsx) + TARGET_TYPE_LABELS).
 - **⚠️ Vận hành**: phải **cấu hình luồng duyệt cho "Yêu cầu tuyển dụng"** ở `/dashboard/settings/approval-flows` trước, nếu không tạo yêu cầu sẽ lỗi `APPROVAL_NO_FLOW` (và tự rollback). Người tạo yêu cầu phải có hồ sơ Employee (định tuyến duyệt theo vị trí cây).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
-- **Còn lại P-C**: P-C.3 Ứng viên/Application (Kanban) · P-C.4 Phỏng vấn (panelist+feedback+notify) · P-C.5 Offer (duyệt OFFER + convertOfferToEmployee).
+- **Còn lại P-C**: P-C.4 Phỏng vấn (panelist+feedback+notify) · P-C.5 Offer (duyệt OFFER + convertOfferToEmployee).
 
 ## P-C.2 Tuyển dụng — Tin tuyển dụng (Job Requisition) (2026-06-27)
 - Model `JobRequisition` (migration `20260627063449_recruitment_requisition`): `manpowerRequestId?(SetNull)`, title, orgUnit/position(SetNull), headcount, description/requirements, salaryFrom/To, `employmentType(ContractType)`, `status(RequisitionStatus: DRAFT/OPEN/ON_HOLD/CLOSED/FILLED)`, openedAt/closedAt. Enum `RequisitionStatus`. Dùng lại permission `recruitment:*` (KHÔNG thêm quyền mới → không cần seed/sync).
 - **BE** `JobRequisitionsService`: `POST /job-requisitions` (tạo, nếu có `manpowerRequestId` phải APPROVED), `PATCH /:id` (sửa + đổi trạng thái: tự set openedAt khi OPEN, closedAt khi CLOSED/FILLED), `GET /` (cursor + lọc status/search), `GET /:id`. `@Audit`.
 - **FE** tab **Tin tuyển dụng** ([requisition-tab.tsx](apps/web/src/app/dashboard/recruitment/requisition-tab.tsx)) trong `/dashboard/recruitment`: bảng + lọc + search + infinite; nút Mở/Đóng nhanh; dialog tạo/sửa (tiêu đề, đơn vị, chức danh, headcount, lương từ/đến, loại HĐ, trạng thái, mô tả, yêu cầu).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
+## P-C.3 Tuyển dụng — Ứng viên + Hồ sơ ứng tuyển (Kanban) (2026-06-27)
+- Model `Candidate` (chưa phải User/Employee) + `Application` (1 ứng viên/1 tin, unique `[candidateId, jobRequisitionId]`, `stage` = cột Kanban) + enum `ApplicationStage` (APPLIED/SCREENING/INTERVIEW/OFFER/HIRED/REJECTED). Migration `20260627064134_recruitment_candidate_application`. `prisma.types` thêm `Candidate`. Dùng lại `recruitment:*`.
+- **BE**: `GET/POST/PATCH /candidates` (tìm/tạo/sửa). `GET /applications?jobRequisitionId=&stage=` (board), `POST /applications` (chọn ứng viên có sẵn HOẶC tạo mới inline, guard trùng ứng tuyển), `PATCH /applications/:id/stage` (chuyển stage, REJECTED kèm rejectReason). `@Audit`.
+- **FE** tab **Ứng viên** ([applications-tab.tsx](apps/web/src/app/dashboard/recruitment/applications-tab.tsx)): chọn tin → **bảng Kanban 6 cột theo stage**, card ứng viên (tên/email/phone) + Select chuyển stage; dialog thêm ứng viên (mới inline hoặc tìm có sẵn). (Drag-drop để sau — v1 dùng Select chuyển cột cho chắc.)
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
 ## CHƯA LÀM (roadmap còn lại)
