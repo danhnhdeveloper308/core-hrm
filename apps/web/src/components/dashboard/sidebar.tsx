@@ -26,6 +26,7 @@ import {
   ScrollText,
   Shield,
   ShieldCheck,
+  Timer,
   User,
   Users,
 } from 'lucide-react';
@@ -51,6 +52,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/org-chart', label: 'Sơ đồ tổ chức', icon: Network, permission: PERMISSIONS.ORG_READ },
   { href: '/dashboard/attendance', label: 'Bảng công', icon: CalendarCheck, permission: PERMISSIONS.ATTENDANCE_READ_ALL },
   { href: '/dashboard/attendance-dashboard', label: 'Dashboard chấm công', icon: BarChart3, permission: PERMISSIONS.REPORT_READ },
+  { href: '/dashboard/overtime', label: 'Quản trị tăng ca', icon: Timer, permission: PERMISSIONS.ATTENDANCE_READ_ALL },
   { href: '/dashboard/my-attendance', label: 'Chấm công của tôi', icon: CalendarClock, permission: PERMISSIONS.ATTENDANCE_READ },
   { href: '/checkin', label: 'Chấm công ngay', icon: Fingerprint, permission: PERMISSIONS.ATTENDANCE_READ },
   { href: '/dashboard/leave', label: 'Nghỉ phép', icon: Palmtree, permission: PERMISSIONS.LEAVE_READ },

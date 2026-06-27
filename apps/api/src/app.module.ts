@@ -28,6 +28,7 @@ import { LeaveModule } from './modules/leave/leave.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { OvertimeModule } from './modules/overtime/overtime.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RbacModule } from './modules/rbac/rbac.module';
@@ -83,6 +84,7 @@ import { StorageModule } from './storage/storage.module';
     LeaveModule,
     NotificationModule,
     ReportsModule,
+    OvertimeModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

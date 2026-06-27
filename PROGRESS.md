@@ -123,6 +123,15 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **FE** `/dashboard/attendance-dashboard` ([page.tsx](apps/web/src/app/dashboard/attendance-dashboard/page.tsx)): bộ lọc từ/đến ngày (mặc định đầu tháng→hôm nay) + `OrgUnitCascader`; 6 KPI card; biểu đồ **recharts** (thêm dep `recharts@3` — dùng chung cho KPI/payroll sau): LineChart diễn biến theo ngày (đi làm/trễ/vắng/nghỉ), BarChart ngang theo đơn vị (stack đi làm/trễ/vắng), bảng top đi trễ. Nav "Dashboard chấm công" (gate `report:read`).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-A.9 Quản trị tăng ca (Overtime) (2026-06-27)
+- **Model `OtPolicy`** (migration `20260627022201_ot_policy`): `orgId, orgUnitId?(null=trần mặc định toàn org), maxHoursPerMonth(40), maxHoursPerYear(200)`, unique `[orgId, orgUnitId]`. Resolve trần theo **path** (đơn vị có trần gần nhất thắng, else org default, else mặc định VN 40h/200h). Guard tay cho trần org (Postgres cho phép nhiều NULL trong unique).
+- **Permission MỚI `overtime:manage`** (cấu hình trần) — gán ORG_ADMIN + HR_MANAGER. Xem tổng hợp dùng lại **`attendance:read_all`** (gộp). Đã `db:seed` (39 quyền) + `db:sync-roles` (backfill org TBS) → **user đang đăng nhập phải đăng nhập lại**.
+- **BE** `apps/api/src/modules/overtime/`: `GET /overtime/summary?month=YYYY-MM&orgUnitId` (attendance:read_all) → `OvertimeSummary { caps, rows[], byUnit[], totals }`; nguồn giờ OT = **`TimesheetDay.otMinutes`** (mọi luồng OT đổ vào đây), aggregate ở DB qua `groupBy` (tháng + YTD năm), cảnh báo vượt trần tháng/năm; scope theo actor (reuse `resolveScopePaths`), lọc orgUnit theo subtree. CRUD `GET/POST/PATCH/DELETE /overtime/policies` (POST/PATCH/DELETE gate `overtime:manage`, `@Audit`).
+- **Shared** [overtime.ts](packages/shared/src/schemas/overtime.ts): `otPolicySchema`, create/update, `overtimeSummaryQuerySchema`, `overtimeSummarySchema` + `VN_OT_DEFAULTS`.
+- **FE** `/dashboard/overtime` ([page.tsx](apps/web/src/app/dashboard/overtime/page.tsx)): tab **Tổng hợp** (lọc tháng + `OrgUnitCascader`, 4 KPI, bảng giờ OT/NV tô đỏ khi vượt trần, bảng theo đơn vị) + tab **Trần OT** (CRUD, gate `overtime:manage`). Nav "Quản trị tăng ca" (gate `attendance:read_all`).
+- **Phạm vi v1**: lọc theo THÁNG (không phải from/to bất kỳ); chưa làm `GET /overtime/requests` gộp OtRequest+shift-registration-lines (OT đã hiện ở approvals/my-attendance) — để sau nếu cần.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓. (Endpoint read-only, không có luồng duyệt → không cần e2e.)
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

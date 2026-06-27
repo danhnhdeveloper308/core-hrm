@@ -268,6 +268,7 @@ model Organization {
   approvalInstances     ApprovalInstance[]
   attachments           Attachment[]
   otRequests            OtRequest[]
+  otPolicies            OtPolicy[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -320,6 +321,7 @@ model OrgUnit {
 
   employees    Employee[]    @relation("EmployeeOrgUnit")
   leavePolicies LeavePolicy[]
+  otPolicies   OtPolicy[]
 
   @@unique([orgId, parentId, code])
   @@index([orgId, path])
@@ -1022,6 +1024,25 @@ model OtRequest {
 
   @@index([orgId, employeeId, date])
   @@index([orgId, status])
+}
+
+/// Trần giờ tăng ca (OT). orgUnitId=null = trần mặc định toàn org; có giá trị =
+/// override cho 1 đơn vị + subtree. Resolve theo path: đơn vị gần nhất có trần
+/// thắng; không có → mặc định luật VN (40h/tháng, 200h/năm). Chỉ dùng cảnh báo.
+model OtPolicy {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @db.Uuid
+  orgUnitId        String?  @db.Uuid
+  maxHoursPerMonth Int      @default(40)
+  maxHoursPerYear  Int      @default(200)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgUnit OrgUnit?     @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, orgUnitId])
+  @@index([orgId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều
