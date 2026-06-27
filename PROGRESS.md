@@ -132,6 +132,16 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **Phạm vi v1**: lọc theo THÁNG (không phải from/to bất kỳ); chưa làm `GET /overtime/requests` gộp OtRequest+shift-registration-lines (OT đã hiện ở approvals/my-attendance) — để sau nếu cần.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓. (Endpoint read-only, không có luồng duyệt → không cần e2e.)
 
+## P-B Quản lý hợp đồng lao động (Contract) (2026-06-27)
+- **Mở rộng model có sẵn `EmploymentContract`** (KHÔNG tạo model mới — §0 tái dùng; migration `20260627031003_contract_management`): thêm `code(số HĐ, unique [orgId,code])`, `status(ContractStatus: DRAFT/ACTIVE/EXPIRING/EXPIRED/TERMINATED)`, `signedDate`, `baseSalary(Int VND — nguồn Payroll)`, `allowanceJson`, `parentId(phụ lục/gia hạn self-relation)`, `terminateDate/terminateReason`, **`deletedAt`(soft-delete — giữ pháp lý)**. Enum `ContractType` += SEASONAL/SERVICE/APPRENTICESHIP. Index `[orgId,status]`, `[orgId,endDate]`.
+- **Permission MỚI `contract:read` + `contract:manage`** → gán ORG_ADMIN + HR_MANAGER (HĐ chứa lương, nhạy cảm → KHÔNG cấp UNIT_MANAGER). Đã `db:seed` (41 quyền) + `db:sync-roles` → **đăng nhập lại**.
+- **BE** module `apps/api/src/modules/contracts/`: `GET /contracts` (contract:read, cursor + lọc status/type/search/expiringInDays, scope theo actor), `GET /contracts/:id`, `POST/PATCH /contracts` (contract:manage), `POST /contracts/:id/terminate`, `DELETE /contracts/:id` (soft-delete) — đều `@Audit`. Mapper dùng chung [contract.mapper.ts](apps/api/src/modules/contracts/contract.mapper.ts) (employees.service tái dùng `toContractResponse`). `employees.createContract` mở rộng nhận trường mới + guard số HĐ trùng; employee-detail include lọc `deletedAt: null`.
+- **Cron** [contract-reminder.service.ts](apps/api/src/modules/contracts/contract-reminder.service.ts) (`@Cron EVERY_DAY_AT_7AM`): quét HĐ ACTIVE/EXPIRING có endDate → tự set EXPIRING(≤30 ngày)/EXPIRED(quá hạn) + nhắc HR (ORG_ADMIN/HR_MANAGER) + quản lý trực tiếp tại mốc 30/15/7/0 ngày qua `NotificationService.dispatch` (GENERAL).
+- **Shared**: mở rộng `contractSchema`/`createContractSchema` + `contractStatusSchema` + `allowancesSchema` ([employee.ts](packages/shared/src/schemas/employee.ts)); file mới [contract.ts](packages/shared/src/schemas/contract.ts) (list query/item, update, terminate, createOrgContract).
+- **FE** `/dashboard/contracts` ([page.tsx](apps/web/src/app/dashboard/contracts/page.tsx)): bảng + lọc (search/status/sắp hết hạn 30 ngày) + infinite "Tải thêm"; badge trạng thái màu; dialog tạo/sửa (chọn NV, loại, số HĐ, ngày, lương, trạng thái) + dialog chấm dứt; nút gate `contract:manage`. Nav "Hợp đồng" (gate `contract:read`). (Tab HĐ trong employee-detail sẵn có nay hiện trường mới.)
+- **Phạm vi v1**: file HĐ vẫn dùng upload `fileKey` sẵn có ở route nhân viên (chưa chuyển sang Attachment targetType CONTRACT); UI phụ cấp (allowances) chưa làm (API đã hỗ trợ); chọn NV trong dialog tạo giới hạn 100 NV đầu (cần combobox search khi quy mô lớn).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

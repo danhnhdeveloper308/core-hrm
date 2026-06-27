@@ -384,6 +384,17 @@ enum ContractType {
   PROBATION
   FIXED_TERM
   INDEFINITE
+  SEASONAL
+  SERVICE
+  APPRENTICESHIP
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  TERMINATED
 }
 
 enum MaritalStatus {
@@ -497,22 +508,41 @@ model Dependent {
 }
 
 model EmploymentContract {
-  id         String       @id @default(uuid()) @db.Uuid
-  orgId      String       @db.Uuid
-  employeeId String       @db.Uuid
+  id         String         @id @default(uuid()) @db.Uuid
+  orgId      String         @db.Uuid
+  employeeId String         @db.Uuid
+  /// Số hợp đồng (unique theo org khi có giá trị)
+  code       String?
   type       ContractType
-  startDate  DateTime     @db.Date
-  endDate    DateTime?    @db.Date
+  status     ContractStatus @default(DRAFT)
+  startDate  DateTime       @db.Date
+  endDate    DateTime?      @db.Date
+  signedDate DateTime?      @db.Date
+  /// Lương cơ bản (VND, integer) — nguồn cho Payroll
+  baseSalary Int?
+  /// Phụ cấp: { tên khoản: số tiền VND }
+  allowanceJson Json?
+  /// Phụ lục/gia hạn của hợp đồng cha (self-relation)
+  parentId   String?        @db.Uuid
+  terminateDate   DateTime? @db.Date
+  terminateReason String?
   /// Key file trên object storage — đọc qua signed URL
   fileKey    String?
   note       String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  /// Soft-delete: giữ dữ liệu pháp lý, không hard-delete
+  deletedAt  DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  parent   EmploymentContract?  @relation("ContractAddendum", fields: [parentId], references: [id], onDelete: SetNull)
+  children EmploymentContract[] @relation("ContractAddendum")
 
+  @@unique([orgId, code])
   @@index([orgId, employeeId])
+  @@index([orgId, status])
+  @@index([orgId, endDate])
 }
 
 // ============================================================

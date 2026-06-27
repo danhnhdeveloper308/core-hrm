@@ -22,7 +22,8 @@ import type { AccessTokenPayload } from '../../common/decorators/current-user.de
 import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { Dependent, EmploymentContract } from '../../prisma/prisma.types';
+import type { Dependent } from '../../prisma/prisma.types';
+import { toContractResponse } from '../contracts/contract.mapper';
 import { StorageService } from '../../storage/storage.service';
 import { OrgUnitsService } from '../org-structure/org-units.service';
 import { PermissionsCacheService } from '../rbac/permissions-cache.service';
@@ -154,18 +155,6 @@ function cellToDateOnly(value: ExcelJS.CellValue): string | null {
   return s; // để zod báo lỗi định dạng nếu sai
 }
 
-function toContractResponse(c: EmploymentContract): ContractResponse {
-  return {
-    id: c.id,
-    employeeId: c.employeeId,
-    type: c.type,
-    startDate: dateOnly(c.startDate) ?? '',
-    endDate: dateOnly(c.endDate),
-    hasFile: c.fileKey !== null,
-    note: c.note,
-    createdAt: c.createdAt.toISOString(),
-  };
-}
 
 function toDependentResponse(d: Dependent): DependentResponse {
   return {
@@ -426,7 +415,7 @@ export class EmployeesService {
       where: { id, orgId, deletedAt: null, ...this.scopeWhere(scopePaths, actor.sub) },
       include: {
         ...EMPLOYEE_INCLUDE,
-        contracts: { orderBy: { startDate: 'desc' } },
+        contracts: { where: { deletedAt: null }, orderBy: { startDate: 'desc' } },
         dependents: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -450,7 +439,7 @@ export class EmployeesService {
       where: { userId },
       include: {
         ...EMPLOYEE_INCLUDE,
-        contracts: { orderBy: { startDate: 'desc' } },
+        contracts: { where: { deletedAt: null }, orderBy: { startDate: 'desc' } },
         dependents: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -765,13 +754,31 @@ export class EmployeesService {
     input: CreateContractInput,
   ): Promise<ContractResponse> {
     await this.requireEmployee(orgId, employeeId);
+    if (input.code) {
+      const taken = await this.prisma.employmentContract.findFirst({
+        where: { orgId, code: input.code },
+      });
+      if (taken) {
+        throw new AppException(
+          HttpStatus.CONFLICT,
+          `Số hợp đồng "${input.code}" đã tồn tại`,
+          ERROR_CODES.ORG_CODE_TAKEN,
+        );
+      }
+    }
     const contract = await this.prisma.employmentContract.create({
       data: {
         orgId,
         employeeId,
         type: input.type,
+        code: input.code ?? null,
+        status: input.status ?? 'DRAFT',
         startDate: new Date(input.startDate),
         endDate: input.endDate ? new Date(input.endDate) : null,
+        signedDate: input.signedDate ? new Date(input.signedDate) : null,
+        baseSalary: input.baseSalary ?? null,
+        allowanceJson: input.allowances ?? undefined,
+        parentId: input.parentId ?? null,
         note: input.note ?? null,
       },
     });

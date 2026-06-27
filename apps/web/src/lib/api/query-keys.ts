@@ -97,6 +97,11 @@ export const queryKeys = {
     policies: ['overtime', 'policies'] as const,
   },
 
+  contracts: {
+    list: (filters: Record<string, unknown>) =>
+      ['contracts', 'list', filters] as const,
+  },
+
   reports: {
     dashboard: ['reports', 'dashboard'] as const,
     /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */

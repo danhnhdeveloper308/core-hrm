@@ -27,6 +27,7 @@ import { FaceModule } from './modules/face/face.module';
 import { LeaveModule } from './modules/leave/leave.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { OrgStructureModule } from './modules/org-structure/org-structure.module';
+import { ContractsModule } from './modules/contracts/contracts.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OvertimeModule } from './modules/overtime/overtime.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
@@ -85,6 +86,7 @@ import { StorageModule } from './storage/storage.module';
     NotificationModule,
     ReportsModule,
     OvertimeModule,
+    ContractsModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

@@ -11,8 +11,24 @@ export type EmployeeStatus = z.infer<typeof employeeStatusSchema>;
 export const genderSchema = z.enum(['MALE', 'FEMALE', 'OTHER']);
 export type Gender = z.infer<typeof genderSchema>;
 
-export const contractTypeSchema = z.enum(['PROBATION', 'FIXED_TERM', 'INDEFINITE']);
+export const contractTypeSchema = z.enum([
+  'PROBATION',
+  'FIXED_TERM',
+  'INDEFINITE',
+  'SEASONAL',
+  'SERVICE',
+  'APPRENTICESHIP',
+]);
 export type ContractType = z.infer<typeof contractTypeSchema>;
+
+export const contractStatusSchema = z.enum([
+  'DRAFT',
+  'ACTIVE',
+  'EXPIRING',
+  'EXPIRED',
+  'TERMINATED',
+]);
+export type ContractStatus = z.infer<typeof contractStatusSchema>;
 
 export const maritalStatusSchema = z.enum([
   'SINGLE',
@@ -159,12 +175,26 @@ export type ListEmployeesQuery = z.infer<typeof listEmployeesQuerySchema>;
 
 // ===== Contracts =====
 
+/** Phụ cấp: tên khoản → số tiền (VND, integer). */
+export const allowancesSchema = z.record(z.string(), z.number().int().min(0));
+export type Allowances = z.infer<typeof allowancesSchema>;
+
 export const contractSchema = z.object({
   id: z.uuid(),
   employeeId: z.uuid(),
+  code: z.string().nullable(),
   type: contractTypeSchema,
+  status: contractStatusSchema,
   startDate: z.string(),
   endDate: z.string().nullable(),
+  signedDate: z.string().nullable(),
+  /** Lương cơ bản (VND, integer) — nguồn cho Payroll. */
+  baseSalary: z.number().int().nullable(),
+  allowances: allowancesSchema.nullable(),
+  /** Phụ lục/gia hạn của hợp đồng cha. */
+  parentId: z.uuid().nullable(),
+  terminateDate: z.string().nullable(),
+  terminateReason: z.string().nullable(),
   hasFile: z.boolean(),
   note: z.string().nullable(),
   createdAt: z.string(),
@@ -173,8 +203,14 @@ export type ContractResponse = z.infer<typeof contractSchema>;
 
 export const createContractSchema = z.object({
   type: contractTypeSchema,
+  code: z.string().trim().max(60).nullish(),
   startDate: dateOnlySchema,
   endDate: dateOnlySchema.nullish(),
+  signedDate: dateOnlySchema.nullish(),
+  baseSalary: z.coerce.number().int().min(0).nullish(),
+  allowances: allowancesSchema.nullish(),
+  status: contractStatusSchema.optional(),
+  parentId: z.uuid().nullish(),
   note: z.string().trim().max(1000).nullish(),
 });
 export type CreateContractInput = z.infer<typeof createContractSchema>;

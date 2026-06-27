@@ -44,6 +44,9 @@ export const PERMISSIONS = {
   ATTENDANCE_CORRECT: 'attendance:correct',
   // tăng ca (cấu hình trần OT — xem tổng hợp dùng attendance:read_all)
   OVERTIME_MANAGE: 'overtime:manage',
+  // hợp đồng lao động
+  CONTRACT_READ: 'contract:read',
+  CONTRACT_MANAGE: 'contract:manage',
   // nghỉ phép
   LEAVE_READ: 'leave:read',
   LEAVE_REQUEST: 'leave:request',
@@ -109,6 +112,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'attendance:read_all': 'Xem dữ liệu chấm công của người khác (theo scope)',
   'attendance:correct': 'Sửa công thủ công',
   'overtime:manage': 'Cấu hình trần giờ tăng ca (OT) theo tổ chức / đơn vị',
+  'contract:read': 'Xem hợp đồng lao động',
+  'contract:manage': 'Tạo / sửa / chấm dứt hợp đồng lao động',
   'leave:read': 'Xem số dư và đơn nghỉ phép',
   'leave:request': 'Tạo đơn nghỉ phép',
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',
