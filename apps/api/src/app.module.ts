@@ -31,6 +31,7 @@ import { ContractsModule } from './modules/contracts/contracts.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { PerformanceModule } from './modules/performance/performance.module';
+import { TrainingModule } from './modules/training/training.module';
 import { OvertimeModule } from './modules/overtime/overtime.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -91,6 +92,7 @@ import { StorageModule } from './storage/storage.module';
     ContractsModule,
     RecruitmentModule,
     PerformanceModule,
+    TrainingModule,
     GatewaysModule,
   ],
   controllers: [HealthController],

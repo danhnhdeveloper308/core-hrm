@@ -221,6 +221,14 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - Chưa chạy e2e write-path qua app thật (gate typecheck/lint/test là bar nghiệm thu như các phase trước).
 - **Còn lại roadmap**: P-E (Đào tạo/Chứng chỉ) · P-F (Payroll — làm cuối).
 
+## P-E.1 Đào tạo — Danh mục khoá (TrainingCourse) (2026-06-27)
+- Model `TrainingCourse` (title/category/mode/provider/durationHours/cost(VND int)/description/active) + enum `TrainingMode` (ONLINE/OFFLINE/EXTERNAL). Migration `20260627133738_training_course`. Org back-rel `trainingCourses`. `sessionCount` tạm = 0 (nối `_count` ở P-E.2).
+- **Permission (gộp, 2)**: `training:read` (xem khoá/lớp/chứng chỉ + tự đăng ký), `training:manage` (HR quản lý khoá/lớp + duyệt đăng ký + điểm danh + cấp chứng chỉ). Gán: ORG_ADMIN/HR_MANAGER = cả 2; UNIT_MANAGER/EMPLOYEE/WORKER = read. Seed 49 quyền + sync-roles.
+- **BE** module `training/`: `TrainingCoursesService` (`GET/POST/PATCH/DELETE /training/courses`, lọc category/mode/active/search). `@Audit` mọi mutation.
+- **FE** `/dashboard/training` ([page.tsx](apps/web/src/app/dashboard/training/page.tsx)) tab **Danh mục khoá** (bảng + dialog CRUD: tên/nhóm/hình thức/đơn vị ĐT/thời lượng/chi phí/mô tả). Sidebar item "Đào tạo" (icon GraduationCap, `training:read`).
+- **⚠️ Đăng nhập lại** để nhận 2 quyền mới. Tab Lớp/Đăng ký + Chứng chỉ ở P-E.2/P-E.3. (Upload tài liệu/chứng chỉ qua Attachment để sau.)
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

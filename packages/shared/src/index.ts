@@ -28,6 +28,7 @@ export * from './schemas/overtime';
 export * from './schemas/contract';
 export * from './schemas/recruitment';
 export * from './schemas/performance';
+export * from './schemas/training';
 
 export * from './types/api';
 export * from './types/socket';

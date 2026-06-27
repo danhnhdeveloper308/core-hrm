@@ -131,6 +131,11 @@ export const queryKeys = {
       ['performance', 'dashboard', cycleId] as const,
   },
 
+  training: {
+    courses: (filters: Record<string, unknown>) =>
+      ['training', 'courses', filters] as const,
+  },
+
   reports: {
     dashboard: ['reports', 'dashboard'] as const,
     /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */

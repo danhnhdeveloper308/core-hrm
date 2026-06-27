@@ -55,6 +55,9 @@ export const PERMISSIONS = {
   PERFORMANCE_READ: 'performance:read',
   PERFORMANCE_MANAGE: 'performance:manage',
   REVIEW_CONDUCT: 'review:conduct',
+  // đào tạo / chứng chỉ (read = xem + tự đăng ký; manage = HR quản lý khoá/lớp/duyệt/cấp chứng chỉ)
+  TRAINING_READ: 'training:read',
+  TRAINING_MANAGE: 'training:manage',
   // nghỉ phép
   LEAVE_READ: 'leave:read',
   LEAVE_REQUEST: 'leave:request',
@@ -130,6 +133,9 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'performance:manage':
     'Quản lý chu kỳ đánh giá, thư viện KPI và khởi tạo đánh giá / 360°',
   'review:conduct': 'Chấm điểm đánh giá (quản lý), giao mục tiêu cấp dưới & ký duyệt',
+  'training:read': 'Xem khoá đào tạo, lớp & chứng chỉ (theo phạm vi) + tự đăng ký',
+  'training:manage':
+    'Quản lý khoá/lớp đào tạo, duyệt đăng ký, điểm danh & cấp chứng chỉ',
   'leave:read': 'Xem số dư và đơn nghỉ phép',
   'leave:request': 'Tạo đơn nghỉ phép',
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',
