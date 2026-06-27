@@ -273,6 +273,8 @@ model Organization {
   jobRequisitions       JobRequisition[]
   candidates            Candidate[]
   applications          Application[]
+  interviews            Interview[]
+  interviewFeedbacks    InterviewFeedback[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -489,6 +491,8 @@ model Employee {
   shiftRegistrationLines ShiftRegistrationLine[]
   dependents            Dependent[]
   manpowerRequests      ManpowerRequest[]    @relation("ManpowerRequester")
+  interviewPanels       InterviewPanelist[]  @relation("InterviewPanelist")
+  interviewFeedbacks    InterviewFeedback[]  @relation("InterviewFeedbackAuthor")
 
   // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
   @@index([orgId, code])
@@ -939,6 +943,25 @@ enum ApplicationStage {
   REJECTED
 }
 
+enum InterviewMode {
+  ONSITE
+  ONLINE
+  PHONE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+  NO_SHOW
+}
+
+enum InterviewRecommendation {
+  HIRE
+  NO_HIRE
+  MAYBE
+}
+
 /// Cách tính công khi áp giờ đăng ký tăng/giãn ca.
 /// CLAMP_TO_REGISTERED: lương = trong [giờ ca, giờ kết thúc đăng ký] (sản xuất).
 /// SEPARATE_OT: giờ hành chính giữ nguyên, phần dôi cộng thành OT riêng (phần mềm).
@@ -1202,10 +1225,66 @@ model Application {
   org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   candidate      Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   jobRequisition JobRequisition @relation(fields: [jobRequisitionId], references: [id], onDelete: Cascade)
+  interviews     Interview[]
 
   @@unique([candidateId, jobRequisitionId])
   @@index([orgId, stage])
   @@index([jobRequisitionId, stage])
+}
+
+/// Buổi phỏng vấn của 1 hồ sơ ứng tuyển.
+model Interview {
+  id            String          @id @default(uuid()) @db.Uuid
+  orgId         String          @db.Uuid
+  applicationId String          @db.Uuid
+  round         Int             @default(1)
+  mode          InterviewMode   @default(ONSITE)
+  scheduledAt   DateTime
+  durationMin   Int             @default(60)
+  location      String?
+  meetingLink   String?
+  status        InterviewStatus @default(SCHEDULED)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  org         Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  application Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  panelists   InterviewPanelist[]
+  feedbacks   InterviewFeedback[]
+
+  @@index([orgId, scheduledAt])
+  @@index([applicationId])
+}
+
+/// Thành viên hội đồng phỏng vấn (Employee).
+model InterviewPanelist {
+  id          String @id @default(uuid()) @db.Uuid
+  interviewId String @db.Uuid
+  employeeId  String @db.Uuid
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  employee  Employee  @relation("InterviewPanelist", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([interviewId, employeeId])
+}
+
+/// Đánh giá phỏng vấn của 1 người phỏng vấn (Employee).
+model InterviewFeedback {
+  id             String                  @id @default(uuid()) @db.Uuid
+  orgId          String                  @db.Uuid
+  interviewId    String                  @db.Uuid
+  interviewerId  String                  @db.Uuid
+  score          Int?
+  recommendation InterviewRecommendation
+  comment        String?
+  createdAt      DateTime                @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  interview   Interview    @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer Employee     @relation("InterviewFeedbackAuthor", fields: [interviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([interviewId, interviewerId])
+  @@index([interviewId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

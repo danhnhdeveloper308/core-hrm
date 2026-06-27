@@ -150,7 +150,7 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **FE** `/dashboard/recruitment` ([page.tsx](apps/web/src/app/dashboard/recruitment/page.tsx)) tab **Yêu cầu nhân sự**: bảng + lọc trạng thái + infinite, dialog tạo (OrgUnitCascader + chức danh + SL + cần-trước + lương dự kiến + lý do) gửi duyệt, huỷ khi PENDING. Nav "Tuyển dụng" (gate recruitment:read). **Thêm MANPOWER_REQUEST + OFFER vào builder luồng duyệt** ([approval-flows](apps/web/src/app/dashboard/settings/approval-flows/page.tsx) + TARGET_TYPE_LABELS).
 - **⚠️ Vận hành**: phải **cấu hình luồng duyệt cho "Yêu cầu tuyển dụng"** ở `/dashboard/settings/approval-flows` trước, nếu không tạo yêu cầu sẽ lỗi `APPROVAL_NO_FLOW` (và tự rollback). Người tạo yêu cầu phải có hồ sơ Employee (định tuyến duyệt theo vị trí cây).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
-- **Còn lại P-C**: P-C.4 Phỏng vấn (panelist+feedback+notify) · P-C.5 Offer (duyệt OFFER + convertOfferToEmployee).
+- **Còn lại P-C**: P-C.5 Offer (duyệt OFFER + convertOfferToEmployee).
 
 ## P-C.2 Tuyển dụng — Tin tuyển dụng (Job Requisition) (2026-06-27)
 - Model `JobRequisition` (migration `20260627063449_recruitment_requisition`): `manpowerRequestId?(SetNull)`, title, orgUnit/position(SetNull), headcount, description/requirements, salaryFrom/To, `employmentType(ContractType)`, `status(RequisitionStatus: DRAFT/OPEN/ON_HOLD/CLOSED/FILLED)`, openedAt/closedAt. Enum `RequisitionStatus`. Dùng lại permission `recruitment:*` (KHÔNG thêm quyền mới → không cần seed/sync).
@@ -162,6 +162,12 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - Model `Candidate` (chưa phải User/Employee) + `Application` (1 ứng viên/1 tin, unique `[candidateId, jobRequisitionId]`, `stage` = cột Kanban) + enum `ApplicationStage` (APPLIED/SCREENING/INTERVIEW/OFFER/HIRED/REJECTED). Migration `20260627064134_recruitment_candidate_application`. `prisma.types` thêm `Candidate`. Dùng lại `recruitment:*`.
 - **BE**: `GET/POST/PATCH /candidates` (tìm/tạo/sửa). `GET /applications?jobRequisitionId=&stage=` (board), `POST /applications` (chọn ứng viên có sẵn HOẶC tạo mới inline, guard trùng ứng tuyển), `PATCH /applications/:id/stage` (chuyển stage, REJECTED kèm rejectReason). `@Audit`.
 - **FE** tab **Ứng viên** ([applications-tab.tsx](apps/web/src/app/dashboard/recruitment/applications-tab.tsx)): chọn tin → **bảng Kanban 6 cột theo stage**, card ứng viên (tên/email/phone) + Select chuyển stage; dialog thêm ứng viên (mới inline hoặc tìm có sẵn). (Drag-drop để sau — v1 dùng Select chuyển cột cho chắc.)
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
+## P-C.4 Tuyển dụng — Phỏng vấn (Interview + scorecard) (2026-06-27)
+- Model `Interview` + `InterviewPanelist` (unique [interviewId, employeeId]) + `InterviewFeedback` (unique [interviewId, interviewerId] — 1 người 1 phiếu) + enum `InterviewMode`/`InterviewStatus`/`InterviewRecommendation`. Migration `20260627065634_recruitment_interview`. Employee thêm back-rel panel/feedback. Dùng lại `recruitment:*`.
+- **BE** `InterviewsService` (`apps/api/src/modules/recruitment/`): `GET /interviews?applicationId=&status=`, `POST /interviews` (lên lịch + tạo panelist + **báo panelist có tài khoản qua NotificationService GENERAL** + đẩy Application sang stage INTERVIEW), `PATCH /interviews/:id` (sửa lịch/trạng thái/hội đồng — replace panelist trong transaction), `GET /:id/feedback`, `POST /:id/feedback` (upsert theo người đánh giá = current user's Employee; recompute `Application.ratingAvg` = trung bình score). `@Audit`. RecruitmentModule nay import NotificationModule.
+- **FE** tab **Phỏng vấn** ([interviews-tab.tsx](apps/web/src/app/dashboard/recruitment/interviews-tab.tsx)): danh sách buổi PV (ứng viên/vòng/hình thức/giờ/hội đồng/trạng thái) + đổi trạng thái; dialog lên lịch (tin→ứng viên→vòng/hình thức/giờ/thời lượng/địa điểm-link/hội đồng checkbox); dialog scorecard (điểm 1–5, đề xuất HIRE/NO_HIRE/MAYBE, nhận xét) + xem các đánh giá đã có.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
 ## CHƯA LÀM (roadmap còn lại)

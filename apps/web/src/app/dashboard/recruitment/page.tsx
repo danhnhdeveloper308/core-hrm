@@ -52,6 +52,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { ApplicationsTab } from './applications-tab';
+import { InterviewsTab } from './interviews-tab';
 import { RequisitionTab } from './requisition-tab';
 
 const STATUS_META: Record<ManpowerRequestStatus, { label: string; cls: string }> = {
@@ -359,6 +360,7 @@ export default function RecruitmentPage() {
             <TabsTrigger value="manpower">Yêu cầu nhân sự</TabsTrigger>
             <TabsTrigger value="requisitions">Tin tuyển dụng</TabsTrigger>
             <TabsTrigger value="applications">Ứng viên</TabsTrigger>
+            <TabsTrigger value="interviews">Phỏng vấn</TabsTrigger>
           </TabsList>
           <TabsContent value="manpower" className="mt-4">
             <ManpowerTab />
@@ -368,6 +370,9 @@ export default function RecruitmentPage() {
           </TabsContent>
           <TabsContent value="applications" className="mt-4">
             <ApplicationsTab />
+          </TabsContent>
+          <TabsContent value="interviews" className="mt-4">
+            <InterviewsTab />
           </TabsContent>
         </Tabs>
       </div>

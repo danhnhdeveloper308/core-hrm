@@ -202,3 +202,98 @@ export const listApplicationsQuerySchema = z.object({
   cursor: z.uuid().optional(),
 });
 export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
+
+// ===== Phỏng vấn (Interview) =====
+
+export const interviewModeSchema = z.enum(['ONSITE', 'ONLINE', 'PHONE']);
+export type InterviewMode = z.infer<typeof interviewModeSchema>;
+
+export const interviewStatusSchema = z.enum([
+  'SCHEDULED',
+  'DONE',
+  'CANCELLED',
+  'NO_SHOW',
+]);
+export type InterviewStatus = z.infer<typeof interviewStatusSchema>;
+
+export const interviewRecommendationSchema = z.enum([
+  'HIRE',
+  'NO_HIRE',
+  'MAYBE',
+]);
+export type InterviewRecommendation = z.infer<
+  typeof interviewRecommendationSchema
+>;
+
+export const interviewFeedbackSchema = z.object({
+  id: z.uuid(),
+  interviewId: z.string(),
+  interviewerId: z.string(),
+  interviewerName: z.string().nullable(),
+  score: z.number().int().nullable(),
+  recommendation: interviewRecommendationSchema,
+  comment: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type InterviewFeedbackResponse = z.infer<
+  typeof interviewFeedbackSchema
+>;
+
+export const interviewSchema = z.object({
+  id: z.uuid(),
+  applicationId: z.string(),
+  candidateName: z.string(),
+  jobTitle: z.string().nullable(),
+  round: z.number().int(),
+  mode: interviewModeSchema,
+  scheduledAt: z.string(),
+  durationMin: z.number().int(),
+  location: z.string().nullable(),
+  meetingLink: z.string().nullable(),
+  status: interviewStatusSchema,
+  panelists: z.array(
+    z.object({ employeeId: z.string(), employeeName: z.string() }),
+  ),
+  feedbackCount: z.number().int(),
+  createdAt: z.string(),
+});
+export type InterviewResponse = z.infer<typeof interviewSchema>;
+
+export const createInterviewSchema = z.object({
+  applicationId: z.uuid(),
+  round: z.coerce.number().int().min(1).max(20).default(1),
+  mode: interviewModeSchema.default('ONSITE'),
+  scheduledAt: z.string().min(1),
+  durationMin: z.coerce.number().int().min(5).max(600).default(60),
+  location: z.string().trim().max(300).nullish(),
+  meetingLink: z.string().trim().max(500).nullish(),
+  panelistEmployeeIds: z.array(z.uuid()).default([]),
+});
+export type CreateInterviewInput = z.infer<typeof createInterviewSchema>;
+
+export const updateInterviewSchema = z.object({
+  round: z.coerce.number().int().min(1).max(20).optional(),
+  mode: interviewModeSchema.optional(),
+  scheduledAt: z.string().min(1).optional(),
+  durationMin: z.coerce.number().int().min(5).max(600).optional(),
+  location: z.string().trim().max(300).nullish(),
+  meetingLink: z.string().trim().max(500).nullish(),
+  status: interviewStatusSchema.optional(),
+  panelistEmployeeIds: z.array(z.uuid()).optional(),
+});
+export type UpdateInterviewInput = z.infer<typeof updateInterviewSchema>;
+
+export const listInterviewsQuerySchema = z.object({
+  applicationId: z.uuid().optional(),
+  status: interviewStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListInterviewsQuery = z.infer<typeof listInterviewsQuerySchema>;
+
+export const submitFeedbackSchema = z.object({
+  score: z.coerce.number().int().min(1).max(5).nullish(),
+  recommendation: interviewRecommendationSchema,
+  comment: z.string().trim().max(2000).nullish(),
+});
+export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>;

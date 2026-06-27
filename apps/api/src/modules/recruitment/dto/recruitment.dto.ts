@@ -1,13 +1,17 @@
 import {
   createApplicationSchema,
   createCandidateSchema,
+  createInterviewSchema,
   createJobRequisitionSchema,
   createManpowerRequestSchema,
   listApplicationsQuerySchema,
+  listInterviewsQuerySchema,
   listJobRequisitionsQuerySchema,
   listManpowerRequestsQuerySchema,
+  submitFeedbackSchema,
   updateApplicationStageSchema,
   updateCandidateSchema,
+  updateInterviewSchema,
   updateJobRequisitionSchema,
 } from '@repo/shared';
 import { createZodDto } from 'nestjs-zod';
@@ -45,3 +49,13 @@ export class UpdateApplicationStageDto extends createZodDto(
 export class ListApplicationsQueryDto extends createZodDto(
   listApplicationsQuerySchema,
 ) {}
+
+export class CreateInterviewDto extends createZodDto(createInterviewSchema) {}
+
+export class UpdateInterviewDto extends createZodDto(updateInterviewSchema) {}
+
+export class ListInterviewsQueryDto extends createZodDto(
+  listInterviewsQuerySchema,
+) {}
+
+export class SubmitFeedbackDto extends createZodDto(submitFeedbackSchema) {}
