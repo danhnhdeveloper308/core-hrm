@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  AttendanceDashboard,
+  AttendanceDashboardQuery,
   DashboardStats,
   OrgAttendanceQuery,
   OrgChartLevel,
@@ -10,14 +12,20 @@ import type { AccessTokenPayload } from '../../common/decorators/current-user.de
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceService } from '../attendance/attendance.service';
+import { EmployeesService } from '../employees/employees.service';
 
 const PRESENT_STATUSES = ['PRESENT', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY'];
+const PRESENT_SET = new Set<string>(PRESENT_STATUSES);
+const LATE_SET = new Set<string>(['LATE', 'LATE_AND_EARLY']);
+const EARLY_SET = new Set<string>(['EARLY_LEAVE', 'LATE_AND_EARLY']);
+const ONLEAVE_SET = new Set<string>(['ON_LEAVE', 'HALF_LEAVE']);
 
 @Injectable()
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly attendance: AttendanceService,
+    private readonly employees: EmployeesService,
   ) {}
 
   /** Ngày hôm nay (YYYY-MM-DD) theo timezone của org. */
@@ -204,6 +212,215 @@ export class ReportsService {
         };
       }),
     };
+  }
+
+  /**
+   * Dashboard chấm công: time-series theo ngày + tổng KPI + phân bổ theo đơn vị
+   * + top đi trễ. Aggregate ở DB (groupBy) — KHÔNG nạp từng dòng công vào RAM.
+   * Tôn trọng scope actor (HR/admin = toàn org; UNIT_MANAGER = subtree quản lý).
+   */
+  async attendanceDashboard(
+    orgId: string,
+    actor: AccessTokenPayload,
+    query: AttendanceDashboardQuery,
+  ): Promise<AttendanceDashboard> {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+    const scopePaths = await this.employees.resolveScopePaths(actor);
+
+    // Subtree của đơn vị được chọn (gồm cả đơn vị con).
+    let unitPath: string | null = null;
+    if (query.orgUnitId) {
+      const unit = await this.prisma.orgUnit.findFirst({
+        where: { id: query.orgUnitId, orgId },
+        select: { path: true },
+      });
+      unitPath = unit?.path ?? null;
+    }
+
+    const and: Prisma.EmployeeWhereInput[] = [];
+    if (unitPath) {
+      and.push({ orgUnit: { is: { path: { startsWith: unitPath } } } });
+    }
+    if (scopePaths) {
+      and.push({
+        OR: [
+          ...scopePaths.map((p) => ({
+            orgUnit: { is: { path: { startsWith: p } } },
+          })),
+          { userId: actor.sub },
+        ],
+      });
+    }
+    const where: Prisma.TimesheetDayWhereInput = {
+      orgId,
+      date: { gte: from, lte: to },
+      employee: {
+        is: {
+          orgId,
+          deletedAt: null,
+          status: { not: 'TERMINATED' },
+          ...(and.length ? { AND: and } : {}),
+        },
+      },
+    };
+
+    const [byDateStatus, byEmpStatus] = await Promise.all([
+      this.prisma.timesheetDay.groupBy({
+        by: ['date', 'status'],
+        where,
+        _count: { _all: true },
+        _sum: { workMinutes: true, otMinutes: true },
+      }),
+      this.prisma.timesheetDay.groupBy({
+        by: ['employeeId', 'status'],
+        where,
+        _count: { _all: true },
+      }),
+    ]);
+
+    // ----- totals + series theo ngày -----
+    const totals = {
+      present: 0,
+      late: 0,
+      earlyLeave: 0,
+      absent: 0,
+      onLeave: 0,
+      workHours: 0,
+      otHours: 0,
+    };
+    const seriesMap = new Map<
+      string,
+      {
+        date: string;
+        present: number;
+        late: number;
+        earlyLeave: number;
+        absent: number;
+        onLeave: number;
+      }
+    >();
+    let workMin = 0;
+    let otMin = 0;
+    for (const row of byDateStatus) {
+      const dateStr = row.date.toISOString().slice(0, 10);
+      const point =
+        seriesMap.get(dateStr) ??
+        { date: dateStr, present: 0, late: 0, earlyLeave: 0, absent: 0, onLeave: 0 };
+      const n = row._count._all;
+      if (PRESENT_SET.has(row.status)) {
+        point.present += n;
+        totals.present += n;
+      }
+      if (LATE_SET.has(row.status)) {
+        point.late += n;
+        totals.late += n;
+      }
+      if (EARLY_SET.has(row.status)) {
+        point.earlyLeave += n;
+        totals.earlyLeave += n;
+      }
+      if (row.status === 'ABSENT') {
+        point.absent += n;
+        totals.absent += n;
+      }
+      if (ONLEAVE_SET.has(row.status)) {
+        point.onLeave += n;
+        totals.onLeave += n;
+      }
+      seriesMap.set(dateStr, point);
+      workMin += row._sum.workMinutes ?? 0;
+      otMin += row._sum.otMinutes ?? 0;
+    }
+    totals.workHours = Math.round((workMin / 60) * 10) / 10;
+    totals.otHours = Math.round((otMin / 60) * 10) / 10;
+    const series = [...seriesMap.values()].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
+
+    // ----- byUnit + topLate (map employee → đơn vị) -----
+    const empIds = [...new Set(byEmpStatus.map((r) => r.employeeId))];
+    const emps = empIds.length
+      ? await this.prisma.employee.findMany({
+          where: { id: { in: empIds } },
+          select: {
+            id: true,
+            code: true,
+            fullName: true,
+            orgUnitId: true,
+            orgUnit: { select: { name: true } },
+          },
+        })
+      : [];
+    const empMap = new Map(emps.map((e) => [e.id, e]));
+
+    const unitAgg = new Map<
+      string,
+      {
+        orgUnitId: string | null;
+        orgUnitName: string;
+        present: number;
+        late: number;
+        absent: number;
+        onLeave: number;
+        total: number;
+      }
+    >();
+    const lateByEmp = new Map<string, number>();
+    for (const row of byEmpStatus) {
+      const emp = empMap.get(row.employeeId);
+      if (!emp) continue;
+      const n = row._count._all;
+      const unitKey = emp.orgUnitId ?? '__none__';
+      const agg =
+        unitAgg.get(unitKey) ??
+        {
+          orgUnitId: emp.orgUnitId,
+          orgUnitName: emp.orgUnit?.name ?? 'Chưa gán đơn vị',
+          present: 0,
+          late: 0,
+          absent: 0,
+          onLeave: 0,
+          total: 0,
+        };
+      if (PRESENT_SET.has(row.status)) agg.present += n;
+      if (LATE_SET.has(row.status)) agg.late += n;
+      if (row.status === 'ABSENT') agg.absent += n;
+      if (ONLEAVE_SET.has(row.status)) agg.onLeave += n;
+      agg.total += n;
+      unitAgg.set(unitKey, agg);
+      if (LATE_SET.has(row.status)) {
+        lateByEmp.set(row.employeeId, (lateByEmp.get(row.employeeId) ?? 0) + n);
+      }
+    }
+
+    const byUnit = [...unitAgg.values()]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12)
+      .map((u) => ({
+        orgUnitId: u.orgUnitId,
+        orgUnitName: u.orgUnitName,
+        present: u.present,
+        late: u.late,
+        absent: u.absent,
+        onLeave: u.onLeave,
+      }));
+
+    const topLate = [...lateByEmp.entries()]
+      .map(([employeeId, lateCount]) => {
+        const e = empMap.get(employeeId)!;
+        return {
+          employeeId,
+          employeeName: e.fullName,
+          employeeCode: e.code,
+          orgUnitName: e.orgUnit?.name ?? null,
+          lateCount,
+        };
+      })
+      .sort((a, b) => b.lateCount - a.lateCount)
+      .slice(0, 10);
+
+    return { totals, series, byUnit, topLate };
   }
 
   /** Bảng tổng hợp công tháng (1 dòng/NV) — XLSX, theo scope của actor. */

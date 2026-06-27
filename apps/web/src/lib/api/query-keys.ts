@@ -96,5 +96,7 @@ export const queryKeys = {
     /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */
     orgChart: (mode: string, parentId: string | null) =>
       ['reports', 'org-chart', mode, parentId ?? 'root'] as const,
+    attendanceDashboard: (filters: Record<string, unknown>) =>
+      ['reports', 'attendance-dashboard', filters] as const,
   },
 } as const;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateOnlySchema } from './employee';
 
 /** Số liệu tổng quan dashboard (phạm vi org). */
 export const dashboardStatsSchema = z.object({
@@ -56,3 +57,62 @@ export const orgChartLevelSchema = z.object({
   nodes: z.array(orgChartNodeSchema),
 });
 export type OrgChartLevel = z.infer<typeof orgChartLevelSchema>;
+
+// ===== Dashboard chấm công =====
+
+/** Lọc dashboard chấm công: khoảng ngày + đơn vị (subtree). */
+export const attendanceDashboardQuerySchema = z.object({
+  from: dateOnlySchema,
+  to: dateOnlySchema,
+  /** Đơn vị gốc — gồm cả các đơn vị con (subtree). */
+  orgUnitId: z.uuid().optional(),
+});
+export type AttendanceDashboardQuery = z.infer<
+  typeof attendanceDashboardQuerySchema
+>;
+
+/** 1 điểm time-series theo ngày. */
+export const attendanceDashboardPointSchema = z.object({
+  date: z.string(),
+  present: z.number().int(),
+  late: z.number().int(),
+  earlyLeave: z.number().int(),
+  absent: z.number().int(),
+  onLeave: z.number().int(),
+});
+
+export const attendanceDashboardSchema = z.object({
+  /** Tổng cộng trong khoảng (số lượt ngày-công + giờ). */
+  totals: z.object({
+    present: z.number().int(),
+    late: z.number().int(),
+    earlyLeave: z.number().int(),
+    absent: z.number().int(),
+    onLeave: z.number().int(),
+    workHours: z.number(),
+    otHours: z.number(),
+  }),
+  series: z.array(attendanceDashboardPointSchema),
+  /** Phân bổ theo đơn vị (top theo tổng lượt). */
+  byUnit: z.array(
+    z.object({
+      orgUnitId: z.string().nullable(),
+      orgUnitName: z.string(),
+      present: z.number().int(),
+      late: z.number().int(),
+      absent: z.number().int(),
+      onLeave: z.number().int(),
+    }),
+  ),
+  /** Top nhân viên đi trễ nhiều nhất. */
+  topLate: z.array(
+    z.object({
+      employeeId: z.string(),
+      employeeName: z.string(),
+      employeeCode: z.string(),
+      orgUnitName: z.string().nullable(),
+      lateCount: z.number().int(),
+    }),
+  ),
+});
+export type AttendanceDashboard = z.infer<typeof attendanceDashboardSchema>;

@@ -13,7 +13,11 @@ import {
   type AccessTokenPayload,
 } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import { AttendanceReportQueryDto, OrgChartQueryDto } from './dto/reports.dto';
+import {
+  AttendanceDashboardQueryDto,
+  AttendanceReportQueryDto,
+  OrgChartQueryDto,
+} from './dto/reports.dto';
 import { ReportsService } from './reports.service';
 
 const XLSX_MIME =
@@ -41,6 +45,20 @@ export class ReportsController {
   @ApiOkResponse({ description: 'OrgChartLevel' })
   orgChart(@CurrentOrg() orgId: string, @Query() query: OrgChartQueryDto) {
     return this.reports.orgChart(orgId, query);
+  }
+
+  @Get('attendance-dashboard')
+  @RequirePermissions(PERMISSIONS.REPORT_READ)
+  @ApiOperation({
+    summary: 'Dashboard chấm công: time-series + KPI + theo đơn vị + top đi trễ',
+  })
+  @ApiOkResponse({ description: 'AttendanceDashboard' })
+  attendanceDashboard(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() actor: AccessTokenPayload,
+    @Query() query: AttendanceDashboardQueryDto,
+  ) {
+    return this.reports.attendanceDashboard(orgId, actor, query);
   }
 
   @Get('attendance.xlsx')

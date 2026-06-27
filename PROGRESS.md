@@ -116,6 +116,13 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **FE** `/dashboard/org-chart` ([page.tsx](apps/web/src/app/dashboard/org-chart/page.tsx)): tab **Theo đơn vị / Theo người**; mode đơn vị có `OrgUnitCascader` chọn đơn vị gốc (tuỳ chọn) + breadcrumb. Cây render qua [org-chart-tree.tsx](apps/web/src/components/org/org-chart-tree.tsx) — node CSS/SVG nhẹ, chevron expand/collapse **chỉ mount nhánh đang mở**, react-query cache 1 key/nhánh (`reports.orgChart(mode,parentId)`), badge headcount. Nav "Sơ đồ tổ chức" (gate `org:read`).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-A.8 Dashboard chấm công (2026-06-27)
+- **BE** `GET /reports/attendance-dashboard?from&to&orgUnitId` (permission **`report:read`**) → `AttendanceDashboard { totals, series[], byUnit[], topLate[] }`. **Aggregate ở DB** bằng `timesheetDay.groupBy` (theo `[date,status]` cho series+KPI+sum giờ công/OT; theo `[employeeId,status]` cho byUnit+topLate) — KHÔNG nạp từng dòng công vào RAM. Map employee→đơn vị chỉ fetch những NV có dữ liệu trong khoảng. byUnit top 12, topLate top 10. Service `attendanceDashboard` ở [reports.service.ts](apps/api/src/modules/reports/reports.service.ts).
+- **Scope theo actor** (tái dùng `EmployeesService.resolveScopePaths`): ORG_ADMIN/HR_MANAGER = toàn org; **UNIT_MANAGER = chỉ subtree mình quản lý** (vì UNIT_MANAGER cũng có `report:read`). `orgUnitId` lọc theo **subtree** (path startsWith), AND với scope. ReportsModule nay import EmployeesModule.
+- **Shared** [reports.ts](packages/shared/src/schemas/reports.ts): `attendanceDashboardQuerySchema` + `attendanceDashboardSchema` (totals/series/byUnit/topLate) + types.
+- **FE** `/dashboard/attendance-dashboard` ([page.tsx](apps/web/src/app/dashboard/attendance-dashboard/page.tsx)): bộ lọc từ/đến ngày (mặc định đầu tháng→hôm nay) + `OrgUnitCascader`; 6 KPI card; biểu đồ **recharts** (thêm dep `recharts@3` — dùng chung cho KPI/payroll sau): LineChart diễn biến theo ngày (đi làm/trễ/vắng/nghỉ), BarChart ngang theo đơn vị (stack đi làm/trễ/vắng), bảng top đi trễ. Nav "Dashboard chấm công" (gate `report:read`).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.
