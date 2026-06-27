@@ -22,6 +22,7 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { FadeIn } from '@/components/motion/primitives';
+import { OrgUnitCascader } from '@/components/org/org-unit-cascader';
 import { PermissionGate } from '@/components/permission-gate';
 import {
   AlertDialog,
@@ -62,6 +63,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { orgUnitBreadcrumb } from '@/lib/org';
 
 interface TreeNode extends OrgUnitResponse {
   children: TreeNode[];
@@ -78,11 +80,6 @@ function buildTree(units: OrgUnitResponse[]): TreeNode[] {
     else roots.push(node);
   }
   return roots;
-}
-
-/** Độ sâu node theo path "/a/b/c/" → 3. */
-function depthOf(unit: OrgUnitResponse): number {
-  return unit.path.split('/').filter(Boolean).length;
 }
 
 export default function OrgStructurePage() {
@@ -248,6 +245,7 @@ export default function OrgStructurePage() {
       <UnitFormDialog
         open={createOpen}
         parent={createParent}
+        units={units ?? []}
         types={types ?? []}
         onClose={() => setCreateOpen(false)}
         onSaved={() => void invalidate()}
@@ -296,16 +294,25 @@ export default function OrgStructurePage() {
 function UnitFormDialog({
   open,
   parent,
+  units,
   types,
   onClose,
   onSaved,
 }: {
   open: boolean;
   parent: OrgUnitResponse | null;
+  units: OrgUnitResponse[];
   types: OrgUnitTypeResponse[];
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // Breadcrumb đầy đủ của đơn vị cha (rõ ngữ cảnh ở tập đoàn trùng tên phòng ban)
+  const parentBreadcrumb = useMemo(() => {
+    if (!parent) return null;
+    const byId = new Map(units.map((u) => [u.id, u]));
+    return orgUnitBreadcrumb(parent, byId);
+  }, [parent, units]);
+
   const form = useForm<CreateOrgUnitInput>({
     resolver: zodResolver(createOrgUnitSchema),
     defaultValues: { name: '', code: '', typeId: '', parentId: null },
@@ -334,6 +341,7 @@ function UnitFormDialog({
             {parent ? `Thêm đơn vị con của ${parent.name}` : 'Thêm node gốc'}
           </DialogTitle>
           <DialogDescription>
+            {parentBreadcrumb ? `Trực thuộc: ${parentBreadcrumb}. ` : ''}
             Loại đơn vị tự do — cây không ép đúng thứ tự tầng.
           </DialogDescription>
         </DialogHeader>
@@ -542,24 +550,24 @@ function UnitMoveDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const ROOT = '__root__';
-  const [parentId, setParentId] = useState<string>(ROOT);
+  // null = làm node gốc. Đơn vị đích đang chọn làm CHA mới.
+  const [parentId, setParentId] = useState<string | null>(null);
 
-  // Không cho chọn chính nó hoặc node trong subtree của nó (chống chu trình)
+  // Loại chính nó và toàn bộ subtree của nó (chống chu trình) trước khi đưa vào
+  // cascader — đã loại cả nhánh con nên cây con không bị mồ côi.
   const candidates = useMemo(
-    () =>
-      target
-        ? units
-            .filter((u) => !u.path.startsWith(target.path))
-            .sort((a, b) => a.path.localeCompare(b.path))
-        : [],
+    () => (target ? units.filter((u) => !u.path.startsWith(target.path)) : []),
     [target, units],
   );
+
+  const selectedParent = parentId
+    ? candidates.find((u) => u.id === parentId)
+    : undefined;
 
   const mutation = useMutation({
     mutationFn: () =>
       api.patch<OrgUnitResponse>(`/org-units/${target?.id}/move`, {
-        parentId: parentId === ROOT ? null : parentId,
+        parentId,
       }),
     onSuccess: (unit) => {
       toast.success(`Đã chuyển ${unit.name}`);
@@ -575,7 +583,7 @@ function UnitMoveDialog({
       open={target !== null}
       onOpenChange={(o) => {
         if (!o) {
-          setParentId(ROOT);
+          setParentId(null);
           onClose();
         }
       }}
@@ -587,19 +595,15 @@ function UnitMoveDialog({
             Toàn bộ đơn vị con đi theo. Không thể chuyển vào chính nhánh của nó.
           </DialogDescription>
         </DialogHeader>
-        <Select value={parentId} onValueChange={setParentId}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ROOT}>— Làm node gốc —</SelectItem>
-            {candidates.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {`${' '.repeat((depthOf(u) - 1) * 3)}${u.name} (${u.typeName})`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <OrgUnitCascader
+          units={candidates}
+          value={parentId}
+          onChange={setParentId}
+          placeholder="— Làm node gốc —"
+        />
+        <p className="text-sm text-muted-foreground">
+          Cha mới: <b>{selectedParent ? selectedParent.name : '— Node gốc —'}</b>
+        </p>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
             Huỷ

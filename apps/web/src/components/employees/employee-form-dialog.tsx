@@ -43,8 +43,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { OrgUnitCascader } from '@/components/org/org-unit-cascader';
 import { api, ApiError } from '@/lib/api/client';
-import { orgUnitOptions } from '@/lib/org';
+import { orgUnitBreadcrumb } from '@/lib/org';
 import { queryKeys } from '@/lib/api/query-keys';
 
 const NONE = '__none__';
@@ -116,8 +117,11 @@ export function EmployeeFormDialog({
     queryFn: () => api.get<OrgUnitResponse[]>('/org-units'),
     enabled: open,
   });
-  // Nhãn breadcrumb theo cây để phân biệt phòng ban trùng tên giữa các nhánh
-  const unitOptions = useMemo(() => orgUnitOptions(units ?? []), [units]);
+  // Map id→đơn vị để hiển thị breadcrumb đầy đủ của đơn vị đang chọn
+  const unitsById = useMemo(
+    () => new Map((units ?? []).map((u) => [u.id, u])),
+    [units],
+  );
   const { data: positions } = useQuery({
     queryKey: queryKeys.org.positions,
     queryFn: () => api.get<PositionResponse[]>('/positions'),
@@ -324,30 +328,30 @@ export function EmployeeFormDialog({
             <FormField
               control={form.control}
               name="orgUnitId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Đơn vị (phòng ban theo cơ cấu)</FormLabel>
-                  <Select
-                    value={field.value ?? NONE}
-                    onValueChange={(v) => field.onChange(v === NONE ? null : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Chọn đơn vị" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {unitOptions.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const selected = field.value ? unitsById.get(field.value) : undefined;
+                return (
+                  <FormItem>
+                    <FormLabel>Đơn vị (phòng ban theo cơ cấu)</FormLabel>
+                    <OrgUnitCascader
+                      units={units ?? []}
+                      value={(field.value as string | null) ?? null}
+                      onChange={(id) => field.onChange(id)}
+                      placeholder="— Chọn —"
+                    />
+                    {selected ? (
+                      <FormDescription>
+                        Đang chọn: {orgUnitBreadcrumb(selected, unitsById)}
+                      </FormDescription>
+                    ) : (
+                      <FormDescription>
+                        Chọn lần lượt từ cấp cao nhất xuống đơn vị trực tiếp.
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
