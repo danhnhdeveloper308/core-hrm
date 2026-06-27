@@ -227,13 +227,3 @@ export const importEmployeesResultSchema = z.object({
   ),
 });
 export type ImportEmployeesResult = z.infer<typeof importEmployeesResultSchema>;
-
-// ===== Org chart =====
-
-export interface OrgChartNode {
-  id: string;
-  fullName: string;
-  positionName: string | null;
-  orgUnitName: string | null;
-  children: OrgChartNode[];
-}

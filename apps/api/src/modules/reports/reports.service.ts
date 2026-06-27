@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { DashboardStats, OrgAttendanceQuery } from '@repo/shared';
+import type {
+  DashboardStats,
+  OrgAttendanceQuery,
+  OrgChartLevel,
+  OrgChartQuery,
+} from '@repo/shared';
 import ExcelJS from 'exceljs';
 import type { AccessTokenPayload } from '../../common/decorators/current-user.decorator';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceService } from '../attendance/attendance.service';
 
@@ -65,6 +71,138 @@ export class ReportsService {
       onLeaveToday,
       pendingApprovals,
       pendingLeave,
+    };
+  }
+
+  /**
+   * Sơ đồ tổ chức — LAZY theo nhánh (1 cấp/lần) để chịu được tập đoàn nhiều
+   * nghìn node. Trả con trực tiếp của `root` (hoặc cấp gốc nếu không có root).
+   */
+  async orgChart(orgId: string, query: OrgChartQuery): Promise<OrgChartLevel> {
+    return query.mode === 'people'
+      ? this.orgChartPeople(orgId, query.rootEmployeeId)
+      : this.orgChartUnits(orgId, query.rootUnitId);
+  }
+
+  /** mode=unit: con của 1 đơn vị + headcount TOÀN NHÁNH (path prefix) + số đv con. */
+  private async orgChartUnits(
+    orgId: string,
+    rootUnitId?: string,
+  ): Promise<OrgChartLevel> {
+    const children = await this.prisma.orgUnit.findMany({
+      where: { orgId, parentId: rootUnitId ?? null },
+      include: {
+        type: { select: { name: true, rank: true } },
+        manager: { select: { fullName: true } },
+      },
+      orderBy: [{ type: { rank: 'asc' } }, { name: 'asc' }],
+    });
+    if (children.length === 0) return { mode: 'unit', nodes: [] };
+    const ids = children.map((c) => c.id);
+
+    // Số đơn vị con trực tiếp của mỗi child — 1 query, tránh N+1.
+    const childGroups = await this.prisma.orgUnit.groupBy({
+      by: ['parentId'],
+      where: { orgId, parentId: { in: ids } },
+      _count: { _all: true },
+    });
+    const childCountMap = new Map(
+      childGroups.map((g) => [g.parentId, g._count._all]),
+    );
+
+    // Headcount toàn nhánh: NV thuộc đv con HOẶC mọi đv con cháu (path prefix).
+    // 1 query duy nhất cho cả cấp — index [orgId, path].
+    const parentCond = rootUnitId
+      ? Prisma.sql`c."parentId" = ${rootUnitId}::uuid`
+      : Prisma.sql`c."parentId" IS NULL`;
+    const heads = await this.prisma.$queryRaw<
+      { id: string; headcount: bigint }[]
+    >`
+      SELECT c.id, COUNT(e.id) AS headcount
+      FROM "OrgUnit" c
+      LEFT JOIN "OrgUnit" eu
+        ON eu."orgId" = c."orgId" AND eu."path" LIKE c."path" || '%'
+      LEFT JOIN "Employee" e
+        ON e."orgUnitId" = eu.id
+        AND e."deletedAt" IS NULL AND e."status" <> 'TERMINATED'
+      WHERE c."orgId" = ${orgId}::uuid AND ${parentCond}
+      GROUP BY c.id
+    `;
+    const headMap = new Map(heads.map((h) => [h.id, Number(h.headcount)]));
+
+    return {
+      mode: 'unit',
+      nodes: children.map((c) => {
+        const childCount = childCountMap.get(c.id) ?? 0;
+        return {
+          id: c.id,
+          parentId: c.parentId,
+          name: c.name,
+          subtitle: c.type.name,
+          code: c.code,
+          meta: c.manager?.fullName ?? null,
+          headcount: headMap.get(c.id) ?? 0,
+          childCount,
+          hasChildren: childCount > 0,
+        };
+      }),
+    };
+  }
+
+  /** mode=people: report trực tiếp của 1 NV (root rỗng = NV không có quản lý). */
+  private async orgChartPeople(
+    orgId: string,
+    rootEmployeeId?: string,
+  ): Promise<OrgChartLevel> {
+    const reports = await this.prisma.employee.findMany({
+      where: {
+        orgId,
+        deletedAt: null,
+        status: { not: 'TERMINATED' },
+        managerId: rootEmployeeId ?? null,
+      },
+      select: {
+        id: true,
+        managerId: true,
+        fullName: true,
+        position: { select: { name: true } },
+        orgUnit: { select: { name: true } },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+    if (reports.length === 0) return { mode: 'people', nodes: [] };
+    const ids = reports.map((r) => r.id);
+
+    const groups = await this.prisma.employee.groupBy({
+      by: ['managerId'],
+      where: {
+        orgId,
+        deletedAt: null,
+        status: { not: 'TERMINATED' },
+        managerId: { in: ids },
+      },
+      _count: { _all: true },
+    });
+    const reportCountMap = new Map(
+      groups.map((g) => [g.managerId, g._count._all]),
+    );
+
+    return {
+      mode: 'people',
+      nodes: reports.map((r) => {
+        const count = reportCountMap.get(r.id) ?? 0;
+        return {
+          id: r.id,
+          parentId: r.managerId,
+          name: r.fullName,
+          subtitle: r.position?.name ?? null,
+          code: null,
+          meta: r.orgUnit?.name ?? null,
+          headcount: count,
+          childCount: count,
+          hasChildren: count > 0,
+        };
+      }),
     };
   }
 

@@ -13,7 +13,6 @@ import {
   type EmployeeResponse,
   type ImportEmployeesResult,
   type ListEmployeesQuery,
-  type OrgChartNode,
   type UpdateDependentInput,
   type UpdateEmployeeInput,
 } from '@repo/shared';
@@ -823,42 +822,6 @@ export class EmployeesService {
     await this.prisma.employmentContract.delete({ where: { id: contract.id } });
     addAuditMetadata({ before: { type: contract.type, employeeId } });
     return { message: 'Đã xoá hợp đồng' };
-  }
-
-  // ===== Org chart =====
-
-  async orgChart(orgId: string): Promise<OrgChartNode[]> {
-    const employees = await this.prisma.employee.findMany({
-      where: { orgId, status: { not: 'TERMINATED' } },
-      select: {
-        id: true,
-        fullName: true,
-        managerId: true,
-        position: { select: { name: true } },
-        orgUnit: { select: { name: true } },
-      },
-      orderBy: { fullName: 'asc' },
-    });
-    const byId = new Map<string, OrgChartNode>(
-      employees.map((e) => [
-        e.id,
-        {
-          id: e.id,
-          fullName: e.fullName,
-          positionName: e.position?.name ?? null,
-          orgUnitName: e.orgUnit?.name ?? null,
-          children: [],
-        },
-      ]),
-    );
-    const roots: OrgChartNode[] = [];
-    for (const e of employees) {
-      const node = byId.get(e.id)!;
-      const parent = e.managerId ? byId.get(e.managerId) : undefined;
-      if (parent) parent.children.push(node);
-      else roots.push(node);
-    }
-    return roots;
   }
 
   // ===== Người phụ thuộc (giảm trừ gia cảnh) =====

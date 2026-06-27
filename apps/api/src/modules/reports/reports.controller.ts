@@ -13,7 +13,7 @@ import {
   type AccessTokenPayload,
 } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import { AttendanceReportQueryDto } from './dto/reports.dto';
+import { AttendanceReportQueryDto, OrgChartQueryDto } from './dto/reports.dto';
 import { ReportsService } from './reports.service';
 
 const XLSX_MIME =
@@ -31,6 +31,16 @@ export class ReportsController {
   @ApiOkResponse({ description: 'DashboardStats' })
   dashboard(@CurrentOrg() orgId: string) {
     return this.reports.dashboardStats(orgId);
+  }
+
+  @Get('org-chart')
+  @RequirePermissions(PERMISSIONS.ORG_READ)
+  @ApiOperation({
+    summary: 'Sơ đồ tổ chức (lazy 1 cấp/lần) — theo đơn vị hoặc reporting line',
+  })
+  @ApiOkResponse({ description: 'OrgChartLevel' })
+  orgChart(@CurrentOrg() orgId: string, @Query() query: OrgChartQueryDto) {
+    return this.reports.orgChart(orgId, query);
   }
 
   @Get('attendance.xlsx')

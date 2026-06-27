@@ -83,14 +83,6 @@ export class EmployeesController {
     return this.employees.list(orgId, actor, query);
   }
 
-  @Get('org-chart')
-  @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
-  @ApiOperation({ summary: 'Sơ đồ tổ chức theo quản lý trực tiếp' })
-  @ApiOkResponse({ description: 'OrgChartNode[]' })
-  orgChart(@CurrentOrg() orgId: string) {
-    return this.employees.orgChart(orgId);
-  }
-
   @Get('me')
   @ApiOperation({ summary: 'Hồ sơ nhân viên của chính mình (null nếu chưa có)' })
   @ApiOkResponse({ description: 'EmployeeResponse & { contracts } | null' })

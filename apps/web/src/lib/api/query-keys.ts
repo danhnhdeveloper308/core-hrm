@@ -93,5 +93,8 @@ export const queryKeys = {
 
   reports: {
     dashboard: ['reports', 'dashboard'] as const,
+    /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */
+    orgChart: (mode: string, parentId: string | null) =>
+      ['reports', 'org-chart', mode, parentId ?? 'root'] as const,
   },
 } as const;
