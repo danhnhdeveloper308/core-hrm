@@ -48,6 +48,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { MyEnrollmentsTab } from './my-enrollments-tab';
+import { SessionsTab } from './sessions-tab';
 
 const MODE_LABEL: Record<TrainingMode, string> = {
   ONLINE: 'Trực tuyến',
@@ -398,10 +400,18 @@ export default function TrainingPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="courses">
+        <Tabs defaultValue="sessions">
           <TabsList>
+            <TabsTrigger value="sessions">Lớp & Đăng ký</TabsTrigger>
+            <TabsTrigger value="my">Của tôi</TabsTrigger>
             <TabsTrigger value="courses">Danh mục khoá</TabsTrigger>
           </TabsList>
+          <TabsContent value="sessions" className="mt-4">
+            <SessionsTab />
+          </TabsContent>
+          <TabsContent value="my" className="mt-4">
+            <MyEnrollmentsTab />
+          </TabsContent>
           <TabsContent value="courses" className="mt-4">
             <CoursesTab />
           </TabsContent>

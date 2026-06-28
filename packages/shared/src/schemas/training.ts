@@ -63,3 +63,136 @@ export const listTrainingCoursesQuerySchema = z.object({
 export type ListTrainingCoursesQuery = z.infer<
   typeof listTrainingCoursesQuerySchema
 >;
+
+// ===== Lớp / đợt đào tạo (TrainingSession) =====
+
+export const trainingSessionStatusSchema = z.enum([
+  'OPEN',
+  'FULL',
+  'RUNNING',
+  'DONE',
+  'CANCELLED',
+]);
+export type TrainingSessionStatus = z.infer<
+  typeof trainingSessionStatusSchema
+>;
+
+export const trainingSessionSchema = z.object({
+  id: z.uuid(),
+  courseId: z.string(),
+  courseTitle: z.string().nullable(),
+  title: z.string().nullable(),
+  startAt: z.string(),
+  endAt: z.string().nullable(),
+  location: z.string().nullable(),
+  link: z.string().nullable(),
+  trainerEmployeeId: z.string().nullable(),
+  trainerName: z.string().nullable(),
+  capacity: z.number().int().nullable(),
+  status: trainingSessionStatusSchema,
+  enrolledCount: z.number().int(),
+  createdAt: z.string(),
+});
+export type TrainingSessionResponse = z.infer<typeof trainingSessionSchema>;
+
+export const createTrainingSessionSchema = z.object({
+  courseId: z.uuid(),
+  title: z.string().trim().max(300).nullish(),
+  startAt: z.string().min(1),
+  endAt: z.string().min(1).nullish(),
+  location: z.string().trim().max(300).nullish(),
+  link: z.string().trim().max(500).nullish(),
+  trainerEmployeeId: z.uuid().nullish(),
+  capacity: z.coerce.number().int().min(1).max(100000).nullish(),
+});
+export type CreateTrainingSessionInput = z.infer<
+  typeof createTrainingSessionSchema
+>;
+
+export const updateTrainingSessionSchema = z.object({
+  title: z.string().trim().max(300).nullish(),
+  startAt: z.string().min(1).optional(),
+  endAt: z.string().min(1).nullish(),
+  location: z.string().trim().max(300).nullish(),
+  link: z.string().trim().max(500).nullish(),
+  trainerEmployeeId: z.uuid().nullish(),
+  capacity: z.coerce.number().int().min(1).max(100000).nullish(),
+  status: trainingSessionStatusSchema.optional(),
+});
+export type UpdateTrainingSessionInput = z.infer<
+  typeof updateTrainingSessionSchema
+>;
+
+export const listTrainingSessionsQuerySchema = z.object({
+  courseId: z.uuid().optional(),
+  status: trainingSessionStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListTrainingSessionsQuery = z.infer<
+  typeof listTrainingSessionsQuerySchema
+>;
+
+// ===== Đăng ký học (TrainingEnrollment) =====
+
+export const trainingEnrollmentStatusSchema = z.enum([
+  'REGISTERED',
+  'CONFIRMED',
+  'ATTENDED',
+  'COMPLETED',
+  'CANCELLED',
+  'NO_SHOW',
+]);
+export type TrainingEnrollmentStatus = z.infer<
+  typeof trainingEnrollmentStatusSchema
+>;
+
+export const trainingEnrollmentSchema = z.object({
+  id: z.uuid(),
+  sessionId: z.string(),
+  sessionTitle: z.string().nullable(),
+  courseTitle: z.string().nullable(),
+  startAt: z.string().nullable(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  status: trainingEnrollmentStatusSchema,
+  score: z.number().nullable(),
+  feedback: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type TrainingEnrollmentResponse = z.infer<
+  typeof trainingEnrollmentSchema
+>;
+
+/** HR ghi danh hộ 1 NV. NV tự đăng ký dùng POST /training/sessions/:id/register. */
+export const createTrainingEnrollmentSchema = z.object({
+  sessionId: z.uuid(),
+  employeeId: z.uuid(),
+});
+export type CreateTrainingEnrollmentInput = z.infer<
+  typeof createTrainingEnrollmentSchema
+>;
+
+/** HR cập nhật trạng thái / điểm / nhận xét (điểm danh, hoàn thành...). */
+export const updateTrainingEnrollmentSchema = z.object({
+  status: trainingEnrollmentStatusSchema.optional(),
+  score: z.coerce.number().min(0).max(100).nullish(),
+  feedback: z.string().trim().max(2000).nullish(),
+});
+export type UpdateTrainingEnrollmentInput = z.infer<
+  typeof updateTrainingEnrollmentSchema
+>;
+
+export const listTrainingEnrollmentsQuerySchema = z.object({
+  sessionId: z.uuid().optional(),
+  /** Bỏ trống = đăng ký trong phạm vi của tôi (bản thân + cấp dưới). */
+  employeeId: z.uuid().optional(),
+  status: trainingEnrollmentStatusSchema.optional(),
+  /** mine=true → chỉ đăng ký của chính tôi. */
+  mine: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListTrainingEnrollmentsQuery = z.infer<
+  typeof listTrainingEnrollmentsQuerySchema
+>;

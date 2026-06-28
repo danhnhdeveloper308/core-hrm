@@ -134,6 +134,11 @@ export const queryKeys = {
   training: {
     courses: (filters: Record<string, unknown>) =>
       ['training', 'courses', filters] as const,
+    sessions: (filters: Record<string, unknown>) =>
+      ['training', 'sessions', filters] as const,
+    enrollments: (filters: Record<string, unknown>) =>
+      ['training', 'enrollments', filters] as const,
+    myEnrollments: ['training', 'enrollments', 'mine'] as const,
   },
 
   reports: {

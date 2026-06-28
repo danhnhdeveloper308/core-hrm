@@ -58,6 +58,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   MANPOWER_REQUEST: 'Yêu cầu tuyển dụng',
   OFFER: 'Thư mời nhận việc (offer)',
   PERFORMANCE_REVIEW: 'Đánh giá hiệu suất (ký duyệt)',
+  TRAINING_ENROLLMENT: 'Đăng ký đào tạo',
 };
 
 /** "2" / "1.5" → bỏ số 0 thừa. */

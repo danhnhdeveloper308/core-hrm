@@ -12,9 +12,13 @@ import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
-type CourseRow = Prisma.TrainingCourseGetPayload<object>;
+const INCLUDE = {
+  _count: { select: { sessions: true } },
+} as const;
 
-function toResponse(c: CourseRow, sessionCount = 0): TrainingCourseResponse {
+type CourseRow = Prisma.TrainingCourseGetPayload<{ include: typeof INCLUDE }>;
+
+function toResponse(c: CourseRow): TrainingCourseResponse {
   return {
     id: c.id,
     title: c.title,
@@ -25,7 +29,7 @@ function toResponse(c: CourseRow, sessionCount = 0): TrainingCourseResponse {
     cost: c.cost,
     description: c.description,
     active: c.active,
-    sessionCount,
+    sessionCount: c._count.sessions,
     createdAt: c.createdAt.toISOString(),
   };
 }
@@ -50,6 +54,7 @@ export class TrainingCoursesService {
     };
     const rows = await this.prisma.trainingCourse.findMany({
       where,
+      include: INCLUDE,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -77,6 +82,7 @@ export class TrainingCoursesService {
         cost: input.cost ?? null,
         description: input.description ?? null,
       },
+      include: INCLUDE,
     });
     addAuditMetadata({ after: { title: input.title, mode: input.mode } });
     return toResponse(created);
@@ -104,6 +110,7 @@ export class TrainingCoursesService {
           : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
       },
+      include: INCLUDE,
     });
     addAuditMetadata({ after: { title: updated.title } });
     return toResponse(updated);
@@ -119,6 +126,7 @@ export class TrainingCoursesService {
   private async require(orgId: string, id: string): Promise<CourseRow> {
     const c = await this.prisma.trainingCourse.findFirst({
       where: { id, orgId },
+      include: INCLUDE,
     });
     if (!c) {
       throw new AppException(

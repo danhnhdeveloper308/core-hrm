@@ -283,6 +283,8 @@ model Organization {
   feedback360s          Feedback360[]
   feedback360Raters     Feedback360Rater[]
   trainingCourses       TrainingCourse[]
+  trainingSessions      TrainingSession[]
+  trainingEnrollments   TrainingEnrollment[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -506,6 +508,8 @@ model Employee {
   reviewsGiven          PerformanceReview[]  @relation("ReviewerReviews")
   feedback360sReceived  Feedback360[]        @relation("Feedback360Reviewee")
   feedback360Given      Feedback360Rater[]   @relation("Feedback360Rater")
+  trainingSessionsLed   TrainingSession[]    @relation("TrainingTrainer")
+  trainingEnrollments   TrainingEnrollment[] @relation("TrainingEnrollee")
 
   // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
   @@index([orgId, code])
@@ -930,6 +934,7 @@ enum ApprovalTargetType {
   MANPOWER_REQUEST
   OFFER
   PERFORMANCE_REVIEW
+  TRAINING_ENROLLMENT
 }
 
 enum ManpowerRequestStatus {
@@ -1553,9 +1558,73 @@ model TrainingCourse {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sessions TrainingSession[]
 
   @@index([orgId, active])
+}
+
+enum TrainingSessionStatus {
+  OPEN
+  FULL
+  RUNNING
+  DONE
+  CANCELLED
+}
+
+enum TrainingEnrollmentStatus {
+  REGISTERED
+  CONFIRMED
+  ATTENDED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+/// Lớp/đợt mở của 1 khoá đào tạo. NV đăng ký (TrainingEnrollment) vào đây.
+model TrainingSession {
+  id                String                @id @default(uuid()) @db.Uuid
+  orgId             String                @db.Uuid
+  courseId          String                @db.Uuid
+  title             String?
+  startAt           DateTime
+  endAt             DateTime?
+  location          String?
+  link              String?
+  trainerEmployeeId String?               @db.Uuid
+  /// Sĩ số tối đa — null = không giới hạn
+  capacity          Int?
+  status            TrainingSessionStatus @default(OPEN)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  org         Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  course      TrainingCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  trainer     Employee?            @relation("TrainingTrainer", fields: [trainerEmployeeId], references: [id], onDelete: SetNull)
+  enrollments TrainingEnrollment[]
+
+  @@index([orgId, status])
+  @@index([courseId])
+}
+
+/// Đăng ký học của 1 NV vào 1 lớp. Đăng ký có thể qua duyệt (TRAINING_ENROLLMENT).
+model TrainingEnrollment {
+  id         String                   @id @default(uuid()) @db.Uuid
+  orgId      String                   @db.Uuid
+  sessionId  String                   @db.Uuid
+  employeeId String                   @db.Uuid
+  status     TrainingEnrollmentStatus @default(REGISTERED)
+  score      Float?
+  feedback   String?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  session  TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employee Employee        @relation("TrainingEnrollee", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, employeeId])
+  @@index([orgId, employeeId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

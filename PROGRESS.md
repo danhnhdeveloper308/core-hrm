@@ -229,6 +229,14 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Đăng nhập lại** để nhận 2 quyền mới. Tab Lớp/Đăng ký + Chứng chỉ ở P-E.2/P-E.3. (Upload tài liệu/chứng chỉ qua Attachment để sau.)
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-E.2 Đào tạo — Lớp/đợt + Đăng ký (2026-06-28)
+- Model `TrainingSession` (courseId/title/startAt/endAt/location/link/trainerEmployeeId/capacity/status) + enum `TrainingSessionStatus` (OPEN/FULL/RUNNING/DONE/CANCELLED) + `TrainingEnrollment` (sessionId/employeeId/status/score/feedback, unique [sessionId, employeeId]) + enum `TrainingEnrollmentStatus` (REGISTERED/CONFIRMED/ATTENDED/COMPLETED/CANCELLED/NO_SHOW). Migration `20260627134353_training_session_enrollment`. Back-rel Org/Course(`sessions`, `sessionCount` đếm thật)/Employee(`trainingSessionsLed`+`trainingEnrollments`).
+- Approval `TRAINING_ENROLLMENT` (duyệt đăng ký — tuỳ chọn) thêm vào `ApprovalTargetType` (prisma+shared, cùng migration) + `OVERRIDE_PERM` (→ `training:manage`) + builder FE.
+- **BE**: `TrainingSessionsService` (`GET/POST/PATCH/DELETE /training/sessions`, `_count` đếm đăng ký còn hiệu lực), `TrainingEnrollmentsService` — `POST /training/sessions/:id/register` (NV tự đăng ký: chặn trùng + đầy sĩ số; **duyệt tuỳ chọn** giống PERFORMANCE_REVIEW — có luồng→REGISTERED chờ duyệt, không→CONFIRMED), `GET /training/enrollments?sessionId=&employeeId=&mine=` (scope), `POST /training/enrollments` (HR ghi danh), `PATCH /training/enrollments/:id` (HR điểm danh/điểm/nhận xét), `POST /training/enrollments/:id/cancel` (NV tự huỷ / HR). `@OnEvent(APPROVAL_DECIDED)` TRAINING_ENROLLMENT: APPROVED→CONFIRMED, REJECTED→CANCELLED. Notification cho NV. `@Audit`. TrainingModule import ApprovalModule+EmployeesModule+NotificationModule.
+- **FE** tab **Lớp & Đăng ký** ([sessions-tab.tsx](apps/web/src/app/dashboard/training/sessions-tab.tsx)): danh sách lớp + nút **Đăng ký** (NV); HR mở/sửa lớp + dialog **Học viên** (đổi trạng thái/điểm danh). Tab **Của tôi** ([my-enrollments-tab.tsx](apps/web/src/app/dashboard/training/my-enrollments-tab.tsx)): đăng ký của tôi + huỷ.
+- **⚠️ Vận hành**: muốn **bắt buộc duyệt đăng ký**, cấu hình luồng "Đăng ký đào tạo" ở /dashboard/settings/approval-flows; không thì xác nhận thẳng.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.
