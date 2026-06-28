@@ -237,6 +237,20 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Vận hành**: muốn **bắt buộc duyệt đăng ký**, cấu hình luồng "Đăng ký đào tạo" ở /dashboard/settings/approval-flows; không thì xác nhận thẳng.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-E.3 Đào tạo — Chứng chỉ + cron nhắc hết hạn (2026-06-28)
+- Model `Certification` (employeeId/name/issuer/issuedDate/expiryDate/credentialId/fileKey/trainingCourseId). Migration `20260628015445_certification`. Back-rel Org/Employee(`certifications`)/TrainingCourse(optional). `status` (VALID/EXPIRING≤30d/EXPIRED) + `daysToExpiry` suy ra runtime từ expiryDate (không lưu).
+- **BE** `CertificationsService`: `GET /certifications?employeeId=&mine=&expiringInDays=` (scope), `POST/PATCH/DELETE /certifications` (training:manage). `CertificationReminderService` `@Cron(EVERY_DAY_AT_7AM)` — quét chứng chỉ có hạn, ở mốc **60/30/7/0 ngày** → Notification cho NV + HR (mirror `ContractReminderService`). `@Audit`.
+- **FE** tab **Chứng chỉ** ([certifications-tab.tsx](apps/web/src/app/dashboard/training/certifications-tab.tsx)): bảng (NV/chứng chỉ/đơn vị cấp/ngày cấp/hết hạn + badge trạng thái + còn N ngày); lọc nhanh "sắp hết hạn 60 ngày"; HR cấp/sửa/xoá (chọn NV + khoá nguồn). (Upload file chứng chỉ qua Attachment: để sau — model đã có `fileKey`.)
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
+## P-E ĐÃ XONG TRỌN (P-E.1→P-E.3) — Đào tạo / Chứng chỉ (2026-06-28)
+- **Luồng**: Danh mục khoá → mở Lớp/đợt → NV tự đăng ký (duyệt tuỳ chọn) → HR điểm danh/chấm điểm/hoàn thành → cấp Chứng chỉ → cron nhắc hết hạn. FE gom ở [/dashboard/training](apps/web/src/app/dashboard/training/page.tsx) (Lớp & Đăng ký · Của tôi · Chứng chỉ · Danh mục khoá).
+- **Quyền (gộp, 2)**: `training:read` (xem + tự đăng ký) / `training:manage` (HR quản lý khoá/lớp/duyệt/điểm danh/cấp chứng chỉ). Approval `TRAINING_ENROLLMENT` (duyệt đăng ký — tuỳ chọn).
+- Models: TrainingCourse, TrainingSession, TrainingEnrollment, Certification. 3 migration. **Đăng nhập lại** để nhận 2 quyền `training:*`.
+- Chưa làm: upload tài liệu khoá / file chứng chỉ qua Attachment (model có sẵn `fileKey`/material — UI để sau); tab chứng chỉ nhúng trong employee detail (hiện xem ở /dashboard/training, lọc theo NV).
+- Chưa chạy e2e write-path qua app thật (gate typecheck/lint/test là bar nghiệm thu).
+- **Còn lại roadmap**: P-F (Payroll — làm cuối, nhạy cảm pháp lý VN).
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

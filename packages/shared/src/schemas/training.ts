@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateOnlySchema } from './employee';
 
 // =====================================================================
 // P-E — Đào tạo / Chứng chỉ
@@ -195,4 +196,73 @@ export const listTrainingEnrollmentsQuerySchema = z.object({
 });
 export type ListTrainingEnrollmentsQuery = z.infer<
   typeof listTrainingEnrollmentsQuerySchema
+>;
+
+// ===== Chứng chỉ (Certification) =====
+
+export const certificationStatusSchema = z.enum([
+  'VALID',
+  'EXPIRING',
+  'EXPIRED',
+]);
+export type CertificationStatus = z.infer<typeof certificationStatusSchema>;
+
+export const certificationSchema = z.object({
+  id: z.uuid(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  name: z.string(),
+  issuer: z.string().nullable(),
+  issuedDate: z.string(),
+  expiryDate: z.string().nullable(),
+  credentialId: z.string().nullable(),
+  fileKey: z.string().nullable(),
+  trainingCourseId: z.string().nullable(),
+  courseTitle: z.string().nullable(),
+  /** Suy ra từ expiryDate: còn hạn / sắp hết / hết hạn (null khi không có hạn). */
+  status: certificationStatusSchema,
+  daysToExpiry: z.number().int().nullable(),
+  createdAt: z.string(),
+});
+export type CertificationResponse = z.infer<typeof certificationSchema>;
+
+export const createCertificationSchema = z.object({
+  employeeId: z.uuid(),
+  name: z.string().trim().min(1).max(300),
+  issuer: z.string().trim().max(200).nullish(),
+  issuedDate: dateOnlySchema,
+  expiryDate: dateOnlySchema.nullish(),
+  credentialId: z.string().trim().max(200).nullish(),
+  fileKey: z.string().trim().max(500).nullish(),
+  trainingCourseId: z.uuid().nullish(),
+});
+export type CreateCertificationInput = z.infer<
+  typeof createCertificationSchema
+>;
+
+export const updateCertificationSchema = z.object({
+  name: z.string().trim().min(1).max(300).optional(),
+  issuer: z.string().trim().max(200).nullish(),
+  issuedDate: dateOnlySchema.optional(),
+  expiryDate: dateOnlySchema.nullish(),
+  credentialId: z.string().trim().max(200).nullish(),
+  fileKey: z.string().trim().max(500).nullish(),
+  trainingCourseId: z.uuid().nullish(),
+});
+export type UpdateCertificationInput = z.infer<
+  typeof updateCertificationSchema
+>;
+
+export const listCertificationsQuerySchema = z.object({
+  /** Bỏ trống = trong phạm vi của tôi (bản thân + cấp dưới). */
+  employeeId: z.uuid().optional(),
+  /** mine=true → chỉ chứng chỉ của tôi. */
+  mine: z.coerce.boolean().optional(),
+  /** Lọc sắp hết hạn trong N ngày. */
+  expiringInDays: z.coerce.number().int().min(1).max(3650).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListCertificationsQuery = z.infer<
+  typeof listCertificationsQuerySchema
 >;

@@ -1,10 +1,13 @@
 import {
+  createCertificationSchema,
   createTrainingCourseSchema,
   createTrainingEnrollmentSchema,
   createTrainingSessionSchema,
+  listCertificationsQuerySchema,
   listTrainingCoursesQuerySchema,
   listTrainingEnrollmentsQuerySchema,
   listTrainingSessionsQuerySchema,
+  updateCertificationSchema,
   updateTrainingCourseSchema,
   updateTrainingEnrollmentSchema,
   updateTrainingSessionSchema,
@@ -45,4 +48,16 @@ export class UpdateTrainingEnrollmentDto extends createZodDto(
 
 export class ListTrainingEnrollmentsQueryDto extends createZodDto(
   listTrainingEnrollmentsQuerySchema,
+) {}
+
+export class CreateCertificationDto extends createZodDto(
+  createCertificationSchema,
+) {}
+
+export class UpdateCertificationDto extends createZodDto(
+  updateCertificationSchema,
+) {}
+
+export class ListCertificationsQueryDto extends createZodDto(
+  listCertificationsQuerySchema,
 ) {}

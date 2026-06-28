@@ -48,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
+import { CertificationsTab } from './certifications-tab';
 import { MyEnrollmentsTab } from './my-enrollments-tab';
 import { SessionsTab } from './sessions-tab';
 
@@ -404,6 +405,7 @@ export default function TrainingPage() {
           <TabsList>
             <TabsTrigger value="sessions">Lớp & Đăng ký</TabsTrigger>
             <TabsTrigger value="my">Của tôi</TabsTrigger>
+            <TabsTrigger value="certifications">Chứng chỉ</TabsTrigger>
             <TabsTrigger value="courses">Danh mục khoá</TabsTrigger>
           </TabsList>
           <TabsContent value="sessions" className="mt-4">
@@ -411,6 +413,9 @@ export default function TrainingPage() {
           </TabsContent>
           <TabsContent value="my" className="mt-4">
             <MyEnrollmentsTab />
+          </TabsContent>
+          <TabsContent value="certifications" className="mt-4">
+            <CertificationsTab />
           </TabsContent>
           <TabsContent value="courses" className="mt-4">
             <CoursesTab />

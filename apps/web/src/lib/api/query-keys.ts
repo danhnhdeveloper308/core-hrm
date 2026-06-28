@@ -139,6 +139,8 @@ export const queryKeys = {
     enrollments: (filters: Record<string, unknown>) =>
       ['training', 'enrollments', filters] as const,
     myEnrollments: ['training', 'enrollments', 'mine'] as const,
+    certifications: (filters: Record<string, unknown>) =>
+      ['training', 'certifications', filters] as const,
   },
 
   reports: {
