@@ -12,6 +12,7 @@ import { PayrollConfigService } from './payroll-config.service';
 import { PayrollEngineService } from './payroll-engine.service';
 import { PayrollRunsController } from './payroll-runs.controller';
 import { PayrollRunsService } from './payroll-runs.service';
+import { PayslipPdfService } from './payslip-pdf.service';
 import { PayslipsController } from './payslips.controller';
 import { PayslipsService } from './payslips.service';
 import { SalaryComponentsController } from './salary-components.controller';
@@ -39,6 +40,7 @@ import { SalaryComponentsService } from './salary-components.service';
     PayrollCalcWorker,
     PayrollRunsService,
     PayslipsService,
+    PayslipPdfService,
   ],
   exports: [PayrollConfigService],
 })

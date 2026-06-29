@@ -148,7 +148,7 @@ export function SessionsTab() {
   const { data: employees } = useQuery({
     queryKey: queryKeys.employees.list({ pick: 'trainer' }),
     queryFn: () =>
-      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=200'),
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
     enabled: canReadEmployees && draft !== null,
   });
   const employeeList = employees?.items ?? [];

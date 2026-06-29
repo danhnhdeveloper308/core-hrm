@@ -45,7 +45,6 @@ import {
 } from '@/components/ui/table';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
-import { useAuthStore } from '@/stores/auth-store';
 
 const money = (v: number): string => new Intl.NumberFormat('vi-VN').format(v);
 
@@ -71,9 +70,6 @@ interface AssignDraft {
 
 export function BenefitsTab() {
   const qc = useQueryClient();
-  const user = useAuthStore((s) => s.user);
-  const canReadEmployees =
-    user?.permissions.includes(PERMISSIONS.EMPLOYEE_READ) ?? false;
 
   const [plan, setPlan] = useState<PlanDraft | null>(null);
   const [assign, setAssign] = useState<AssignDraft | null>(null);
@@ -97,8 +93,8 @@ export function BenefitsTab() {
   const { data: employees } = useQuery({
     queryKey: queryKeys.employees.list({ pick: 'benefit' }),
     queryFn: () =>
-      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=500'),
-    enabled: canReadEmployees && assign !== null,
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
+    enabled: assign !== null,
   });
   const employeeList = employees?.items ?? [];
 

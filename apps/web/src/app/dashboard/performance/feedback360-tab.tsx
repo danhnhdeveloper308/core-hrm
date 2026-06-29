@@ -106,7 +106,7 @@ export function Feedback360Tab() {
   const { data: employees } = useQuery({
     queryKey: queryKeys.employees.list({ pick: 'f360' }),
     queryFn: () =>
-      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=200'),
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
     enabled: canReadEmployees && creating,
   });
   const employeeList = employees?.items ?? [];

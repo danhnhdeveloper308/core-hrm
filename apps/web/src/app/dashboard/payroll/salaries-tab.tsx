@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/table';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
-import { useAuthStore } from '@/stores/auth-store';
 
 const money = (v: number): string => new Intl.NumberFormat('vi-VN').format(v);
 
@@ -70,9 +69,6 @@ function emptyDraft(): SalaryDraft {
 
 export function SalariesTab() {
   const qc = useQueryClient();
-  const user = useAuthStore((s) => s.user);
-  const canReadEmployees =
-    user?.permissions.includes(PERMISSIONS.EMPLOYEE_READ) ?? false;
 
   const [draft, setDraft] = useState<SalaryDraft | null>(null);
   const [pickComp, setPickComp] = useState('');
@@ -87,8 +83,8 @@ export function SalariesTab() {
   const { data: employees } = useQuery({
     queryKey: queryKeys.employees.list({ pick: 'salary' }),
     queryFn: () =>
-      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=500'),
-    enabled: canReadEmployees && draft !== null,
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
+    enabled: draft !== null,
   });
   const employeeList = employees?.items ?? [];
 
@@ -159,7 +155,7 @@ export function SalariesTab() {
           Lương hiện hành mỗi nhân viên (versioned theo ngày hiệu lực).
         </p>
         <PermissionGate permission={PERMISSIONS.PAYROLL_MANAGE}>
-          <Button disabled={!canReadEmployees} onClick={() => setDraft(emptyDraft())}>
+          <Button onClick={() => setDraft(emptyDraft())}>
             <Plus className="size-4" /> Lập lương
           </Button>
         </PermissionGate>

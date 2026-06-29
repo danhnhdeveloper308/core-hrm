@@ -8,7 +8,14 @@ import {
   type PayslipResponse,
 } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calculator, CalendarPlus, Eye, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Calculator,
+  CalendarPlus,
+  Download,
+  Eye,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/components/permission-gate';
@@ -270,6 +277,16 @@ function RunPayslipsDialog({
 }) {
   const [detail, setDetail] = useState<PayslipResponse | null>(null);
 
+  const downloadPdf = useMutation({
+    mutationFn: (p: PayslipResponse) =>
+      api.download(
+        `/payslips/${p.id}/pdf`,
+        `phieu-luong-${run.month}-${p.employeeName ?? p.employeeId}.pdf`,
+      ),
+    onError: (e) =>
+      toast.error(e instanceof ApiError ? e.message : 'Tải PDF thất bại'),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.payroll.runPayslips(run.id),
     queryFn: () =>
@@ -352,6 +369,13 @@ function RunPayslipsDialog({
           </DialogHeader>
           {detail ? <PayslipBreakdown p={detail} /> : null}
           <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={detail === null || downloadPdf.isPending}
+              onClick={() => detail && downloadPdf.mutate(detail)}
+            >
+              <Download className="size-4" /> Tải PDF
+            </Button>
             <Button variant="ghost" onClick={() => setDetail(null)}>
               Đóng
             </Button>

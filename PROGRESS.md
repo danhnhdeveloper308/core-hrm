@@ -298,6 +298,15 @@ Toàn bộ 12 nhóm tính năng theo [HR_SUITE_PLAN.md](HR_SUITE_PLAN.md):
 - **P-F** Payroll — xong
 > Bước tiếp đề xuất: **verify e2e qua app thật** (`pnpm dev`, đăng nhập lại để nhận quyền mới), cấu hình luồng duyệt cho các loại mới (OFFER, PERFORMANCE_REVIEW, TRAINING_ENROLLMENT, PAYROLL_RUN, MANPOWER_REQUEST) nếu muốn bắt buộc duyệt, rồi tinh chỉnh từng module theo phản hồi thực tế.
 
+### 2026-06-29 — Bugfix payroll + export PDF phiếu lương
+- **FIX (chặn nghiêm trọng) — picker nhân viên trống ở 6 tab**: FE gọi `/employees?limit=200|500` nhưng `listEmployeesQuerySchema.limit` cap `max(100)` → 400 → dropdown NV rỗng (tưởng bị "disable"). Sửa về `limit=100`: payroll salaries/benefits, performance goals/feedback360, training sessions/certifications. (contracts/recruitment vốn đã dùng 100 nên không dính.)
+- **FIX — không tính được lương**: `payroll.queue` đặt `jobId: calc:${runId}` → BullMQ ném `Custom Id cannot contain ':'`. Bỏ custom jobId (giống `timesheet.queue`) — hết lỗi ':' và cho **Tính lại** (jobId tĩnh dedup cả job completed). Idempotency do `PayrollCalcService.finish()` lo.
+- **Cleanup** — bỏ gate `canReadEmployees` ở salaries/benefits (mở dialog + fetch luôn khi mở), tránh phụ thuộc chéo `employee:read`.
+- **TÍNH NĂNG — export PDF phiếu lương**: `PayslipPdfService` (pdfkit + font DejaVu Sans bundled → tiếng Việt + ₫ chuẩn, copy sang dist qua `nest-cli.json` assets). `GET /payslips/:id/pdf` (HR `payroll:read`) + `GET /payslips/mine/:id/pdf` (self `payslip:read_self`). FE: `api.download()` (blob) + nút **Tải PDF** trong dialog bảng lương (HR) và phiếu lương của tôi. Thêm dep `pdfkit`.
+- Gate: typecheck ✓ · lint 0 error ✓ · `pnpm --filter api build` ✓ (font có trong dist) · api test **66** ✓.
+- ⚠️ **Khởi động lại API dev** (`pnpm dev`) để nạp: dep `pdfkit`, assets font (`nest-cli.json`), fix queue. Fix picker NV (FE) áp dụng ngay qua HMR.
+- Hạn chế: picker NV là `<Select>` thường, tối đa 100 NV — org > 100 NV cần picker có tìm kiếm (để sau).
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

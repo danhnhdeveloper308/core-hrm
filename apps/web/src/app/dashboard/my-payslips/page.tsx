@@ -5,9 +5,10 @@ import {
   type CursorPaginated,
   type PayslipResponse,
 } from '@repo/shared';
-import { useQuery } from '@tanstack/react-query';
-import { Receipt } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Download, Receipt } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { PermissionGate } from '@/components/permission-gate';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import { PayslipBreakdown } from '../payroll/payslip-breakdown';
 
@@ -35,6 +36,16 @@ const money = (v: number): string => new Intl.NumberFormat('vi-VN').format(v) + 
 
 export default function MyPayslipsPage() {
   const [detail, setDetail] = useState<PayslipResponse | null>(null);
+
+  const downloadPdf = useMutation({
+    mutationFn: (p: PayslipResponse) =>
+      api.download(
+        `/payslips/mine/${p.id}/pdf`,
+        `phieu-luong-${p.month ?? 'ky'}.pdf`,
+      ),
+    onError: (e) =>
+      toast.error(e instanceof ApiError ? e.message : 'Tải PDF thất bại'),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.payroll.myPayslips,
@@ -119,6 +130,13 @@ export default function MyPayslipsPage() {
             </DialogHeader>
             {detail ? <PayslipBreakdown p={detail} /> : null}
             <DialogFooter>
+              <Button
+                variant="outline"
+                disabled={detail === null || downloadPdf.isPending}
+                onClick={() => detail && downloadPdf.mutate(detail)}
+              >
+                <Download className="size-4" /> Tải PDF
+              </Button>
               <Button variant="ghost" onClick={() => setDetail(null)}>
                 Đóng
               </Button>

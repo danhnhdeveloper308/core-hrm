@@ -12,6 +12,7 @@ import type { AccessTokenPayload } from '../../common/decorators/current-user.de
 import { AppException } from '../../common/exceptions/app.exception';
 import type { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PayslipPdfService } from './payslip-pdf.service';
 
 const INCLUDE = {
   employee: { select: { fullName: true } },
@@ -55,7 +56,10 @@ function toResponse(p: PayslipRow): PayslipResponse {
 /** Phiếu lương: HR xem theo kỳ/NV; NV xem của mình (mine). */
 @Injectable()
 export class PayslipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pdf: PayslipPdfService,
+  ) {}
 
   /** HR: theo kỳ / NV. Gọi từ route cần payroll:read. */
   async list(
@@ -110,6 +114,53 @@ export class PayslipsService {
       );
     }
     return toResponse(p);
+  }
+
+  /** HR: 1 phiếu lương bất kỳ trong org. */
+  async get(orgId: string, id: string): Promise<PayslipResponse> {
+    const p = await this.prisma.payslip.findFirst({
+      where: { id, orgId },
+      include: INCLUDE,
+    });
+    if (!p) {
+      throw new AppException(
+        HttpStatus.NOT_FOUND,
+        'Không tìm thấy phiếu lương',
+        ERROR_CODES.NOT_FOUND,
+      );
+    }
+    return toResponse(p);
+  }
+
+  /** HR: xuất PDF 1 phiếu lương bất kỳ trong org. */
+  async renderPdf(
+    orgId: string,
+    id: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    return this.buildPdf(orgId, await this.get(orgId, id));
+  }
+
+  /** Self: xuất PDF phiếu lương của chính mình (kỳ đã duyệt/chi). */
+  async renderMinePdf(
+    orgId: string,
+    actor: AccessTokenPayload,
+    id: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    return this.buildPdf(orgId, await this.getMine(orgId, actor, id));
+  }
+
+  private async buildPdf(
+    orgId: string,
+    payslip: PayslipResponse,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    });
+    const buffer = await this.pdf.render(payslip, { orgName: org?.name ?? null });
+    // Tên file ASCII-an toàn cho header Content-Disposition.
+    const filename = `phieu-luong-${payslip.month ?? 'ky'}-${payslip.id.slice(0, 8)}.pdf`;
+    return { buffer, filename };
   }
 
   private async paginate(

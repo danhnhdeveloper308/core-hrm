@@ -106,7 +106,7 @@ export function CertificationsTab() {
   const { data: employees } = useQuery({
     queryKey: queryKeys.employees.list({ pick: 'cert' }),
     queryFn: () =>
-      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=200'),
+      api.get<CursorPaginated<EmployeeResponse>>('/employees?limit=100'),
     enabled: canReadEmployees && draft !== null,
   });
   const employeeList = employees?.items ?? [];

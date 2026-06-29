@@ -249,4 +249,18 @@ export const api = {
   /** Multipart upload (POST mặc định — đổi qua options.method). */
   upload: <T>(path: string, formData: FormData, options?: ApiFetchOptions<T>) =>
     apiFetch<T>(path, { method: 'POST', ...options, formData }),
+  /** Tải file nhị phân (PDF, export…) — fetch blob rồi kích hoạt download. */
+  download: async (path: string, filename: string): Promise<void> => {
+    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'include' });
+    if (!res.ok) throw new ApiError(await parseErrorBody(res));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  },
 };

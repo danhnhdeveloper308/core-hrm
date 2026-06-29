@@ -30,8 +30,10 @@ export class PayrollQueueService {
   constructor(@Inject(PAYROLL_QUEUE) private readonly queue: Queue) {}
 
   async enqueueCalc(job: PayrollCalcJob): Promise<void> {
-    // jobId theo runId → chống enqueue trùng khi đang xử lý 1 kỳ.
-    await this.queue.add(PAYROLL_CALC_JOB, job, { jobId: `calc:${job.runId}` });
+    // KHÔNG đặt jobId tĩnh: BullMQ (1) cấm ký tự ':' trong custom id,
+    // (2) dedup theo jobId kể cả job đã completed → sẽ chặn "Tính lại".
+    // Idempotency do PayrollCalcService.finish() đảm nhiệm (xoá + tạo lại phiếu).
+    await this.queue.add(PAYROLL_CALC_JOB, job);
   }
 }
 
