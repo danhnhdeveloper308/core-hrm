@@ -71,6 +71,30 @@ export class PayrollConfigService {
     return toResponse(await this.getOrCreate(orgId));
   }
 
+  /** Cấu hình dạng engine (parse brackets) — cho PayrollEngine. */
+  async getEngineConfig(orgId: string): Promise<{
+    personalDeduction: number;
+    dependentDeduction: number;
+    baseSalaryGov: number;
+    regionMinWage: number;
+    bhxhRateBps: number;
+    bhytRateBps: number;
+    bhtnRateBps: number;
+    pitBrackets: PitBracketInput[];
+  }> {
+    const c = await this.getOrCreate(orgId);
+    return {
+      personalDeduction: c.personalDeduction,
+      dependentDeduction: c.dependentDeduction,
+      baseSalaryGov: c.baseSalaryGov,
+      regionMinWage: c.regionMinWage,
+      bhxhRateBps: c.bhxhRateBps,
+      bhytRateBps: c.bhytRateBps,
+      bhtnRateBps: c.bhtnRateBps,
+      pitBrackets: parseBrackets(c.pitBrackets),
+    };
+  }
+
   async update(
     orgId: string,
     input: UpdatePayrollConfigInput,

@@ -46,6 +46,7 @@ import { AuditQueueModule } from './queues/audit.queue';
 import { TimesheetQueueModule } from './queues/timesheet.queue';
 import { EmailQueueModule } from './queues/email.queue';
 import { NotificationQueueModule } from './queues/notification.queue';
+import { PayrollQueueModule } from './queues/payroll.queue';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -70,6 +71,7 @@ import { StorageModule } from './storage/storage.module';
     AuditQueueModule,
     TimesheetQueueModule,
     NotificationQueueModule,
+    PayrollQueueModule,
     RbacModule,
     SessionsModule,
     AuthModule,

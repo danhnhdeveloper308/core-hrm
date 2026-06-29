@@ -2,10 +2,13 @@ import {
   createBenefitPlanSchema,
   createEmployeeBenefitSchema,
   createEmployeeSalarySchema,
+  createPayrollRunSchema,
   createSalaryComponentSchema,
   listBenefitPlansQuerySchema,
   listEmployeeBenefitsQuerySchema,
   listEmployeeSalariesQuerySchema,
+  listPayrollRunsQuerySchema,
+  listPayslipsQuerySchema,
   listSalaryComponentsQuerySchema,
   updateBenefitPlanSchema,
   updatePayrollConfigSchema,
@@ -56,3 +59,11 @@ export class CreateEmployeeBenefitDto extends createZodDto(
 export class ListEmployeeBenefitsQueryDto extends createZodDto(
   listEmployeeBenefitsQuerySchema,
 ) {}
+
+export class CreatePayrollRunDto extends createZodDto(createPayrollRunSchema) {}
+
+export class ListPayrollRunsQueryDto extends createZodDto(
+  listPayrollRunsQuerySchema,
+) {}
+
+export class ListPayslipsQueryDto extends createZodDto(listPayslipsQuerySchema) {}

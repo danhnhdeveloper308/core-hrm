@@ -70,6 +70,7 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'OFFER', label: 'Thư mời nhận việc (offer)' },
   { value: 'PERFORMANCE_REVIEW', label: 'Đánh giá hiệu suất (ký duyệt)' },
   { value: 'TRAINING_ENROLLMENT', label: 'Đăng ký đào tạo' },
+  { value: 'PAYROLL_RUN', label: 'Bảng lương (kỳ lương)' },
 ];
 
 const APPROVER_TYPE_OPTIONS: { value: ApproverType; label: string }[] = [

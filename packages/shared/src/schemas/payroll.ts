@@ -226,3 +226,94 @@ export const listEmployeeBenefitsQuerySchema = z.object({
 export type ListEmployeeBenefitsQuery = z.infer<
   typeof listEmployeeBenefitsQuerySchema
 >;
+
+// ===== Kỳ lương (PayrollRun) + Phiếu lương (Payslip) =====
+
+export const payrollRunStatusSchema = z.enum([
+  'DRAFT',
+  'CALCULATED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'PAID',
+]);
+export type PayrollRunStatus = z.infer<typeof payrollRunStatusSchema>;
+
+export const payrollRunSchema = z.object({
+  id: z.uuid(),
+  month: z.string(),
+  status: payrollRunStatusSchema,
+  payslipCount: z.number().int(),
+  totalGross: z.number().int(),
+  totalNet: z.number().int(),
+  totalPit: z.number().int(),
+  totalInsurance: z.number().int(),
+  runAt: z.string().nullable(),
+  paidAt: z.string().nullable(),
+  note: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type PayrollRunResponse = z.infer<typeof payrollRunSchema>;
+
+export const createPayrollRunSchema = z.object({
+  /** Tháng kỳ lương "YYYY-MM". */
+  month: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Tháng dạng YYYY-MM'),
+  note: z.string().trim().max(500).nullish(),
+});
+export type CreatePayrollRunInput = z.infer<typeof createPayrollRunSchema>;
+
+export const listPayrollRunsQuerySchema = z.object({
+  status: payrollRunStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.uuid().optional(),
+});
+export type ListPayrollRunsQuery = z.infer<typeof listPayrollRunsQuerySchema>;
+
+export const payslipBreakdownKindSchema = z.enum([
+  'EARNING',
+  'DEDUCTION',
+  'INFO',
+]);
+export type PayslipBreakdownKind = z.infer<typeof payslipBreakdownKindSchema>;
+
+export const payslipBreakdownLineSchema = z.object({
+  label: z.string(),
+  kind: payslipBreakdownKindSchema,
+  amount: z.number().int(),
+});
+export type PayslipBreakdownLine = z.infer<typeof payslipBreakdownLineSchema>;
+
+export const payslipSchema = z.object({
+  id: z.uuid(),
+  runId: z.string(),
+  month: z.string().nullable(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  workdays: z.number().nullable(),
+  otMinutes: z.number().int(),
+  baseSalary: z.number().int(),
+  grossEarnings: z.number().int(),
+  taxableIncome: z.number().int(),
+  insuranceBase: z.number().int(),
+  bhxh: z.number().int(),
+  bhyt: z.number().int(),
+  bhtn: z.number().int(),
+  insuranceTotal: z.number().int(),
+  pit: z.number().int(),
+  otherDeductions: z.number().int(),
+  netPay: z.number().int(),
+  breakdown: z.array(payslipBreakdownLineSchema),
+  createdAt: z.string(),
+});
+export type PayslipResponse = z.infer<typeof payslipSchema>;
+
+export const listPayslipsQuerySchema = z.object({
+  runId: z.uuid().optional(),
+  employeeId: z.uuid().optional(),
+  mine: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  cursor: z.uuid().optional(),
+});
+export type ListPayslipsQuery = z.infer<typeof listPayslipsQuerySchema>;

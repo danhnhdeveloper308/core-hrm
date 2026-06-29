@@ -59,6 +59,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   OFFER: 'Thư mời nhận việc (offer)',
   PERFORMANCE_REVIEW: 'Đánh giá hiệu suất (ký duyệt)',
   TRAINING_ENROLLMENT: 'Đăng ký đào tạo',
+  PAYROLL_RUN: 'Bảng lương (kỳ lương)',
 };
 
 /** "2" / "1.5" → bỏ số 0 thừa. */

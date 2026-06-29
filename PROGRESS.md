@@ -267,6 +267,14 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - Phúc lợi `taxable` sẽ cộng vào thu nhập chịu thuế khi tính lương (P-F.3).
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-F.3 Payroll — Engine + Kỳ lương + Phiếu lương + BullMQ (2026-06-29)
+- Model `PayrollRun` (month YYYY-MM, status, unique [orgId,month]) + enum `PayrollRunStatus` (DRAFT/CALCULATED/PENDING_APPROVAL/APPROVED/PAID) + `Payslip` (workdays/otMinutes/baseSalary/gross/taxable/insBase/bhxh/bhyt/bhtn/insTotal/pit/otherDeductions/net/breakdownJson, unique [runId,employeeId]). Migration `20260629011216_payroll_run_payslip`. Back-rel Org/Employee(`payslips`)/Run(`payslips`).
+- **PayrollEngine** ([payroll-engine.service.ts](apps/api/src/modules/payroll/payroll-engine.service.ts) — THUẦN, unit-tested): tính BHXH/BHYT (trần 20× lương cơ sở), BHTN (trần 20× lương tối thiểu vùng), PIT **luỹ tiến từng phần** sau giảm trừ bản thân + người phụ thuộc + BH; OT quy đổi từ otMinutes (26 ngày × 8h × 150%); breakdown chi tiết. **9 unit test** (PIT 15.85tr=1.627.500tr ✓, trần BH, người phụ thuộc) → tổng **66 test**.
+- **Tính hàng loạt qua BullMQ**: queue `payroll-calc` ([payroll.queue.ts](apps/api/src/queues/payroll.queue.ts)) + worker ([payroll-calc.worker.ts](apps/api/src/modules/payroll/payroll-calc.worker.ts)) → `PayrollCalcService` gom dữ liệu (lương versioned ≤ cuối kỳ, phúc lợi hiệu lực, người phụ thuộc, công/OT từ timesheet) → engine → ghi payslip. **Idempotent**: xoá payslip cũ → tính lại (chỉ khi DRAFT/CALCULATED).
+- **BE** `PayrollRunsService`: `GET/POST /payroll/runs`, `POST /:id/calculate` (enqueue), `/submit` (duyệt `PAYROLL_RUN` — không luồng→APPROVED luôn), `/pay` (→PAID khoá), `DELETE` (chưa duyệt); `@OnEvent` PAYROLL_RUN: APPROVED→APPROVED, REJECTED→CALCULATED. `PayslipsService`: `GET /payslips` (HR), `GET /payslips/mine` + `/mine/:id` (NV — chỉ kỳ APPROVED/PAID, `payslip:read_self`), `GET /payroll/runs/:id/payslips`. `@Audit` nghiêm ngặt (tiền).
+- **⚠️ Vận hành**: tính lương cần worker chạy (dev đã chạy). Muốn bắt buộc duyệt bảng lương: cấu hình luồng "Bảng lương (kỳ lương)" ở /dashboard/settings/approval-flows. FE kỳ lương/bảng lương/my-payslips ở P-F.4.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test **66** ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.
