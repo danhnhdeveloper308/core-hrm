@@ -148,3 +148,81 @@ export const listSalaryComponentsQuerySchema = z.object({
 export type ListSalaryComponentsQuery = z.infer<
   typeof listSalaryComponentsQuerySchema
 >;
+
+// ===== Phúc lợi (BenefitPlan + EmployeeBenefit) =====
+
+export const benefitPlanSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  category: z.string().nullable(),
+  amount: z.number().int(),
+  taxable: z.boolean(),
+  active: z.boolean(),
+  assignedCount: z.number().int(),
+  createdAt: z.string(),
+});
+export type BenefitPlanResponse = z.infer<typeof benefitPlanSchema>;
+
+export const createBenefitPlanSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  category: z.string().trim().max(100).nullish(),
+  amount: z.coerce.number().int().min(0),
+  taxable: z.boolean().default(false),
+});
+export type CreateBenefitPlanInput = z.infer<typeof createBenefitPlanSchema>;
+
+export const updateBenefitPlanSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  category: z.string().trim().max(100).nullish(),
+  amount: z.coerce.number().int().min(0).optional(),
+  taxable: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateBenefitPlanInput = z.infer<typeof updateBenefitPlanSchema>;
+
+export const listBenefitPlansQuerySchema = z.object({
+  active: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListBenefitPlansQuery = z.infer<
+  typeof listBenefitPlansQuerySchema
+>;
+
+export const employeeBenefitSchema = z.object({
+  id: z.uuid(),
+  benefitPlanId: z.string(),
+  planName: z.string().nullable(),
+  category: z.string().nullable(),
+  employeeId: z.string(),
+  employeeName: z.string().nullable(),
+  /** Số tiền hiệu lực (override hoặc theo plan). */
+  amount: z.number().int(),
+  taxable: z.boolean(),
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type EmployeeBenefitResponse = z.infer<typeof employeeBenefitSchema>;
+
+export const createEmployeeBenefitSchema = z.object({
+  benefitPlanId: z.uuid(),
+  employeeId: z.uuid(),
+  /** Ghi đè số tiền của plan (null = dùng plan.amount). */
+  amount: z.coerce.number().int().min(0).nullish(),
+  startDate: dateOnlySchema.nullish(),
+  endDate: dateOnlySchema.nullish(),
+});
+export type CreateEmployeeBenefitInput = z.infer<
+  typeof createEmployeeBenefitSchema
+>;
+
+export const listEmployeeBenefitsQuerySchema = z.object({
+  employeeId: z.uuid().optional(),
+  benefitPlanId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  cursor: z.uuid().optional(),
+});
+export type ListEmployeeBenefitsQuery = z.infer<
+  typeof listEmployeeBenefitsQuerySchema
+>;

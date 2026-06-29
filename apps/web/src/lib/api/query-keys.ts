@@ -149,6 +149,10 @@ export const queryKeys = {
       ['payroll', 'components', filters] as const,
     salaries: (filters: Record<string, unknown>) =>
       ['payroll', 'salaries', filters] as const,
+    benefitPlans: (filters: Record<string, unknown>) =>
+      ['payroll', 'benefit-plans', filters] as const,
+    benefitAssignments: (filters: Record<string, unknown>) =>
+      ['payroll', 'benefit-assignments', filters] as const,
   },
 
   reports: {

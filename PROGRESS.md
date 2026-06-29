@@ -260,6 +260,13 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Đăng nhập lại** để nhận quyền `payroll:*`. PayrollEngine + kỳ lương + payslip ở P-F.3/P-F.4.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
 
+## P-F.2 Payroll — Phúc lợi (BenefitPlan + EmployeeBenefit) (2026-06-29)
+- Model `BenefitPlan` (catalog: name/category/amount/taxable/active) + `EmployeeBenefit` (gán plan→NV, override amount + thời hạn, unique [benefitPlanId, employeeId]). Migration `20260629010402_payroll_benefits`. Back-rel Org/Employee(`benefits`)/BenefitPlan(`employeeBenefits`, `assignedCount` đếm thật). Dùng lại `payroll:*`.
+- **BE** `BenefitPlansService` (`GET/POST/PATCH/DELETE /benefits/plans`) + `EmployeeBenefitsService` (`GET /benefits/assignments?employeeId=&benefitPlanId=`, `POST` upsert theo [plan, NV], `DELETE`). `amount` hiệu lực = override ?? plan.amount. `@Audit`.
+- **FE** tab **Phúc lợi** ([benefits-tab.tsx](apps/web/src/app/dashboard/payroll/benefits-tab.tsx)): catalog phúc lợi (CRUD + nút Gán) + bảng phúc lợi đã gán (NV/phúc lợi/số tiền/thời hạn + bỏ gán); dialog gán (plan + NV + override tiền + thời hạn).
+- Phúc lợi `taxable` sẽ cộng vào thu nhập chịu thuế khi tính lương (P-F.3).
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

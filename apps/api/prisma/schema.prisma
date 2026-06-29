@@ -289,6 +289,8 @@ model Organization {
   payrollConfig         PayrollConfig?
   salaryComponents      SalaryComponent[]
   employeeSalaries      EmployeeSalary[]
+  benefitPlans          BenefitPlan[]
+  employeeBenefits      EmployeeBenefit[]
   shiftRegistrationBatches ShiftRegistrationBatch[]
   shiftRegistrationLines   ShiftRegistrationLine[]
 
@@ -516,6 +518,7 @@ model Employee {
   trainingEnrollments   TrainingEnrollment[] @relation("TrainingEnrollee")
   certifications        Certification[]      @relation("EmployeeCertifications")
   salaries              EmployeeSalary[]     @relation("EmployeeSalaries")
+  benefits              EmployeeBenefit[]    @relation("EmployeeBenefits")
 
   // Unique (orgId, code) đặt qua PARTIAL INDEX (chỉ khi deletedAt IS NULL) trong migration
   @@index([orgId, code])
@@ -1733,6 +1736,46 @@ model EmployeeSalary {
 
   @@unique([employeeId, effectiveDate])
   @@index([orgId, employeeId, effectiveDate])
+}
+
+/// Phúc lợi/phụ cấp định kỳ (catalog): bảo hiểm sức khoẻ, ăn trưa, điện thoại...
+model BenefitPlan {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  name      String
+  category  String?
+  /// Số tiền mặc định/tháng (VND)
+  amount    Int      @default(0)
+  taxable   Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employeeBenefits EmployeeBenefit[]
+
+  @@index([orgId, active])
+}
+
+/// Gán phúc lợi cho 1 NV (có thể override số tiền + thời hạn áp dụng).
+model EmployeeBenefit {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String    @db.Uuid
+  benefitPlanId String    @db.Uuid
+  employeeId    String    @db.Uuid
+  /// Ghi đè số tiền của plan (null = dùng plan.amount)
+  amount        Int?
+  startDate     DateTime? @db.Date
+  endDate       DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  benefitPlan BenefitPlan  @relation(fields: [benefitPlanId], references: [id], onDelete: Cascade)
+  employee    Employee     @relation("EmployeeBenefits", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([benefitPlanId, employeeId])
+  @@index([orgId, employeeId])
 }
 
 /// Phiếu đăng ký tăng/giãn ca theo DANH SÁCH (upload Excel) — 1 phiếu nhiều

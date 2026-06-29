@@ -3,6 +3,7 @@
 import { PERMISSIONS } from '@repo/shared';
 import { PermissionGate } from '@/components/permission-gate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BenefitsTab } from './benefits-tab';
 import { ComponentsTab } from './components-tab';
 import { ConfigTab } from './config-tab';
 import { SalariesTab } from './salaries-tab';
@@ -29,6 +30,7 @@ export default function PayrollPage() {
           <TabsList>
             <TabsTrigger value="salaries">Lương nhân viên</TabsTrigger>
             <TabsTrigger value="components">Cấu phần</TabsTrigger>
+            <TabsTrigger value="benefits">Phúc lợi</TabsTrigger>
             <TabsTrigger value="config">Cấu hình</TabsTrigger>
           </TabsList>
           <TabsContent value="salaries" className="mt-4">
@@ -36,6 +38,9 @@ export default function PayrollPage() {
           </TabsContent>
           <TabsContent value="components" className="mt-4">
             <ComponentsTab />
+          </TabsContent>
+          <TabsContent value="benefits" className="mt-4">
+            <BenefitsTab />
           </TabsContent>
           <TabsContent value="config" className="mt-4">
             <ConfigTab />
