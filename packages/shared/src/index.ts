@@ -7,6 +7,7 @@ export * from './constants/permissions';
 export * from './constants/roles';
 export * from './constants/error-codes';
 export * from './constants/org-presets';
+export * from './constants/payroll';
 
 export * from './schemas/common';
 export * from './schemas/auth';
@@ -29,6 +30,7 @@ export * from './schemas/contract';
 export * from './schemas/recruitment';
 export * from './schemas/performance';
 export * from './schemas/training';
+export * from './schemas/payroll';
 
 export * from './types/api';
 export * from './types/socket';

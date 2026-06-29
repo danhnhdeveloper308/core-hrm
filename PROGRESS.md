@@ -251,6 +251,15 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - Chưa chạy e2e write-path qua app thật (gate typecheck/lint/test là bar nghiệm thu).
 - **Còn lại roadmap**: P-F (Payroll — làm cuối, nhạy cảm pháp lý VN).
 
+## P-F.1 Payroll — Cấu hình + Cấu phần + Lương NV (2026-06-29)
+- Model `PayrollConfig` (1 bản/đơn vị: giảm trừ bản thân/người phụ thuộc, lương cơ sở, lương tối thiểu vùng, tỷ lệ BHXH/BHYT/BHTN bps, `pitBrackets` JSON) + `SalaryComponent` (catalog phụ cấp/khấu trừ, `taxable`/`insurance`) + enum `SalaryComponentKind` (EARNING/DEDUCTION) + `EmployeeSalary` (**versioned** theo effectiveDate, unique [employeeId, effectiveDate], `componentsJson` snapshot, `insuranceSalary` riêng). Migration `20260629005037_payroll_config_salary`. Approval `PAYROLL_RUN` thêm vào enum (cho P-F.3) + `OVERRIDE_PERM`. Tiền: **integer VND**; tỷ lệ: **basis points**.
+- Tham số luật VN tách ra `packages/shared/src/constants/payroll.ts` (`VN_PAYROLL_DEFAULTS` + biểu thuế 7 bậc) — engine KHÔNG hard-code. Config tự tạo bản mặc định khi lần đầu truy cập.
+- **Permission (gộp, 3)**: `payroll:read` / `payroll:manage` (chỉ ORG_ADMIN + HR_MANAGER — lương nhạy cảm, KHÔNG cấp cho UNIT_MANAGER) + `payslip:read_self` (mọi role — xem phiếu của mình). Seed 52 quyền + sync-roles.
+- **BE** module `payroll/`: `PayrollConfigService` (get/update, getOrCreate mặc định VN), `SalaryComponentsService` (CRUD, unique code), `EmployeeSalariesService` (`GET /employee-salaries` không employeeId → **distinct mới-nhất-mỗi-NV**; có employeeId → lịch sử; `POST` upsert theo [employeeId, effectiveDate]). `@Audit`.
+- **FE** `/dashboard/payroll` ([page.tsx](apps/web/src/app/dashboard/payroll/page.tsx)) tab **Lương nhân viên** ([salaries-tab.tsx](apps/web/src/app/dashboard/payroll/salaries-tab.tsx) — roster + dialog lập lương: NV/cơ bản/đóng BH/cấu phần từ catalog/hiệu lực) · **Cấu phần** ([components-tab.tsx](apps/web/src/app/dashboard/payroll/components-tab.tsx)) · **Cấu hình** ([config-tab.tsx](apps/web/src/app/dashboard/payroll/config-tab.tsx) — giảm trừ/BH + editor biểu thuế TNCN). Sidebar "Tiền lương" (Wallet, `payroll:read`).
+- **⚠️ Đăng nhập lại** để nhận quyền `payroll:*`. PayrollEngine + kỳ lương + payslip ở P-F.3/P-F.4.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 57 ✓.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

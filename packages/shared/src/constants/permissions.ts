@@ -58,6 +58,10 @@ export const PERMISSIONS = {
   // đào tạo / chứng chỉ (read = xem + tự đăng ký; manage = HR quản lý khoá/lớp/duyệt/cấp chứng chỉ)
   TRAINING_READ: 'training:read',
   TRAINING_MANAGE: 'training:manage',
+  // lương (nhạy cảm — chỉ HR; read_self = NV xem phiếu lương của mình)
+  PAYROLL_READ: 'payroll:read',
+  PAYROLL_MANAGE: 'payroll:manage',
+  PAYSLIP_READ_SELF: 'payslip:read_self',
   // nghỉ phép
   LEAVE_READ: 'leave:read',
   LEAVE_REQUEST: 'leave:request',
@@ -136,6 +140,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'training:read': 'Xem khoá đào tạo, lớp & chứng chỉ (theo phạm vi) + tự đăng ký',
   'training:manage':
     'Quản lý khoá/lớp đào tạo, duyệt đăng ký, điểm danh & cấp chứng chỉ',
+  'payroll:read': 'Xem cấu hình lương, cấu phần & bảng lương (HR)',
+  'payroll:manage':
+    'Quản lý cấu hình/cấu phần lương, chạy kỳ lương, duyệt & chốt (HR)',
+  'payslip:read_self': 'Xem phiếu lương của chính mình',
   'leave:read': 'Xem số dư và đơn nghỉ phép',
   'leave:request': 'Tạo đơn nghỉ phép',
   'leave:approve': 'Phê duyệt đơn nghỉ phép (duyệt thay mọi bước)',

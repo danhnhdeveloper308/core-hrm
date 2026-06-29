@@ -33,6 +33,7 @@ import {
   User,
   UserPlus,
   Users,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,6 +59,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/recruitment', label: 'Tuyển dụng', icon: UserPlus, permission: PERMISSIONS.RECRUITMENT_READ },
   { href: '/dashboard/performance', label: 'Hiệu suất', icon: Target, permission: PERMISSIONS.PERFORMANCE_READ },
   { href: '/dashboard/training', label: 'Đào tạo', icon: GraduationCap, permission: PERMISSIONS.TRAINING_READ },
+  { href: '/dashboard/payroll', label: 'Tiền lương', icon: Wallet, permission: PERMISSIONS.PAYROLL_READ },
   { href: '/dashboard/attendance', label: 'Bảng công', icon: CalendarCheck, permission: PERMISSIONS.ATTENDANCE_READ_ALL },
   { href: '/dashboard/attendance-dashboard', label: 'Dashboard chấm công', icon: BarChart3, permission: PERMISSIONS.REPORT_READ },
   { href: '/dashboard/overtime', label: 'Quản trị tăng ca', icon: Timer, permission: PERMISSIONS.ATTENDANCE_READ_ALL },

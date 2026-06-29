@@ -143,6 +143,14 @@ export const queryKeys = {
       ['training', 'certifications', filters] as const,
   },
 
+  payroll: {
+    config: ['payroll', 'config'] as const,
+    components: (filters: Record<string, unknown>) =>
+      ['payroll', 'components', filters] as const,
+    salaries: (filters: Record<string, unknown>) =>
+      ['payroll', 'salaries', filters] as const,
+  },
+
   reports: {
     dashboard: ['reports', 'dashboard'] as const,
     /** Org chart lazy theo nhánh: 1 cache/parent (root = cấp gốc). */
