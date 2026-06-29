@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BenefitsTab } from './benefits-tab';
 import { ComponentsTab } from './components-tab';
 import { ConfigTab } from './config-tab';
+import { PayrollDashboardTab } from './payroll-dashboard-tab';
+import { RunsTab } from './runs-tab';
 import { SalariesTab } from './salaries-tab';
 
 export default function PayrollPage() {
@@ -26,13 +28,21 @@ export default function PayrollPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="salaries">
+        <Tabs defaultValue="dashboard">
           <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="runs">Kỳ lương</TabsTrigger>
             <TabsTrigger value="salaries">Lương nhân viên</TabsTrigger>
             <TabsTrigger value="components">Cấu phần</TabsTrigger>
             <TabsTrigger value="benefits">Phúc lợi</TabsTrigger>
             <TabsTrigger value="config">Cấu hình</TabsTrigger>
           </TabsList>
+          <TabsContent value="dashboard" className="mt-4">
+            <PayrollDashboardTab />
+          </TabsContent>
+          <TabsContent value="runs" className="mt-4">
+            <RunsTab />
+          </TabsContent>
           <TabsContent value="salaries" className="mt-4">
             <SalariesTab />
           </TabsContent>

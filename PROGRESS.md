@@ -275,6 +275,29 @@ Stack: NestJS 11 (`apps/api`) + Next.js 16 App Router (`apps/web`) + `@repo/shar
 - **⚠️ Vận hành**: tính lương cần worker chạy (dev đã chạy). Muốn bắt buộc duyệt bảng lương: cấu hình luồng "Bảng lương (kỳ lương)" ở /dashboard/settings/approval-flows. FE kỳ lương/bảng lương/my-payslips ở P-F.4.
 - Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test **66** ✓.
 
+## P-F.4 Payroll — FE kỳ lương / bảng lương / dashboard / my-payslips (2026-06-29)
+- **FE** `/dashboard/payroll` thêm tab **Dashboard** ([payroll-dashboard-tab.tsx](apps/web/src/app/dashboard/payroll/payroll-dashboard-tab.tsx) — stat card kỳ gần nhất + BarChart tổng quỹ/thực chi theo tháng, recharts) + **Kỳ lương** ([runs-tab.tsx](apps/web/src/app/dashboard/payroll/runs-tab.tsx) — tạo kỳ, nút Tính lương/Tính lại/Gửi duyệt/Chốt chi/Xoá theo trạng thái, dialog **Bảng lương** liệt kê payslip + dialog chi tiết). Component dùng chung [payslip-breakdown.tsx](apps/web/src/app/dashboard/payroll/payslip-breakdown.tsx) (thu nhập − khấu trừ = thực lĩnh).
+- **NV tự xem**: trang [/dashboard/my-payslips](apps/web/src/app/dashboard/my-payslips/page.tsx) (`payslip:read_self`) — danh sách phiếu lương kỳ đã duyệt/chi + chi tiết. Sidebar "Phiếu lương của tôi" (Receipt).
+- Tính lương async (BullMQ) → FE invalidate + auto-refresh sau 2.5s; có nút Làm mới.
+- Gate: build shared ✓, typecheck ✓, lint ✓ (0 error), api test 66 ✓.
+
+## P-F ĐÃ XONG TRỌN (P-F.1→P-F.4) — Payroll (2026-06-29)
+- **Luồng**: Cấu hình thuế/BH (VN params) → Cấu phần + Lương NV (versioned) + Phúc lợi → tạo Kỳ lương → **Tính hàng loạt (BullMQ + PayrollEngine)** → Gửi duyệt (`PAYROLL_RUN`) → Chốt chi (khoá) → NV xem phiếu lương. FE gom ở [/dashboard/payroll](apps/web/src/app/dashboard/payroll/page.tsx) (6 tab) + /dashboard/my-payslips.
+- **Quyền (gộp, 3)**: `payroll:read` / `payroll:manage` (chỉ ORG_ADMIN + HR_MANAGER) + `payslip:read_self` (mọi role).
+- Models: PayrollConfig, SalaryComponent, EmployeeSalary, BenefitPlan, EmployeeBenefit, PayrollRun, Payslip. 4 migration. Engine VN có **9 unit test** (PIT luỹ tiến + trần BH + người phụ thuộc).
+- **Tuân thủ gotcha pháp lý**: tiền integer VND; tham số luật tách `PayrollConfig`/`VN_PAYROLL_DEFAULTS`; lương versioned; idempotent tính lại (xoá payslip DRAFT → tính lại); khoá kỳ PAID; audit nghiêm ngặt.
+- **Giới hạn v1 (ghi rõ)**: OT 1 hệ số 150% (chưa tách 200%/300% theo loại ngày); lương cơ bản NGUYÊN tháng (chưa prorate theo công thực tế); export PDF/Excel payslip để sau; chưa chạy e2e tính lương qua app thật (engine đã unit-test).
+
+## 🎉 HR SUITE HOÀN TẤT — P-A → P-F (2026-06-29)
+Toàn bộ 12 nhóm tính năng theo [HR_SUITE_PLAN.md](HR_SUITE_PLAN.md):
+- **P-A** Org Chart · Attendance Dashboard · Overtime — xong
+- **P-B** Hợp đồng lao động — xong
+- **P-C** Tuyển dụng/ATS (yêu cầu→tin→ứng viên→phỏng vấn→offer→nhân viên) — xong
+- **P-D** Performance/KPI/360° — xong
+- **P-E** Đào tạo/Chứng chỉ — xong
+- **P-F** Payroll — xong
+> Bước tiếp đề xuất: **verify e2e qua app thật** (`pnpm dev`, đăng nhập lại để nhận quyền mới), cấu hình luồng duyệt cho các loại mới (OFFER, PERFORMANCE_REVIEW, TRAINING_ENROLLMENT, PAYROLL_RUN, MANPOWER_REQUEST) nếu muốn bắt buộc duyệt, rồi tinh chỉnh từng module theo phản hồi thực tế.
+
 ## CHƯA LÀM (roadmap còn lại)
 
 > 12 nhóm tính năng HR lớn (Org Chart, Hợp đồng, Tuyển dụng/ATS, Performance/KPI, Đào tạo, Payroll…) có kế hoạch chi tiết riêng tại **[HR_SUITE_PLAN.md](HR_SUITE_PLAN.md)** — theo phase P-A→P-F.

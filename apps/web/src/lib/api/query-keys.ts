@@ -153,6 +153,10 @@ export const queryKeys = {
       ['payroll', 'benefit-plans', filters] as const,
     benefitAssignments: (filters: Record<string, unknown>) =>
       ['payroll', 'benefit-assignments', filters] as const,
+    runs: (filters: Record<string, unknown>) =>
+      ['payroll', 'runs', filters] as const,
+    runPayslips: (runId: string) => ['payroll', 'runs', runId, 'payslips'] as const,
+    myPayslips: ['payroll', 'payslips', 'mine'] as const,
   },
 
   reports: {
